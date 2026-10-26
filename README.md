@@ -30,7 +30,7 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 
 - HTML5
 - Vanilla JavaScript và Web Components
-- SCSS cùng CSS tĩnh để chạy trực tiếp trên trình duyệt
+- CSS thuần, chạy trực tiếp trên trình duyệt; không cần Sass hoặc bước biên dịch
 - PHP/MySQL và Gemini API là định hướng backend, chưa tích hợp trong bản hiện tại
 
 ## Cấu trúc chính
@@ -39,11 +39,11 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | --- | --- |
 | `index.html` | Điểm vào ứng dụng, font chữ, favicon và stylesheet |
 | `app.js` | Component giao diện, nội dung đa ngôn ngữ và tương tác prototype |
-| `styles.scss` | Nguồn stylesheet |
-| `styles.css` | CSS được trình duyệt tải trực tiếp |
+| `styles.css` | CSS nền cho các màn hình và component |
+| `editorial.css` | Typography, màu sắc và bố cục sổ tay học tập; tải sau `styles.css` |
 | `logo-mark.svg` | Logo PARADOX dạng vector |
 
-Khi sửa giao diện, cập nhật `styles.scss` và đồng bộ phần CSS tương ứng vào `styles.css` để thay đổi xuất hiện khi chạy trang tĩnh.
+Khi sửa giao diện, cập nhật trực tiếp `styles.css` hoặc `editorial.css`. `index.html` tải `editorial.css` sau `styles.css` để áp dụng các tùy chỉnh giao diện. Không cần file SCSS hoặc bước biên dịch.
 
 ## Trạng thái prototype và bảo mật
 
