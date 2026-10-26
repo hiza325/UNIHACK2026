@@ -27,7 +27,7 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 - Dashboard tổng hợp tiến độ; History có bộ lọc trạng thái và tìm kiếm; Analytics có biểu đồ 7/30/90 ngày.
 - Practice Lab có câu hỏi trắc nghiệm, phản hồi đáp án và lưu trạng thái đã giải trong `localStorage`.
 - Profile cho phép đổi tên hiển thị; Settings lưu giao diện, ngôn ngữ, môn học, mức gợi ý và tùy chọn thông báo.
-- Chuyển ngôn ngữ Việt, Anh, Nhật; chuyển giao diện sáng/tối; xuất dữ liệu demo dạng JSON và đặt lại tiến độ luyện tập.
+- Chuyển ngôn ngữ Việt, Anh, Nhật; nút sáng/tối ở landing và thanh trên cùng của ứng dụng; xuất dữ liệu demo dạng JSON và đặt lại tiến độ luyện tập.
 - Màn hình đăng nhập/đăng ký và đăng xuất dạng prototype.
 - Biểu tượng logo SVG, có thể phóng to mà không vỡ hình.
 

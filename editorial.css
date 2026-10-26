@@ -10,6 +10,11 @@ body { min-width:320px; background:var(--journal-paper); }
 .landing-nav nav#landing-nav-links a,.landing-nav nav#landing-nav-links button { font:500 11px 'Be Vietnam Pro',sans-serif; color:#3e4b40; }
 .landing-nav nav#landing-nav-links a:hover { color:#b7472c; text-decoration:underline; text-underline-offset:6px; }
 .landing-nav #landing-login { border:1px solid #2d4032; padding:11px 17px; border-radius:2px; }
+.landing .landing-nav nav#landing-nav-links button.landing-theme-toggle { width:36px; height:36px; flex:0 0 auto; padding:0; border:1px solid #c9cebe; border-radius:50%; background:transparent; color:#3e4b40; transition:background .18s, border-color .18s, color .18s; }
+.landing .landing-nav nav#landing-nav-links button.landing-theme-toggle:hover { background:#e9e7dc; border-color:#b7472c; color:#b7472c; }
+.landing .landing-nav nav#landing-nav-links button.landing-theme-toggle .ui-icon { width:16px; height:16px; }
+body.dark .landing .landing-nav nav#landing-nav-links button.landing-theme-toggle { border-color:#455047; color:#e0e8df; }
+body.dark .landing .landing-nav nav#landing-nav-links button.landing-theme-toggle:hover { background:#222c25; border-color:#e4ca85; color:#e4ca85; }
 .landing .hero { max-width:1320px; grid-template-columns:1.12fr 1fr; gap:5%; min-height:680px; padding:38px 0 55px; }
 .landing .hero-copy { padding:28px 0; }
 .landing .hero-eyebrow { color:#665f52; font:10px 'DM Mono',monospace; letter-spacing:.08em; line-height:1.7; }
@@ -103,6 +108,7 @@ body.dark .landing .desktop-panels .how-section,body.dark .landing .desktop-pane
  .landing .hero-primary { padding:15px 17px; font-size:12px; }
  .landing .landing-nav nav#landing-nav-links { background:#fffdf7; top:100%; left:22px; right:22px; padding:15px; }
  .landing .landing-nav nav#landing-nav-links a,.landing .landing-nav nav#landing-nav-links button { font-size:11px; }
+ .landing .landing-nav nav#landing-nav-links button.landing-theme-toggle { justify-self:start; width:33px; height:33px; padding:0; }
  .landing .desktop-panels .landing-proof { flex-direction:column; }
  .landing .proof-lead { max-width:none; }
  .sheet-equation { font-size:34px; }
