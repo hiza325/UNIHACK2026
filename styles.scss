@@ -44,6 +44,60 @@ edu-app { display: block; }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: #e7ddff; display: grid; place-items: center; color: #534498; font-size: 11px; font-weight: 700; }
 .profile-name { font-size: 12px; font-weight: 600; }.profile-role { color: $muted; font-size: 10px; margin-top: 2px; }
 .main { min-width: 0; padding: 0 40px 48px; }
+@media (max-width:700px) {
+  .landing .landing-nav { height:auto; min-height:69px; padding:10px 0; flex-wrap:wrap; gap:10px; }
+  .landing .landing-nav nav { width:100%; justify-content:space-between; flex-wrap:wrap; gap:7px 10px; }
+  .landing .landing-nav nav a { display:inline; white-space:nowrap; font-size:9px; }
+  .landing .hero { grid-template-columns:1fr; min-height:0; gap:0; }
+  .landing .hero-copy { padding:34px 0 14px; }
+  .landing .hero-art.editorial-art { min-height:370px; margin:0 -3px 18px; }
+  .landing .worksheet { width:calc(100% - 24px); padding:17px 16px 14px; }
+  .landing .sheet-margin { right:-3px; bottom:0; width:126px; padding:8px 0 8px 10px; background:#f2f0e8; }
+  .landing .how-section,.landing .features-section { padding:43px 0; }
+  .landing .how-cards,.landing .feature-grid { display:block; }
+  .landing .how-cards article,.landing .how-cards .how-featured,.landing .feature-grid article { min-height:0; padding:17px 12px; border-right:0; border-bottom:1px solid #d9dcd3; }
+  .landing .how-cards article:last-child,.landing .feature-grid article:last-child { border-bottom:0; }
+  .landing .landing-footer { justify-content:center; text-align:center; gap:9px 16px; flex-wrap:wrap; }
+}
+@media (max-width:560px) {
+  .landing { padding-inline:17px; }
+  .landing .landing-brand { flex:1 1 100%; }
+  .landing .landing-nav nav { justify-content:space-between; gap:7px; }
+  .landing .landing-nav nav a,.landing .landing-nav nav button:not(.lang-button) { font-size:8px; }
+  .landing .landing-nav .lang-button { height:29px; padding-inline:7px; font-size:9px; }
+  .landing .hero h1 { font-size:clamp(43px,12vw,58px); line-height:1.02; }
+  .landing .hero-copy>p { max-width:36ch; font-size:13px; line-height:1.65; }
+  .landing .hero-art.editorial-art { min-height:335px; }
+  .landing .worksheet { width:calc(100% - 20px); padding:15px 13px 12px; box-shadow:5px 6px 0 #e3e1d7; }
+  .landing .worksheet-prompt { padding:18px 0 13px; }
+  .landing .worksheet-prompt h2 { font-size:clamp(30px,9vw,37px); }
+  .landing .work-lines>div { min-height:39px; }
+  .landing .work-lines code { font-size:12px; }
+  .landing .teacher-note { padding-block:13px; }
+  .landing .sheet-margin { width:112px; }
+  .landing .sheet-margin { display:none; }
+  .landing .sheet-margin strong { font-size:12px; }
+  .landing .section-heading h2 { font-size:30px; }
+  .landing .landing-proof { display:block; padding:17px 0; }
+  .landing .proof-items { display:grid; grid-template-columns:1fr; gap:8px; margin-top:12px; }
+  .landing .landing-footer strong { flex:1 0 100%; order:3; }
+  .landing .landing-footer span:last-child { display:none; }
+  .landing .auth-panel { max-height:calc(100dvh - 24px); padding:24px 20px 19px; }
+  .app-shell .main { padding-inline:13px; }
+  .app-shell .top-actions { gap:6px; }
+  .app-shell .logout-button { height:33px; padding-inline:7px; font-size:9px; }
+  .app-shell .welcome h1 { font-size:26px; }
+}
+@media (max-width:370px) {
+  .landing .landing-nav nav { justify-content:flex-start; column-gap:11px; }
+  .landing .landing-nav nav a,.landing .landing-nav nav button:not(.lang-button) { font-size:8px; }
+  .landing .hero-art.editorial-art { min-height:315px; }
+  .landing .sheet-margin { width:102px; }
+  .landing .worksheet { padding-inline:11px; }
+  .landing .work-lines code { font-size:11px; }
+  .app-shell .top-actions .icon-button { width:32px; height:32px; }
+}
+body.dark .landing .sheet-margin { background:#181e19; }
 .landing { background:#f2f0e8; color:#202922; }
 .landing-nav { border-color:#d9dcd3; }.landing-nav nav { gap:clamp(12px,2.1vw,29px); }.landing-nav nav a { white-space:nowrap; font-size:10px; }
 .hero { min-height:555px; gap:4vw; }.hero-copy { padding:50px 0 58px; }.hero h1 { font:400 clamp(48px,6.1vw,78px)/.99 'DM Serif Display',serif; letter-spacing:-.045em; }.hero-copy>p { max-width:400px; font-size:14px; color:#667168; }.hero-primary { border-radius:3px; background:#28342d; }.hero-primary span { color:#e6a28d; }
