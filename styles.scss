@@ -20,8 +20,9 @@ edu-app { display: block; }
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 244px minmax(0, 1fr); }
 .sidebar { background: #fff; border-right: 1px solid $line; padding: 25px 16px 18px; display: flex; flex-direction: column; gap: 30px; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 9px; }
-.brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; color: #17221f; background: $green; font-weight: 800; font-size: 19px; }
+.brand-mark { width: 34px; height: 38px; display: block; object-fit: contain; flex: 0 0 auto; }
 .brand-name { font: 800 14px Manrope, sans-serif; letter-spacing: .12em; }
+.brand-ai { color: #839178; font-weight: 600; letter-spacing: .06em; }
 .brand-sub { color: $muted; font: 9px $mono; letter-spacing: .12em; margin-top: 3px; }
 .workspace-label, .eyebrow { color: #929b95; font: 10px $mono; text-transform: uppercase; letter-spacing: .14em; }
 .workspace-label { padding: 0 10px 8px; }

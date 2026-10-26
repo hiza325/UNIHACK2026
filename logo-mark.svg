@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 136" fill="none" role="img" aria-labelledby="title">
+  <title id="title">PARADOX ribbon P</title>
+  <path fill="#17221F" d="M15 17 41 4h34c27 0 43 17 43 43 0 27-17 44-44 44H57L75 73h1c13 0 20-9 20-25 0-15-7-24-21-24H43L15 38V17Z"/>
+  <path fill="#273B31" d="M15 17 43 34l43 27c5 3 6 9 2 13L57 99 15 73V51l43 26 10-8-43-27L15 38V17Z"/>
+  <path fill="#C6F277" d="M15 73 43 90v37l-28-17V73Z"/>
+  <path fill="#17221F" d="M43 90 57 99v28l-14-9V90Z"/>
+  <path fill="#435B4B" d="m57 99 31-25v18L57 116V99Z"/>
+</svg>

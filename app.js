@@ -21,7 +21,7 @@ class EduApp extends HTMLElement {
     const steps = t('stepLabels').map((s, i) => `<div class="step ${i < this.step ? 'done' : ''} ${i === this.step ? 'active' : ''}"><span class="step-num">${i < this.step ? '✓' : i + 1}</span><span class="step-name">${s}</span></div>`).join('');
     this.innerHTML = `<div class="app-shell">
       <aside class="sidebar">
-        <div class="brand"><div class="brand-mark">P</div><div class="brand-copy"><div class="brand-name">PARADOX AI</div><div class="brand-sub">NEXUS ACADEMY ANALYTICS</div></div></div>
+        <div class="brand"><img class="brand-mark" src="logo-mark.svg" alt="PARADOX AI" /><div class="brand-copy"><div class="brand-name">PARADOX<span class="brand-ai"> AI</span></div><div class="brand-sub">NEXUS ACADEMY ANALYTICS</div></div></div>
         <div style="width:100%"><div class="workspace-label">${t('workspace')}</div><nav class="nav-group">
           <button class="nav-item active" data-view="audit"><span class="nav-icon">${icon.audit}</span><span class="nav-text">${t('navAudit')}</span></button>
           <button class="nav-item" data-view="history"><span class="nav-icon">${icon.history}</span><span class="nav-text">${t('navHistory')}</span><span class="nav-count">04</span></button>
