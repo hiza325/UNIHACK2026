@@ -44,6 +44,16 @@ edu-app { display: block; }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: #e7ddff; display: grid; place-items: center; color: #534498; font-size: 11px; font-weight: 700; }
 .profile-name { font-size: 12px; font-weight: 600; }.profile-role { color: $muted; font-size: 10px; margin-top: 2px; }
 .main { min-width: 0; padding: 0 40px 48px; }
+.desktop-panels { width:min(1300px,100%); margin:0 auto; display:grid; grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr); grid-template-areas:"how features" "proof proof"; gap:16px; align-items:stretch; }
+.desktop-panels .how-section,.desktop-panels .features-section { max-width:none; min-width:0; margin:0; padding:28px clamp(20px,2.5vw,36px); border:1px solid #d9dcd3; background:#f6f5ef; }
+.desktop-panels .how-section { grid-area:how; }.desktop-panels .features-section { grid-area:features; }.desktop-panels .landing-proof { grid-area:proof; width:100%; max-width:none; margin:0; padding:18px 5px; }
+.desktop-panels .section-heading { margin-bottom:17px; }.desktop-panels .section-heading h2 { font-size:clamp(27px,2.7vw,36px); }.desktop-panels .section-heading p { font-size:11px; }
+.desktop-panels .how-cards,.desktop-panels .feature-grid { display:grid; grid-template-columns:1fr; border:0; }.desktop-panels .how-cards article,.desktop-panels .how-cards .how-featured,.desktop-panels .feature-grid article { min-height:0; display:grid; grid-template-columns:34px minmax(0,1fr); gap:3px 10px; padding:13px 0; border:0; border-top:1px solid #e0e2da; background:transparent; color:#202922; }
+.desktop-panels .how-number,.desktop-panels .feature-grid article>span { grid-column:1; grid-row:1 / span 2; align-self:start; margin:0; color:#a45440; font:10px 'DM Mono',monospace; }.desktop-panels .how-icon { display:none; }.desktop-panels .how-cards h3,.desktop-panels .feature-grid h3 { grid-column:2; margin:0 0 2px; font-size:12px; }.desktop-panels .how-cards p,.desktop-panels .feature-grid p,.desktop-panels .how-featured p { grid-column:2; color:#6f7a71; font-size:10px; line-height:1.55; }
+.desktop-panels .features-section { border-top:2px solid #a45440; }.desktop-panels .how-section { border-top:2px solid #34433a; }
+body.dark .desktop-panels .how-section,body.dark .desktop-panels .features-section { background:#1d251f; border-color:#364038; }
+@media(max-width:900px) { .desktop-panels { grid-template-columns:1fr; grid-template-areas:"how" "proof" "features"; gap:0; }.desktop-panels .how-section,.desktop-panels .features-section { padding:45px 0; border:0; background:transparent; }.desktop-panels .features-section { border-top:1px solid #d9dcd3; }.desktop-panels .landing-proof { padding:17px 0; } }
+@media(max-width:560px) { .desktop-panels .how-section,.desktop-panels .features-section { padding:37px 0; }.desktop-panels .section-heading h2 { font-size:29px; }.desktop-panels .how-cards article,.desktop-panels .how-cards .how-featured,.desktop-panels .feature-grid article { padding:14px 0; }.desktop-panels .landing-proof { padding:14px 0; } }
 @media (max-width:700px) {
   .landing .landing-nav { height:auto; min-height:69px; padding:10px 0; flex-wrap:wrap; gap:10px; }
   .landing .landing-nav nav { width:100%; justify-content:space-between; flex-wrap:wrap; gap:7px 10px; }
@@ -62,8 +72,10 @@ edu-app { display: block; }
 @media (max-width:560px) {
   .landing { padding-inline:17px; }
   .landing .landing-nav { position:sticky; top:0; z-index:5; height:60px; min-height:60px; margin-inline:-17px; padding:0 17px; background:#f2f0e8; flex-wrap:nowrap; }
-  .landing .landing-brand { flex:0 1 auto; }
+  .landing .landing-nav { justify-content:flex-start; gap:8px; }
+  .landing .landing-brand { flex:0 1 auto; order:2; }
   .landing .mobile-menu-toggle { display:grid; place-items:center; width:37px; height:37px; border:1px solid #d9dcd3; border-radius:3px; background:transparent; color:#28342d; font-size:19px; cursor:pointer; }
+  .landing .mobile-menu-toggle { order:1; }
   .landing .landing-nav nav#landing-nav-links { display:none; position:absolute; top:calc(100% - 1px); left:17px; right:17px; width:auto; padding:12px; grid-template-columns:1fr 1fr; gap:0 10px; border:1px solid #d9dcd3; background:#fbfaf5; box-shadow:0 8px 18px rgba(32,41,34,.08); }
   .landing .landing-nav.menu-open nav#landing-nav-links { display:grid; }
   .landing .landing-nav nav#landing-nav-links a { display:block; padding:12px 5px; border-bottom:1px solid #e7e8e0; color:#35433a; font-size:10px; }
