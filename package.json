@@ -6,6 +6,7 @@
   "scripts": {
     "serve": "node tests/static-server.mjs",
     "fonts:vendor": "node scripts/vendor-fonts.mjs",
+    "social:generate": "node scripts/generate-social-preview.mjs",
     "test": "playwright test",
     "test:ui": "playwright test --ui"
   },

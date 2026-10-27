@@ -22,6 +22,15 @@ test.describe('auth', () => {
     await expect(page.locator('#landing-login')).toBeVisible();
     expect(await page.locator('link[href*="fonts.googleapis.com"], link[href*="fonts.gstatic.com"]')).toHaveCount(0);
     expect(await page.locator('link[rel="preload"][as="font"]')).toHaveCount(3);
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /social-preview\.png$/);
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
+    const previewSize = await page.evaluate(() => new Promise(resolve => {
+      const image = new Image();
+      image.onload = () => resolve([image.naturalWidth, image.naturalHeight]);
+      image.onerror = () => resolve([0, 0]);
+      image.src = 'social-preview.png';
+    }));
+    expect(previewSize).toEqual([1200, 630]);
     expect(await axeHighImpactViolations(page, 'landing')).toEqual([]);
   });
 
