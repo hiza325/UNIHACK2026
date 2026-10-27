@@ -43,7 +43,11 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | Tệp | Mục đích |
 | --- | --- |
 | `index.html` | Điểm vào ứng dụng, font chữ, favicon và stylesheet |
-| `app.js` | Component giao diện, routing, các view và tương tác prototype |
+| `app.js` | Web Component gốc, vòng đời, routing và điều phối các module |
+| `app-config.js` | Cấu hình dùng chung, bản dịch nền và danh sách điều hướng |
+| `app-data.js` | IndexedDB/localStorage, History và dữ liệu Analytics |
+| `app-views.js` | Template cho landing page và các màn hình ứng dụng |
+| `app-actions.js` | Tương tác Audit, Practice, upload và modal |
 | `i18n.js` | Bản dịch bổ sung cho 8 khu vực, Việt/Anh/Nhật |
 | `demo.js` | Dữ liệu demo cho phiên học, thử thách, biểu đồ và kỹ năng |
 | `icons.js` | Bộ icon SVG dùng chung cho sidebar và sitemap |
