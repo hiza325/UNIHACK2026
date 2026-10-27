@@ -8,6 +8,12 @@ body { min-width:320px; background:var(--journal-paper); }
 @keyframes app-page-out { to { opacity:0; transform:translateY(-3px); } }
 @keyframes app-page-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 .landing { background:var(--journal-paper); color:var(--journal-ink); padding:0 clamp(22px,6vw,100px); }
+.landing .landing-statement { max-width:1320px; margin:0 auto; padding:clamp(42px,6vw,78px) 0 clamp(35px,5vw,62px); border-bottom:1px solid #c9cebe; }
+.landing .landing-statement h2 { max-width:1050px; margin:14px 0 17px; color:#24382c; font:500 clamp(40px,6.4vw,82px)/1.08 'Lora',Georgia,serif; letter-spacing:-.055em; }
+.landing .landing-statement p { max-width:760px; margin:0; color:#59645c; font:13px/1.9 'Be Vietnam Pro',sans-serif; }
+.landing .landing-closing { max-width:1320px; margin:28px auto 0; padding:clamp(42px,6vw,74px) clamp(20px,5vw,68px); border:1px solid #d7d6ca; background:#eeece2; text-align:center; }
+.landing .landing-closing h2 { max-width:850px; margin:14px auto 16px; color:#293f30; font:500 clamp(34px,5vw,62px)/1.14 'Lora',Georgia,serif; letter-spacing:-.045em; }
+.landing .landing-closing p { max-width:650px; margin:0 auto; color:#59645c; font:12px/1.9 'Be Vietnam Pro',sans-serif; }
 .landing .landing-nav { max-width:1320px; height:92px; border-bottom:1px solid #c9cebe; }
 .landing-brand b { font:700 21px 'Be Vietnam Pro',sans-serif; letter-spacing:-.07em; }
 .landing-brand small { font:9px 'DM Mono',monospace; letter-spacing:.06em; margin-top:5px; }
@@ -75,7 +81,12 @@ body.dark .landing .landing-nav nav#landing-nav-links button.landing-theme-toggl
 .card { box-shadow:none; border-radius:8px; }
 body.dark .study-sheet { background:#222d24; border-color:#52604b; }
 body.dark .study-scene::before { background:#344330; border-color:#52604b; }
-body.dark .landing .hero h1,body.dark .sheet-equation,body.dark .solution-line,body.dark .landing .desktop-panels .section-heading h2 { color:#eef0df; }
+body.dark .landing .hero h1,body.dark .landing .landing-statement h2,body.dark .sheet-equation,body.dark .solution-line,body.dark .landing .desktop-panels .section-heading h2 { color:#eef0df; }
+body.dark .landing .landing-statement { border-color:#455047; }
+body.dark .landing .landing-statement p { color:#c3cbbd; }
+body.dark .landing .landing-closing { border-color:#455047; background:#202a23; }
+body.dark .landing .landing-closing h2 { color:#eef0df; }
+body.dark .landing .landing-closing p { color:#c3cbbd; }
 body.dark .landing .hero h1 em,body.dark .margin-note,body.dark .correction { color:#e9a28c; }
 body.dark .landing .proof-items article,body.dark .landing .desktop-panels .how-cards h3,body.dark .landing .desktop-panels .feature-grid h3 { color:#dae2d3; }
 body.dark .landing .desktop-panels .how-section,body.dark .landing .desktop-panels .features-section { background:transparent; }
@@ -87,6 +98,11 @@ body.dark .landing .desktop-panels .how-section,body.dark .landing .desktop-pane
  .landing .proof-items { gap:18px; }
 }
 @media(max-width:700px) {
+ .landing .landing-statement { padding:38px 0 34px; }
+ .landing .landing-statement h2 { font-size:clamp(38px,10vw,56px); }
+ .landing .landing-statement p { font-size:12px; }
+ .landing .landing-closing { padding:38px 18px; }
+ .landing .landing-closing h2 { font-size:clamp(32px,8vw,44px); }
  .landing .hero { grid-template-columns:1fr; gap:25px; padding:18px 0 40px; }
  .landing .hero h1 { font-size:clamp(42px,8vw,62px); }
  .landing .hero-copy { padding:25px 0 0; }
