@@ -38,6 +38,10 @@ export const extraCopy = {
     histEmpty: 'Không tìm thấy phiên phù hợp.', histTotal: 'Tổng số phiên',
     histAvg: 'Điểm trung bình', histMasteredCount: 'Đã nắm vững',
     statusNeeds: 'Cần sửa', statusMastered: 'Đã nắm', statusProgress: 'Đang học',
+    histSubjectFilter: 'Tất cả môn', histDateFilter: 'Mọi thời gian',
+    histLast7: '7 ngày gần đây', histLast30: '30 ngày gần đây', histLast90: '90 ngày gần đây',
+    histExport: 'Xuất JSON', histImport: 'Nhập JSON', histImportDone: 'Đã nhập lịch sử học tập.',
+    histImportError: 'Tệp lịch sử không hợp lệ.', histPage: 'Trang',
 
     anaSub: 'Theo dõi nhịp học và những kỹ năng đang thay đổi.',
     ana7: '7 ngày', ana30: '30 ngày', ana90: '90 ngày',
@@ -46,7 +50,7 @@ export const extraCopy = {
     anaSkills: 'Kỹ năng tư duy', anaSkillsSub: 'Điểm mạnh và điểm cần luyện thêm',
     anaInsights: 'Điểm cần chú ý',
     anaStrength: 'Điểm mạnh',
-    anaStrengthDesc: 'Bạn tự phát hiện lỗi tốt hơn 72% người học cùng trình độ.',
+    anaStrengthDesc: 'Bạn tự phát hiện lỗi tốt hơn {value}% người học cùng trình độ.',
     anaFocus: 'Cần cải thiện',
     anaFocusDesc: 'Kiểm tra phép biến đổi là kỹ năng thấp nhất — hãy luyện thêm 2 bài đại số.',
     anaTip: 'Gợi ý tuần này',
@@ -61,7 +65,8 @@ export const extraCopy = {
     pracLevel: 'Độ khó', pracClose: 'Đóng', pracExplanation: 'Giải thích',
     pracSource: 'Nguồn', pracCorrect: 'Chính xác! Bạn đã tìm đúng điểm sai.',
     pracWrong: 'Chưa đúng — xem lại từng bước và thử lần sau nhé.',
-    pracQuestion: 'Câu hỏi',
+    pracQuestion: 'Câu hỏi', pracRetry: 'Làm lại', pracTopicProgress: 'Tiến độ theo chủ đề',
+    pracSolvedCount: 'câu đã giải',
 
     profSub: 'Hồ sơ, mục tiêu và thành tích học tập của bạn.',
     profInfo: 'Thông tin cá nhân', profEdit: 'Chỉnh sửa hồ sơ',
@@ -130,7 +135,11 @@ export const extraCopy = {
     setAbout: 'Về PARADOX', setVersion: 'Phiên bản 0.2 · Prototype',
     setSitemapDesc: 'Xem toàn bộ cấu trúc website.',
     setSaved: 'Đã lưu cài đặt.', setAccount: 'Tài khoản',
-    setOpenSitemap: 'Mở Website Sitemap', back: 'Quay lại'
+    setOpenSitemap: 'Mở Website Sitemap', back: 'Quay lại',
+    setResetTitle: 'Xoá tiến độ luyện tập?', setResetConfirm: 'Xoá tiến độ',
+    fileRemove: 'Xoá tệp', fileInvalid: 'Loại tệp không được hỗ trợ.',
+    fileTooLarge: 'Tệp vượt quá giới hạn 10 MB.', filePreview: 'Xem trước tệp',
+    analyzing: 'PARADOX đang phân tích…', more: 'Thêm'
   },
   en: {
     navDashboard: 'Dashboard', navAnalytics: 'Analytics', navPractice: 'Practice Lab',
@@ -169,6 +178,10 @@ export const extraCopy = {
     histEmpty: 'No matching sessions.', histTotal: 'Total sessions',
     histAvg: 'Average score', histMasteredCount: 'Mastered',
     statusNeeds: 'Needs work', statusMastered: 'Mastered', statusProgress: 'In progress',
+    histSubjectFilter: 'All subjects', histDateFilter: 'Any time',
+    histLast7: 'Last 7 days', histLast30: 'Last 30 days', histLast90: 'Last 90 days',
+    histExport: 'Export JSON', histImport: 'Import JSON', histImportDone: 'Learning history imported.',
+    histImportError: 'Invalid history file.', histPage: 'Page',
 
     anaSub: 'Track your learning rhythm and the skills that are changing.',
     ana7: '7 days', ana30: '30 days', ana90: '90 days',
@@ -177,7 +190,7 @@ export const extraCopy = {
     anaSkills: 'Thinking skills', anaSkillsSub: 'Strengths and skills to practise',
     anaInsights: 'What to watch',
     anaStrength: 'Strength',
-    anaStrengthDesc: 'You spot your own errors better than 72% of learners at your level.',
+    anaStrengthDesc: 'You spot your own errors better than {value}% of learners at your level.',
     anaFocus: 'Needs work',
     anaFocusDesc: 'Checking transformations is your lowest skill — try two more algebra challenges.',
     anaTip: 'This week',
@@ -192,7 +205,8 @@ export const extraCopy = {
     pracLevel: 'Level', pracClose: 'Close', pracExplanation: 'Explanation',
     pracSource: 'Source', pracCorrect: 'Correct! You found the error.',
     pracWrong: 'Not quite — review each step and try again.',
-    pracQuestion: 'Question',
+    pracQuestion: 'Question', pracRetry: 'Try again', pracTopicProgress: 'Progress by topic',
+    pracSolvedCount: 'solved',
 
     profSub: 'Your profile, goals, and learning achievements.',
     profInfo: 'Personal details', profEdit: 'Edit profile',
@@ -261,7 +275,11 @@ export const extraCopy = {
     setAbout: 'About PARADOX', setVersion: 'Version 0.2 · Prototype',
     setSitemapDesc: 'View the whole website structure.',
     setSaved: 'Settings saved.', setAccount: 'Account',
-    setOpenSitemap: 'Open Website Sitemap', back: 'Back'
+    setOpenSitemap: 'Open Website Sitemap', back: 'Back',
+    setResetTitle: 'Clear practice progress?', setResetConfirm: 'Clear progress',
+    fileRemove: 'Remove file', fileInvalid: 'This file type is not supported.',
+    fileTooLarge: 'The file exceeds the 10 MB limit.', filePreview: 'File preview',
+    analyzing: 'PARADOX is analysing…', more: 'More'
   },
   jp: {
     navDashboard: 'ダッシュボード', navAnalytics: '分析', navPractice: '練習ラボ',
@@ -300,6 +318,10 @@ export const extraCopy = {
     histEmpty: '該当するセッションがありません。', histTotal: 'セッション数',
     histAvg: '平均スコア', histMasteredCount: '習得済み',
     statusNeeds: '要修正', statusMastered: '習得済み', statusProgress: '学習中',
+    histSubjectFilter: 'すべての科目', histDateFilter: 'すべての期間',
+    histLast7: '過去7日', histLast30: '過去30日', histLast90: '過去90日',
+    histExport: 'JSONを書き出す', histImport: 'JSONを読み込む', histImportDone: '学習履歴を読み込みました。',
+    histImportError: '履歴ファイルが無効です。', histPage: 'ページ',
 
     anaSub: '学習のリズムと伸びているスキルを確認します。',
     ana7: '7日', ana30: '30日', ana90: '90日',
@@ -308,7 +330,7 @@ export const extraCopy = {
     anaSkills: '思考スキル', anaSkillsSub: '強みと練習が必要なスキル',
     anaInsights: '注目ポイント',
     anaStrength: '強み',
-    anaStrengthDesc: '同じレベルの学習者の72%よりもうまく自分の誤りを見つけています。',
+    anaStrengthDesc: '同じレベルの学習者の{value}%よりもうまく自分の誤りを見つけています。',
     anaFocus: '改善点',
     anaFocusDesc: '式変形の確認が最も低いスキルです。代数の課題をあと2つ試しましょう。',
     anaTip: '今週のヒント',
@@ -323,7 +345,8 @@ export const extraCopy = {
     pracLevel: '難易度', pracClose: '閉じる', pracExplanation: '解説',
     pracSource: '出典', pracCorrect: '正解です。誤りを正しく見つけました。',
     pracWrong: 'もう少しです。各ステップを見直して再挑戦しましょう。',
-    pracQuestion: '問題',
+    pracQuestion: '問題', pracRetry: 'もう一度', pracTopicProgress: 'トピック別の進捗',
+    pracSolvedCount: '問完了',
 
     profSub: 'プロフィール、目標、学習の成果。',
     profInfo: '基本情報', profEdit: 'プロフィールを編集',
@@ -392,6 +415,10 @@ export const extraCopy = {
     setAbout: 'PARADOXについて', setVersion: 'バージョン 0.2 · プロトタイプ',
     setSitemapDesc: 'サイト全体の構造を表示します。',
     setSaved: '設定を保存しました。', setAccount: 'アカウント',
-    setOpenSitemap: 'サイトマップを開く', back: '戻る'
+    setOpenSitemap: 'サイトマップを開く', back: '戻る',
+    setResetTitle: '練習の進捗を消去しますか？', setResetConfirm: '進捗を消去',
+    fileRemove: 'ファイルを削除', fileInvalid: 'このファイル形式には対応していません。',
+    fileTooLarge: 'ファイルは10MBの上限を超えています。', filePreview: 'ファイルのプレビュー',
+    analyzing: 'PARADOXが分析中…', more: 'その他'
   }
 };

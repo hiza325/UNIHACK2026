@@ -1,6 +1,9 @@
 import { extraCopy } from './i18n.js';
-import { demo, APP_VIEWS, charts, skillValues } from './demo.js';
+import { demo, APP_VIEWS } from './demo.js';
 import { svgIcon } from './icons.js';
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_FILE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx', 'txt', 'js', 'py'];
 
 const copy = {
   vi: {
@@ -46,7 +49,15 @@ class EduApp extends HTMLElement {
     this.pendingView = null;
     this.practiceIndex = null;
     this.practiceSolved = this.readJSON('paradox-practice', []);
+    this.practiceActivity = this.readJSON('paradox-practice-activity', []);
     this.settings = this.readJSON('paradox-settings', { reminder: true, digest: true, sound: false, subject: 'math', hint: 2 });
+    this.auditMessages = [];
+    this.auditText = '';
+    this.isAnalyzing = false;
+    this.auditStorageReady = false;
+    this.filePreviewUrls = {};
+    this.historyPage = 1;
+    this.historyPageSize = 5;
     this.toastTimer = null;
   }
   connectedCallback() {
@@ -57,6 +68,10 @@ class EduApp extends HTMLElement {
     window.addEventListener('keydown', this.onKeydown);
     window.addEventListener('hashchange', this.onHashChange);
     this.handleRoute();
+    this.loadAuditState().then(() => {
+      this.auditStorageReady = true;
+      if (this.user && this.view === 'audit') this.render();
+    });
   }
   disconnectedCallback() {
     this.removeEventListener('click', this.onClick);
@@ -68,6 +83,44 @@ class EduApp extends HTMLElement {
   }
   onHashChange = () => { if (!location.hash || location.hash.startsWith('#/')) this.handleRoute(); };
   readJSON(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch { return fallback; } }
+  openAuditDB() {
+    if (!('indexedDB' in window)) return Promise.resolve(null);
+    return new Promise(resolve => {
+      const request = indexedDB.open('paradox-learning', 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains('state')) request.result.createObjectStore('state');
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+    });
+  }
+  async loadAuditState() {
+    this.auditDB = await this.openAuditDB();
+    if (!this.auditDB) return;
+    const state = await new Promise(resolve => {
+      const request = this.auditDB.transaction('state', 'readonly').objectStore('state').get('audit');
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => resolve(null);
+    });
+    if (!state) return;
+    this.step = Number.isInteger(state.step) ? Math.max(0, Math.min(6, state.step)) : 0;
+    this.auditMessages = Array.isArray(state.messages) ? state.messages.slice(-60) : [];
+    this.auditText = typeof state.text === 'string' ? state.text : '';
+    this.files = {
+      problem: state.files?.problem ? [state.files.problem] : [],
+      work: state.files?.work ? [state.files.work] : []
+    };
+  }
+  saveAuditState() {
+    if (!this.auditDB) return;
+    const state = {
+      step: this.step,
+      text: this.auditText,
+      messages: this.auditMessages.slice(-60),
+      files: { problem: this.files.problem[0] || null, work: this.files.work[0] || null }
+    };
+    try { this.auditDB.transaction('state', 'readwrite').objectStore('state').put(state, 'audit'); } catch { /* IndexedDB may be unavailable in private mode. */ }
+  }
   handleRoute() {
     const raw = location.hash.startsWith('#/') ? location.hash.slice(2).replace(/\/+$/, '') : '';
     document.body.classList.remove('sitemap-mode');
@@ -200,14 +253,15 @@ class EduApp extends HTMLElement {
   }
   sidebar() {
     const t = k => this.t(k);
-    const count = String(demo[this.lang].sessions.length).padStart(2, '0');
+    const count = String(this.getSessions().length).padStart(2, '0');
     const nav = NAV_ITEMS.map(([view, key, ic]) => `<button class="nav-item ${this.view === view ? 'active' : ''}" data-route="${view}" ${this.view === view ? 'aria-current="page"' : ''}><span class="nav-icon">${svgIcon(ic)}</span><span class="nav-text">${t(key)}</span>${view === 'history' ? `<span class="nav-count">${count}</span>` : ''}</button>`).join('');
     return `<aside class="sidebar">
       <a class="brand brand-link" href="#/dashboard" aria-label="PARADOX AI">
         <img class="brand-mark" src="logo-mark.svg" alt="" />
         <div class="brand-copy"><div class="brand-name">PARADOX<span class="brand-ai"> AI</span></div><div class="brand-sub">NEXUS ACADEMY ANALYTICS</div></div>
       </a>
-      <div style="width:100%"><div class="workspace-label">${t('workspace')}</div><nav class="nav-group">${nav}</nav></div>
+      <div style="width:100%"><div class="workspace-label">${t('workspace')}</div><nav class="nav-group">${nav}<button class="nav-item mobile-more ${['about', 'settings'].includes(this.view) ? 'active' : ''}" type="button" data-mobile-more aria-expanded="false" ${['about', 'settings'].includes(this.view) ? 'aria-current="page"' : ''}><span class="nav-icon">•••</span><span class="nav-text">${t('more')}</span></button></nav></div>
+      <div class="mobile-more-menu" id="mobile-more-menu" hidden><button data-route="about">${svgIcon('help')} ${t('navAbout')}</button><button data-route="settings">${svgIcon('settings')} ${t('navSettings')}</button></div>
       <div class="sidebar-spacer"></div>
       <div class="plan-card"><div class="plan-top"><span>${t('plan')}</span><span class="plan-tag">FREE</span></div><p>${t('remaining')}</p><div class="progress-track"><div class="progress-fill"></div></div><div class="plan-foot"><span>04 / 10</span><span>60%</span></div></div>
       <div class="profile"><div class="avatar">${this.escape((this.user.name || 'U').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase())}</div><div class="profile-copy"><div class="profile-name">${this.escape(this.user.name || this.user.email)}</div><div class="profile-role">${this.escape(this.user.email)}</div></div></div>
@@ -243,9 +297,96 @@ class EduApp extends HTMLElement {
   statCard(label, value, suffix = '', trend = '') {
     return `<section class="stat-card"><span class="stat-label">${label}</span><div class="stat-value">${value}<small>${suffix}</small>${trend ? `<span class="stat-trend">${trend}</span>` : ''}</div></section>`;
   }
+  getSessions() {
+    const saved = this.readJSON('paradox-audit-sessions', []);
+    const seen = new Set();
+    return [...saved, ...demo[this.lang].sessions].filter(item => {
+      const key = item.id || `${item.date}|${item.title}|${item.skill}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  localDateKey(date = new Date()) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+  sessionISODate(session) {
+    if (session.isoDate) return session.isoDate;
+    const [day, month] = String(session.date || '').split('/').map(Number);
+    if (!day || !month) return '';
+    return `${new Date().getFullYear()}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+  learningMetrics() {
+    const sessions = this.getSessions();
+    const average = sessions.length ? Math.round(sessions.reduce((sum, item) => sum + Number(item.score || 0), 0) / sessions.length) : 0;
+    const mastered = sessions.filter(item => item.status === 'mastered').length;
+    const accuracy = sessions.length ? Math.round(mastered / sessions.length * 100) : 0;
+    const dates = new Set([
+      ...sessions.map(item => this.sessionISODate(item)),
+      ...this.practiceActivity.map(item => item.isoDate)
+    ].filter(Boolean));
+    let cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+    const todayKey = this.localDateKey(cursor);
+    if (!dates.has(todayKey)) cursor.setDate(cursor.getDate() - 1);
+    let streak = 0;
+    while (dates.has(this.localDateKey(cursor))) {
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return { sessions, average, mastered, accuracy, streak };
+  }
+  activitySeries(period) {
+    const slots = period === 7 ? 7 : 12;
+    const values = Array(slots).fill(0);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const activities = [
+      ...this.getSessions().map(item => ({ isoDate: this.sessionISODate(item), minutes: 6 + Math.round(Number(item.score || 0) / 20) })),
+      ...this.practiceActivity
+    ];
+    activities.forEach(item => {
+      const date = new Date(`${item.isoDate}T00:00:00`);
+      if (Number.isNaN(date.getTime())) return;
+      const daysAgo = Math.floor((now - date) / 86400000);
+      if (daysAgo < 0 || daysAgo >= period) return;
+      const chronologicalDay = period - 1 - daysAgo;
+      const index = Math.min(slots - 1, Math.floor(chronologicalDay / (period / slots)));
+      values[index] += Number(item.minutes || 3);
+    });
+    const max = Math.max(...values, 1);
+    return { values, heights: values.map(value => value ? Math.max(12, Math.round(value / max * 100)) : 4) };
+  }
+  weeklyChartMarkup() {
+    const series = this.activitySeries(7);
+    return `<div class="chart">${series.heights.map((height, i) => `<div class="bar-wrap"><span class="bar ${series.values[i] === Math.max(...series.values) && series.values[i] ? 'hot' : ''}" style="height:${height}%" title="${series.values[i]} min"></span></div>`).join('')}</div><div class="chart-labels"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>`;
+  }
+  recordAuditSession(text) {
+    const subjectKeys = { math: 'setSubjectMath', algebra: 'setSubjectAlgebra', code: 'setSubjectCode' };
+    const source = this.files.problem[0]?.name || String(text || '').split(/\r?\n/)[0].slice(0, 54) || this.t('sessionTitle');
+    const now = new Date();
+    const sessions = this.readJSON('paradox-audit-sessions', []);
+    sessions.unshift({
+      id: `audit-${now.getTime()}`,
+      date: `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`,
+      isoDate: this.localDateKey(now),
+      title: source,
+      skill: this.t(subjectKeys[this.settings.subject] || 'setSubjectMath'),
+      status: 'progress',
+      score: 50
+    });
+    localStorage.setItem('paradox-audit-sessions', JSON.stringify(sessions.slice(0, 100)));
+  }
+  updateAuditProgress(step) {
+    const sessions = this.readJSON('paradox-audit-sessions', []);
+    if (!sessions.length) return;
+    sessions[0].score = Math.min(95, 50 + step * 8);
+    sessions[0].status = step >= 5 ? 'mastered' : 'progress';
+    localStorage.setItem('paradox-audit-sessions', JSON.stringify(sessions));
+  }
   sessionRow(s, compact = false) {
     const statusKey = 'status' + s.status.charAt(0).toUpperCase() + s.status.slice(1);
-    return `<div class="session-row ${compact ? 'compact' : ''}" data-session-status="${s.status}" data-search="${this.escape((s.title + ' ' + s.skill).toLowerCase())}">
+    return `<div class="session-row ${compact ? 'compact' : ''}" data-session-status="${s.status}" data-session-subject="${this.escape(s.skill)}" data-session-date="${this.escape(this.sessionISODate(s))}" data-search="${this.escape((s.title + ' ' + s.skill).toLowerCase())}">
       <div class="session-main"><span class="session-title">${this.escape(s.title)}</span><span class="session-date">${s.date} · ${this.escape(s.skill)}</span></div>
       ${compact ? '' : `<span class="session-skill">${this.escape(s.skill)}</span>`}
       <span class="session-score">${s.score}<small>/100</small></span>
@@ -253,12 +394,58 @@ class EduApp extends HTMLElement {
       <button class="row-action" data-route="audit">${this.t('histOpen')} ↗</button>
     </div>`;
   }
-  fileControl(type, title, meta) { return `<label class="file-drop" for="file-${type}"><span class="file-symbol">${type === 'problem' ? '▧' : '▤'}</span><span><span class="file-title" data-file-name="${type}">${title}</span><span class="file-meta">${meta}</span></span><span class="file-plus">＋</span><input class="file-input" type="file" id="file-${type}" data-file="${type}" accept="image/*,.pdf,.doc,.docx,.txt,.js,.py" /></label>`; }
+  formatBytes(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+  fileSelectionMarkup(type) {
+    const file = this.files[type][0];
+    if (!file) return '';
+    const extension = file.name.split('.').pop()?.toUpperCase() || 'FILE';
+    return `<div class="file-selected"><div class="file-chip"><span class="file-chip-type">${this.escape(extension)}</span><span class="file-chip-copy"><strong>${this.escape(file.name)}</strong><small>${this.formatBytes(file.size)}</small></span><button type="button" data-remove-file="${type}" aria-label="${this.t('fileRemove')}">×</button></div><div class="file-preview" data-file-preview="${type}" aria-label="${this.t('filePreview')}"></div></div>`;
+  }
+  fileControl(type, title, meta) {
+    return `<div class="file-field"><label class="file-drop" for="file-${type}"><span class="file-symbol">${type === 'problem' ? '▧' : '▤'}</span><span><span class="file-title">${title}</span><span class="file-meta">${meta} · MAX 10 MB</span></span><span class="file-plus">＋</span><input class="file-input" type="file" id="file-${type}" data-file="${type}" accept="image/*,.pdf,.doc,.docx,.txt,.js,.py" /></label>${this.fileSelectionMarkup(type)}</div>`;
+  }
+  hydrateFilePreviews() {
+    ['problem', 'work'].forEach(async type => {
+      const file = this.files[type][0];
+      const target = this.querySelector(`[data-file-preview="${type}"]`);
+      if (!file || !target) return;
+      if (file.type.startsWith('image/')) {
+        if (this.filePreviewUrls[type]) URL.revokeObjectURL(this.filePreviewUrls[type]);
+        const url = URL.createObjectURL(file);
+        this.filePreviewUrls[type] = url;
+        target.innerHTML = `<img src="${url}" alt="${this.escape(file.name)}">`;
+        return;
+      }
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      if (['txt', 'js', 'py'].includes(extension)) {
+        const content = await file.slice(0, 1400).text();
+        if (target.isConnected) target.innerHTML = `<pre>${this.escape(content)}</pre>`;
+        return;
+      }
+      target.innerHTML = `<span class="file-preview-generic">${this.escape((extension || 'FILE').toUpperCase())}</span>`;
+    });
+  }
+  auditMessagesMarkup() {
+    const greeting = `<audit-message class="message"><span class="message-icon">✳</span><div class="bubble">${this.t('greeting')}<div style="margin-top:7px">${this.t('greetingPrompt')}</div><div class="message-time">${this.t('timeNow')}</div></div></audit-message>`;
+    const saved = this.auditMessages.map(item => {
+      const initials = (this.user?.name || 'U').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+      return `<audit-message class="message ${item.user ? 'user' : ''}"><span class="message-icon">${item.user ? this.escape(initials) : '✳'}</span><div class="bubble">${item.html}<div class="message-time">${this.t('timeNow')}</div></div></audit-message>`;
+    }).join('');
+    return greeting + saved + (this.isAnalyzing ? this.typingMarkup() : '');
+  }
+  typingMarkup() {
+    return `<div class="typing-indicator" id="typing-indicator" role="status"><span class="agent-orb">✳</span><span class="typing-dots"><i></i><i></i><i></i></span><span>${this.t('analyzing')}</span></div>`;
+  }
   viewDashboard() {
     const t = k => this.t(k);
     const name = this.escape(this.user.name || this.user.email);
     const greeting = t('welcome').replace('Minh Anh', name).replace('ミン・アイン', name);
-    const recent = demo[this.lang].sessions.slice(0, 3).map(s => this.sessionRow(s, true)).join('');
+    const metrics = this.learningMetrics();
+    const recent = metrics.sessions.slice(0, 3).map(s => this.sessionRow(s, true)).join('');
     return `<div class="page">
       ${this.viewHead(greeting, 'subtitle')}
       <div class="quick-actions">
@@ -280,8 +467,8 @@ class EduApp extends HTMLElement {
           </section>
         </div>
         <div class="right-stack">
-          <div class="right-duo"><section class="card metric-card"><div class="metric-header"><span class="metric-title">${t('accuracy')}</span><span class="metric-icon">${svgIcon('spark')}</span></div><div class="metric-value">72<span style="font-size:15px">%</span><span class="metric-trend">↗ 8%</span></div><div class="metric-sub">${t('accuracyDesc')}</div></section><section class="card metric-card"><div class="metric-header"><span class="metric-title">${t('streak')}</span><span class="metric-icon">${svgIcon('check')}</span></div><div class="metric-value">06 <span style="font-size:12px;color:#8c9b80">${this.lang === 'en' ? 'DAYS' : this.lang === 'jp' ? '日' : 'NGÀY'}</span></div><div class="metric-sub">${t('streakDesc')}</div></section></div>
-          <section class="card activity-card"><div class="activity-head"><h3 class="activity-title">${t('progress')}</h3><span class="activity-week">${t('thisWeek')}</span></div><div class="chart">${[35, 58, 43, 79, 51, 96, 68].map((h, i) => `<div class="bar-wrap"><span class="bar ${i === 5 ? 'hot' : ''}" style="height:${h}%"></span></div>`).join('')}</div><div class="chart-labels"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div></section>
+          <div class="right-duo"><section class="card metric-card"><div class="metric-header"><span class="metric-title">${t('accuracy')}</span><span class="metric-icon">${svgIcon('spark')}</span></div><div class="metric-value">${metrics.accuracy}<span style="font-size:15px">%</span></div><div class="metric-sub">${t('accuracyDesc')}</div></section><section class="card metric-card"><div class="metric-header"><span class="metric-title">${t('streak')}</span><span class="metric-icon">${svgIcon('check')}</span></div><div class="metric-value">${String(metrics.streak).padStart(2, '0')} <span style="font-size:12px;color:#8c9b80">${this.lang === 'en' ? 'DAYS' : this.lang === 'jp' ? '日' : 'NGÀY'}</span></div><div class="metric-sub">${t('streakDesc')}</div></section></div>
+          <section class="card activity-card"><div class="activity-head"><h3 class="activity-title">${t('progress')}</h3><span class="activity-week">${t('thisWeek')}</span></div>${this.weeklyChartMarkup()}</section>
           <section class="card source-card"><div class="source-head"><h3 class="source-title">${t('sources')}</h3><button class="source-link" data-route="about">${t('viewAll')}</button></div>${[['◉', 'source1', 'source1type'], ['ƒ', 'source2', 'source2type'], ['⌘', 'source3', 'source3type']].map(([i, n, d]) => `<div class="source-item"><span class="source-icon">${i}</span><div><div class="source-name">${t(n)}</div><div class="source-type">${t(d)}</div></div></div>`).join('')}</section>
         </div>
       </div>
@@ -291,6 +478,7 @@ class EduApp extends HTMLElement {
     const t = k => this.t(k);
     const name = this.escape(this.user.name || this.user.email);
     const greeting = t('welcome').replace('Minh Anh', name).replace('ミン・アイン', name);
+    const metrics = this.learningMetrics();
     const steps = t('stepLabels').map((s, i) => `<div class="step ${i < this.step ? 'done' : ''} ${i === this.step ? 'active' : ''}"><span class="step-num">${i < this.step ? '✓' : i + 1}</span><span class="step-name">${s}</span></div>`).join('');
     return `<div class="page">
       ${this.viewHead(greeting, 'subtitle')}
@@ -300,27 +488,28 @@ class EduApp extends HTMLElement {
           <div class="upload-zone" id="drop-zone"><span class="upload-label">${t('problem')} + ${t('yourWork')}</span><div class="upload-fields">
             ${this.fileControl('problem', t('addProblem'), t('fileTypes'))}${this.fileControl('work', t('addWork'), t('fileTypes'))}
           </div></div>
-          <div class="text-entry"><div class="text-entry-head"><label class="upload-label" for="work-text" style="margin:0">${t('pasteLabel')}</label><span class="file-meta">TEXT / CODE</span></div><textarea id="work-text" placeholder="${t('placeholder')}"></textarea><div class="text-actions"><span class="hint">♧ &nbsp;${t('privacy')}</span><button class="primary-button" id="start-audit">${t('start')} <span class="button-arrow">↗</span></button></div></div>
-          <div class="divider"></div><div class="chat-area"><div class="chat-top"><span class="agent-label"><span class="agent-orb">✳</span>${t('agent')}</span><span class="secure-tag">${t('secure')}</span></div><div id="messages"><audit-message class="message"><span class="message-icon">✳</span><div class="bubble">${t('greeting')}<div style="margin-top:7px">${t('greetingPrompt')}</div><div class="message-time">${t('timeNow')}</div></div></audit-message></div>
+          <div class="text-entry"><div class="text-entry-head"><label class="upload-label" for="work-text" style="margin:0">${t('pasteLabel')}</label><span class="file-meta">TEXT / CODE</span></div><textarea id="work-text" placeholder="${t('placeholder')}">${this.escape(this.auditText)}</textarea><div class="text-actions"><span class="hint">♧ &nbsp;${t('privacy')}</span><button class="primary-button" id="start-audit" ${this.isAnalyzing ? 'disabled' : ''}>${t('start')} <span class="button-arrow">↗</span></button></div></div>
+          <div class="divider"></div><div class="chat-area"><div class="chat-top"><span class="agent-label"><span class="agent-orb">✳</span>${t('agent')}</span><span class="secure-tag">${t('secure')}</span></div><div id="messages">${this.auditMessagesMarkup()}</div>
             <div class="quick-replies"><button class="reply-chip" data-reply="upload">＋ ${t('reply1')}</button><button class="reply-chip" data-reply="how">✳ ${t('reply2')}</button></div>
-            <form class="chat-input" id="chat-form"><input id="chat-message" placeholder="${t('chatPlaceholder')}" autocomplete="off"/><button class="send-button" aria-label="${t('send')}">↑</button></form>
+            <form class="chat-input" id="chat-form"><input id="chat-message" placeholder="${t('chatPlaceholder')}" autocomplete="off" ${this.isAnalyzing ? 'disabled' : ''}/><button class="send-button" aria-label="${t('send')}" ${this.isAnalyzing ? 'disabled' : ''}>↑</button></form>
           </div>
         </section>
       </div><div class="right-stack">
-        <div class="right-duo"><section class="card metric-card"><div class="metric-header"><span class="metric-title">${t('accuracy')}</span><span class="metric-icon">${svgIcon('spark')}</span></div><div class="metric-value">72<span style="font-size:15px">%</span><span class="metric-trend">↗ 8%</span></div><div class="metric-sub">${t('accuracyDesc')}</div></section><section class="card metric-card"><div class="metric-header"><span class="metric-title">${t('streak')}</span><span class="metric-icon">${svgIcon('check')}</span></div><div class="metric-value">06 <span style="font-size:12px;color:#8c9b80">${this.lang === 'en' ? 'DAYS' : this.lang === 'jp' ? '日' : 'NGÀY'}</span></div><div class="metric-sub">${t('streakDesc')}</div></section></div>
+        <div class="right-duo"><section class="card metric-card"><div class="metric-header"><span class="metric-title">${t('accuracy')}</span><span class="metric-icon">${svgIcon('spark')}</span></div><div class="metric-value">${metrics.accuracy}<span style="font-size:15px">%</span></div><div class="metric-sub">${t('accuracyDesc')}</div></section><section class="card metric-card"><div class="metric-header"><span class="metric-title">${t('streak')}</span><span class="metric-icon">${svgIcon('check')}</span></div><div class="metric-value">${String(metrics.streak).padStart(2, '0')} <span style="font-size:12px;color:#8c9b80">${this.lang === 'en' ? 'DAYS' : this.lang === 'jp' ? '日' : 'NGÀY'}</span></div><div class="metric-sub">${t('streakDesc')}</div></section></div>
         <section class="card practice-card"><div class="eyebrow"><span class="live-dot"></span>${t('daily')}</div><h3>${t('practiceTitle')}</h3><p>${t('practiceDesc')}</p><div class="practice-bottom"><button class="practice-button" id="practice-button">${t('challenge')} ↗</button><span class="difficulty">${t('difficulty')}</span></div></section>
         <section class="card source-card"><div class="source-head"><h3 class="source-title">${t('sources')}</h3><button class="source-link" data-route="about">${t('viewAll')}</button></div>${[['◉', 'source1', 'source1type'], ['ƒ', 'source2', 'source2type'], ['⌘', 'source3', 'source3type']].map(([i, n, d]) => `<div class="source-item"><span class="source-icon">${i}</span><div><div class="source-name">${t(n)}</div><div class="source-type">${t(d)}</div></div></div>`).join('')}</section>
-        <section class="card activity-card"><div class="activity-head"><h3 class="activity-title">${t('progress')}</h3><span class="activity-week">${t('thisWeek')}</span></div><div class="chart">${[35, 58, 43, 79, 51, 96, 68].map((h, i) => `<div class="bar-wrap"><span class="bar ${i === 5 ? 'hot' : ''}" style="height:${h}%"></span></div>`).join('')}</div><div class="chart-labels"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div></section>
+        <section class="card activity-card"><div class="activity-head"><h3 class="activity-title">${t('progress')}</h3><span class="activity-week">${t('thisWeek')}</span></div>${this.weeklyChartMarkup()}</section>
       </div></div>
     </div>`;
   }
   viewHistory() {
     const t = k => this.t(k);
-    const sessions = demo[this.lang].sessions;
-    const avg = Math.round(sessions.reduce((sum, s) => sum + s.score, 0) / sessions.length);
+    const sessions = this.getSessions();
+    const avg = sessions.length ? Math.round(sessions.reduce((sum, s) => sum + s.score, 0) / sessions.length) : 0;
     const mastered = sessions.filter(s => s.status === 'mastered').length;
     const filters = [['all', 'histAll'], ['needs', 'histNeeds'], ['mastered', 'histMastered'], ['progress', 'histProgress']]
       .map(([value, key], i) => `<button class="chip ${i === 0 ? 'active' : ''}" data-history-filter="${value}" aria-pressed="${i === 0}">${t(key)}</button>`).join('');
+    const subjects = [...new Set(sessions.map(item => item.skill))].map(subject => `<option value="${this.escape(subject)}">${this.escape(subject)}</option>`).join('');
     return `<div class="page">
       ${this.viewHead(t('pageHistory'), 'histSub')}
       <div class="stat-grid three">
@@ -330,11 +519,13 @@ class EduApp extends HTMLElement {
       </div>
       <section class="card history-card">
         <div class="filter-row"><div class="chip-row">${filters}</div><label class="search-field">${svgIcon('search')}<input id="history-search" placeholder="${t('histSearch')}" aria-label="${t('histSearch')}" autocomplete="off"></label></div>
+        <div class="history-tools"><select id="history-subject" aria-label="${t('histSubjectFilter')}"><option value="all">${t('histSubjectFilter')}</option>${subjects}</select><select id="history-date" aria-label="${t('histDateFilter')}"><option value="all">${t('histDateFilter')}</option><option value="7">${t('histLast7')}</option><option value="30">${t('histLast30')}</option><option value="90">${t('histLast90')}</option></select><div class="history-data-actions"><button class="ghost-button" id="export-history">${svgIcon('download')} ${t('histExport')}</button><label class="ghost-button import-button" for="import-history">${t('histImport')}<input id="import-history" type="file" accept="application/json,.json"></label></div></div>
         <div class="session-table">
           <div class="session-head"><span>${t('histSession')}</span><span>${t('histSkill')}</span><span>${t('histScore')}</span><span>${t('histStatus')}</span><span></span></div>
           ${sessions.map(s => this.sessionRow(s)).join('')}
         </div>
         <p class="empty-note" id="history-empty" hidden>${t('histEmpty')}</p>
+        <div class="history-pagination"><button class="ghost-button" data-history-page="prev" aria-label="${t('back')}">←</button><span id="history-page-label">${t('histPage')} 1 / 1</span><button class="ghost-button" data-history-page="next" aria-label="${t('dashOpen')}">→</button></div>
       </section>
     </div>`;
   }
@@ -351,6 +542,8 @@ class EduApp extends HTMLElement {
       this.render();
     });
     this.querySelectorAll('[data-file]').forEach(input => input.addEventListener('change', e => this.setFile(e.target.dataset.file, e.target.files)));
+    this.hydrateFilePreviews();
+    if (this.view === 'history') requestAnimationFrame(() => this.filterHistory());
     const zone = this.querySelector('#drop-zone');
     if (zone) {
       zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
@@ -364,16 +557,23 @@ class EduApp extends HTMLElement {
   }
   onClick = (event) => {
     if (event.target.closest?.('[data-theme-toggle]')) { this.toggleTheme(); return; }
+    const more = event.target.closest?.('[data-mobile-more]');
+    if (more) { const menu = this.querySelector('#mobile-more-menu'); const open = menu?.hidden; if (menu) menu.hidden = !open; more.setAttribute('aria-expanded', String(open)); return; }
     const route = event.target.closest?.('[data-route]');
     if (route) { event.preventDefault(); this.navigate(route.dataset.route); return; }
+    const removeFile = event.target.closest?.('[data-remove-file]');
+    if (removeFile) { this.removeFile(removeFile.dataset.removeFile); return; }
     const filter = event.target.closest?.('[data-history-filter]');
-    if (filter) { this.querySelectorAll('[data-history-filter]').forEach(b => { b.classList.toggle('active', b === filter); b.setAttribute('aria-pressed', String(b === filter)); }); this.filterHistory(); return; }
+    if (filter) { this.historyPage = 1; this.querySelectorAll('[data-history-filter]').forEach(b => { b.classList.toggle('active', b === filter); b.setAttribute('aria-pressed', String(b === filter)); }); this.filterHistory(); return; }
+    const historyPage = event.target.closest?.('[data-history-page]');
+    if (historyPage) { this.historyPage += historyPage.dataset.historyPage === 'next' ? 1 : -1; this.filterHistory(); return; }
     const period = event.target.closest?.('[data-chart-period]');
     if (period) { this.chartPeriod = Number(period.dataset.chartPeriod); this.render(); return; }
     const challenge = event.target.closest?.('[data-challenge]');
     if (challenge) { this.openPractice(Number(challenge.dataset.challenge)); return; }
     const option = event.target.closest?.('[data-option]');
     if (option) { this.answerPractice(Number(option.dataset.option)); return; }
+    if (event.target.closest?.('[data-retry-practice]')) { this.retryPractice(); return; }
     if (event.target.closest?.('[data-close-practice]') || event.target.id === 'practice-modal') { this.closePractice(); return; }
     const langBtn = event.target.closest?.('[data-set-lang]');
     if (langBtn) { this.lang = langBtn.dataset.setLang; localStorage.setItem('paradox-lang', this.lang); this.render(); return; }
@@ -381,7 +581,10 @@ class EduApp extends HTMLElement {
     if (themeBtn) { this.applyTheme(themeBtn.dataset.setTheme === 'dark'); return; }
     if (event.target.closest?.('[data-upgrade]')) { this.showToast(this.t('profUpgradeToast')); return; }
     if (event.target.closest?.('#export-data')) { this.exportData(); return; }
-    if (event.target.closest?.('#reset-data')) { this.resetPractice(); return; }
+    if (event.target.closest?.('#export-history')) { this.exportHistory(); return; }
+    if (event.target.closest?.('#reset-data')) { this.openResetModal(); return; }
+    if (event.target.closest?.('[data-confirm-reset]')) { this.resetPractice(); return; }
+    if (event.target.closest?.('[data-cancel-reset]') || event.target.id === 'reset-modal') { this.closeResetModal(); return; }
     if (event.target.closest?.('#delete-account')) { this.logout(); }
   };
   onChange = (event) => {
@@ -389,9 +592,12 @@ class EduApp extends HTMLElement {
     if (setting) { this.settings[setting.dataset.setting] = setting.checked; this.saveSettings(); this.showToast(this.t('setSaved')); return; }
     if (event.target.id === 'default-subject') { this.settings.subject = event.target.value; this.saveSettings(); this.showToast(this.t('setSaved')); return; }
     if (event.target.id === 'hint-level') { this.settings.hint = Number(event.target.value); this.saveSettings(); this.showToast(this.t('setSaved')); }
+    if (event.target.id === 'history-subject' || event.target.id === 'history-date') { this.historyPage = 1; this.filterHistory(); return; }
+    if (event.target.id === 'import-history') this.importHistory(event.target.files?.[0]);
   };
   onInput = (event) => {
-    if (event.target.id === 'history-search') this.filterHistory();
+    if (event.target.id === 'history-search') { this.historyPage = 1; this.filterHistory(); }
+    if (event.target.id === 'work-text') { this.auditText = event.target.value; this.saveAuditState(); }
     if (event.target.id === 'hint-level') {
       const label = this.querySelector('#hint-value');
       const value = Number(event.target.value);
@@ -412,6 +618,10 @@ class EduApp extends HTMLElement {
     if (event.key !== 'Escape') return;
     const modal = this.querySelector('#practice-modal');
     if (modal && !modal.hidden) { this.closePractice(); return; }
+    const reset = this.querySelector('#reset-modal');
+    if (reset && !reset.hidden) { this.closeResetModal(); return; }
+    const more = this.querySelector('#mobile-more-menu');
+    if (more && !more.hidden) { more.hidden = true; this.querySelector('[data-mobile-more]')?.setAttribute('aria-expanded', 'false'); return; }
     const auth = this.querySelector('#auth-backdrop');
     if (auth && !auth.hidden) { auth.hidden = true; return; }
     if (location.hash === '#/sitemap') this.navigate('');
@@ -419,17 +629,72 @@ class EduApp extends HTMLElement {
   filterHistory() {
     const active = this.querySelector('[data-history-filter].active')?.dataset.historyFilter || 'all';
     const query = (this.querySelector('#history-search')?.value || '').trim().toLowerCase();
+    const subject = this.querySelector('#history-subject')?.value || 'all';
+    const dateRange = this.querySelector('#history-date')?.value || 'all';
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
     const rows = [...this.querySelectorAll('[data-session-status]')];
-    rows.forEach(row => {
+    const matches = rows.filter(row => {
       const statusOk = active === 'all' || row.dataset.sessionStatus === active;
       const queryOk = !query || (row.dataset.search || row.textContent.toLowerCase()).includes(query);
-      row.hidden = !(statusOk && queryOk);
+      const subjectOk = subject === 'all' || row.dataset.sessionSubject === subject;
+      const sessionDate = new Date(`${row.dataset.sessionDate}T00:00:00`);
+      const daysAgo = Math.floor((now - sessionDate) / 86400000);
+      const dateOk = dateRange === 'all' || (!Number.isNaN(daysAgo) && daysAgo >= 0 && daysAgo < Number(dateRange));
+      return statusOk && queryOk && subjectOk && dateOk;
     });
+    const pages = Math.max(1, Math.ceil(matches.length / this.historyPageSize));
+    this.historyPage = Math.max(1, Math.min(pages, this.historyPage));
+    const start = (this.historyPage - 1) * this.historyPageSize;
+    rows.forEach(row => { row.hidden = true; });
+    matches.slice(start, start + this.historyPageSize).forEach(row => { row.hidden = false; });
     const empty = this.querySelector('#history-empty');
-    if (empty) empty.hidden = rows.some(row => !row.hidden);
+    if (empty) empty.hidden = matches.length > 0;
+    const label = this.querySelector('#history-page-label');
+    if (label) label.textContent = `${this.t('histPage')} ${this.historyPage} / ${pages}`;
+    const previous = this.querySelector('[data-history-page="prev"]');
+    const next = this.querySelector('[data-history-page="next"]');
+    if (previous) previous.disabled = this.historyPage === 1;
+    if (next) next.disabled = this.historyPage === pages;
+  }
+  exportHistory() {
+    const payload = { sessions: this.getSessions(), exportedAt: new Date().toISOString(), version: 1 };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'paradox-learning-history.json';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+  async importHistory(file) {
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const source = Array.isArray(parsed) ? parsed : parsed.sessions;
+      if (!Array.isArray(source)) throw new Error('Invalid sessions');
+      const sessions = source.map((item, index) => {
+        if (!item || typeof item.title !== 'string' || !Number.isFinite(Number(item.score))) throw new Error('Invalid session');
+        return {
+          id: item.id || `import-${Date.now()}-${index}`,
+          date: String(item.date || ''),
+          isoDate: /^\d{4}-\d{2}-\d{2}$/.test(String(item.isoDate || '')) ? item.isoDate : '',
+          title: item.title.slice(0, 160),
+          skill: String(item.skill || this.t('setSubjectMath')).slice(0, 80),
+          status: ['needs', 'mastered', 'progress'].includes(item.status) ? item.status : 'progress',
+          score: Math.max(0, Math.min(100, Math.round(Number(item.score))))
+        };
+      });
+      localStorage.setItem('paradox-audit-sessions', JSON.stringify(sessions.slice(0, 100)));
+      this.historyPage = 1;
+      this.render();
+      this.showToast(this.t('histImportDone'));
+    } catch {
+      this.showToast(this.t('histImportError'));
+    }
   }
   exportData() {
-    const payload = { user: this.user, settings: this.settings, practice: this.practiceSolved, sessions: demo[this.lang].sessions, exportedAt: new Date().toISOString() };
+    const payload = { user: this.user, settings: this.settings, practice: this.practiceSolved, sessions: this.getSessions(), exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -440,11 +705,25 @@ class EduApp extends HTMLElement {
     this.showToast(this.t('setExportDone'));
   }
   resetPractice() {
-    if (!window.confirm(this.t('setConfirmReset'))) return;
     localStorage.removeItem('paradox-practice');
+    localStorage.removeItem('paradox-practice-activity');
     this.practiceSolved = [];
+    this.practiceActivity = [];
     this.render();
     this.showToast(this.t('setResetDone'));
+  }
+  openResetModal() {
+    const modal = this.querySelector('#reset-modal');
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    modal.querySelector('[data-cancel-reset]')?.focus();
+  }
+  closeResetModal() {
+    const modal = this.querySelector('#reset-modal');
+    if (modal) modal.hidden = true;
+    document.body.style.overflow = '';
+    this.querySelector('#reset-data')?.focus();
   }
   viewSettings() {
     const t = k => this.t(k);
@@ -479,6 +758,7 @@ class EduApp extends HTMLElement {
           <div class="setting-row"><div><h4>${t('setOpenSitemap')}</h4><p>${t('setSitemapDesc')}</p></div><button class="ghost-button" data-route="sitemap">${svgIcon('grid')}</button></div>
         </section>
       </div>
+      <div class="confirm-backdrop" id="reset-modal" hidden><section class="confirm-panel" role="dialog" aria-modal="true" aria-labelledby="reset-title"><span class="badge-icon">${svgIcon('trash')}</span><h2 id="reset-title">${t('setResetTitle')}</h2><p>${t('setConfirmReset')}</p><div class="confirm-actions"><button class="ghost-button" data-cancel-reset>${t('profCancel')}</button><button class="danger-button" data-confirm-reset>${t('setResetConfirm')}</button></div></section></div>
     </div>`;
   }
   renderSitemap() {
@@ -551,27 +831,40 @@ class EduApp extends HTMLElement {
   }
   setFile(type, files) {
     if (!files?.length) return;
-    this.files[type] = [...files];
-    const node = this.querySelector(`[data-file-name="${type}"]`);
-    if (!node) return;
-    node.textContent = files.length > 1 ? `${files.length} files selected` : files[0].name;
-    node.style.color = '#527d32';
+    const file = files[0];
+    const extension = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!ALLOWED_FILE_EXTENSIONS.includes(extension)) { this.showToast(this.t('fileInvalid')); return; }
+    if (file.size > MAX_FILE_SIZE) { this.showToast(this.t('fileTooLarge')); return; }
+    this.files[type] = [file];
+    this.saveAuditState();
+    this.render();
+  }
+  removeFile(type) {
+    if (!['problem', 'work'].includes(type)) return;
+    if (this.filePreviewUrls[type]) URL.revokeObjectURL(this.filePreviewUrls[type]);
+    delete this.filePreviewUrls[type];
+    this.files[type] = [];
+    this.saveAuditState();
+    this.render();
   }
   viewAnalytics() {
     const t = k => this.t(k);
     const period = this.chartPeriod || 30;
-    const data = charts[period];
-    const labels = period === 7 ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] : data.map((_, i) => String(i + 1));
-    const bars = data.map((h, i) => `<div class="bar-wrap"><span class="bar ${i === data.length - 2 ? 'hot' : ''}" style="height:${h}%" title="${h}"></span></div>`).join('');
+    const metrics = this.learningMetrics();
+    const series = this.activitySeries(period);
+    const labels = period === 7 ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] : series.values.map((_, i) => String(i + 1));
+    const maxValue = Math.max(...series.values);
+    const bars = series.heights.map((height, i) => `<div class="bar-wrap"><span class="bar ${series.values[i] === maxValue && maxValue ? 'hot' : ''}" style="height:${height}%" title="${series.values[i]} min"></span></div>`).join('');
+    const skillValues = [metrics.accuracy, metrics.average, Math.min(100, 45 + this.practiceSolved.length * 8), Math.min(100, 40 + metrics.mastered * 10)];
     const skillRows = skillValues.map((value, i) => `<div class="skill-row"><div class="skill-top"><span>${t('skill' + (i + 1))}</span><span>${value}%</span></div><div class="skill-track"><span style="width:${value}%"></span></div></div>`).join('');
     return `<div class="page">
       ${this.viewHead(t('pageAnalytics'), 'anaSub')}
       <div class="period-row">${[[7, 'ana7'], [30, 'ana30'], [90, 'ana90']].map(([p, k]) => `<button class="chip ${period === p ? 'active' : ''}" data-chart-period="${p}" aria-pressed="${period === p}">${t(k)}</button>`).join('')}</div>
       <div class="stat-grid">
-        ${this.statCard(t('accuracy'), '72%', '', '↗ 8%')}
-        ${this.statCard(t('anaScore'), 78, '/100')}
-        ${this.statCard(t('anaSessions'), 24, '')}
-        ${this.statCard(t('streak'), 6, this.lang === 'en' ? 'days' : this.lang === 'jp' ? '日' : 'ngày')}
+        ${this.statCard(t('accuracy'), `${metrics.accuracy}%`)}
+        ${this.statCard(t('anaScore'), metrics.average, '/100')}
+        ${this.statCard(t('anaSessions'), metrics.sessions.length, '')}
+        ${this.statCard(t('streak'), metrics.streak, this.lang === 'en' ? 'days' : this.lang === 'jp' ? '日' : 'ngày')}
       </div>
       <div class="analytics-grid">
         <section class="card chart-card"><div class="panel-head"><div><h3 class="panel-title">${t('anaWeekly')}</h3><p class="panel-sub">${t('anaWeeklySub')}</p></div><span class="plan-tag">${t('thisWeek')}</span></div><div class="big-chart">${bars}</div><div class="big-chart-labels">${labels.map(l => `<span>${l}</span>`).join('')}</div></section>
@@ -579,7 +872,7 @@ class EduApp extends HTMLElement {
       </div>
       <h2 class="section-title">${t('anaInsights')}</h2>
       <div class="insight-grid">
-        <article class="card insight-card strong"><span class="eyebrow">${t('anaStrength')}</span><p>${t('anaStrengthDesc')}</p></article>
+        <article class="card insight-card strong"><span class="eyebrow">${t('anaStrength')}</span><p>${t('anaStrengthDesc').replace('{value}', String(metrics.accuracy))}</p></article>
         <article class="card insight-card focus"><span class="eyebrow">${t('anaFocus')}</span><p>${t('anaFocusDesc')}</p></article>
         <article class="card insight-card tip"><span class="eyebrow">${t('anaTip')}</span><p>${t('anaTipDesc')}</p></article>
       </div>
@@ -588,6 +881,13 @@ class EduApp extends HTMLElement {
   viewPractice() {
     const t = k => this.t(k);
     const list = demo[this.lang].challenges;
+    const topics = [...new Set(list.map(item => item.subject))];
+    const topicProgress = topics.map(subject => {
+      const indexes = list.map((item, index) => item.subject === subject ? index : -1).filter(index => index >= 0);
+      const solved = indexes.filter(index => this.practiceSolved.includes(index)).length;
+      const percent = Math.round(solved / indexes.length * 100);
+      return `<article class="topic-progress-card"><div class="skill-top"><span>${this.escape(subject)}</span><span>${solved}/${indexes.length}</span></div><div class="skill-track"><span style="width:${percent}%"></span></div><small>${solved} ${t('pracSolvedCount')}</small></article>`;
+    }).join('');
     const cards = list.map((c, i) => {
       const done = this.practiceSolved.includes(i);
       return `<article class="challenge-card ${done ? 'solved' : ''}">
@@ -604,6 +904,7 @@ class EduApp extends HTMLElement {
         <div><span class="eyebrow">${t('pracDaily')}</span><h3>${t('pracDailyTitle')}</h3><p>${t('pracDailyDesc')}</p></div>
         <div class="daily-side"><span class="difficulty">${t('difficulty')}</span><button class="primary-button" data-challenge="0">${t('pracStart')} ↗</button></div>
       </section>
+      <section class="topic-progress-section"><h2 class="section-title">${t('pracTopicProgress')}</h2><div class="topic-progress-grid">${topicProgress}</div></section>
       <div class="challenge-grid">${cards}</div>
       <p class="practice-count">${t('pracSolved')}: ${this.practiceSolved.length} / ${list.length}</p>
       <div class="practice-backdrop" id="practice-modal" hidden></div>
@@ -643,10 +944,12 @@ class EduApp extends HTMLElement {
     const result = modal.querySelector('#practice-result');
     result.hidden = false;
     result.className = `practice-result ${correct ? 'ok' : 'no'}`;
-    result.innerHTML = `<strong>${correct ? this.t('pracCorrect') : this.t('pracWrong')}</strong><p>${this.escape(ch.explanation)}</p>`;
+    result.innerHTML = `<strong>${correct ? this.t('pracCorrect') : this.t('pracWrong')}</strong><p>${this.escape(ch.explanation)}</p>${correct ? '' : `<button class="ghost-button" type="button" data-retry-practice>${this.t('pracRetry')}</button>`}`;
     if (correct && !this.practiceSolved.includes(this.practiceIndex)) {
       this.practiceSolved.push(this.practiceIndex);
       localStorage.setItem('paradox-practice', JSON.stringify(this.practiceSolved));
+      this.practiceActivity.push({ isoDate: this.localDateKey(), minutes: ch.mins, subject: ch.subject, challenge: this.practiceIndex });
+      localStorage.setItem('paradox-practice-activity', JSON.stringify(this.practiceActivity.slice(-200)));
       this.querySelectorAll(`[data-challenge="${this.practiceIndex}"]`).forEach(btn => {
         btn.textContent = `${this.t('pracSolved')} ↗`;
         btn.closest('.challenge-card')?.classList.add('solved');
@@ -654,6 +957,14 @@ class EduApp extends HTMLElement {
       const count = this.querySelector('.practice-count');
       if (count) count.textContent = `${this.t('pracSolved')}: ${this.practiceSolved.length} / ${demo[this.lang].challenges.length}`;
     }
+  }
+  retryPractice() {
+    const modal = this.querySelector('#practice-modal');
+    if (!modal) return;
+    modal.querySelectorAll('[data-option]').forEach(button => { button.disabled = false; button.classList.remove('correct', 'wrong'); });
+    const result = modal.querySelector('#practice-result');
+    if (result) { result.hidden = true; result.className = 'practice-result'; result.innerHTML = ''; }
+    modal.querySelector('[data-option]')?.focus();
   }
   closePractice() {
     const modal = this.querySelector('#practice-modal');
@@ -664,35 +975,53 @@ class EduApp extends HTMLElement {
     this.practiceIndex = null;
   }
   startAudit() {
+    if (this.isAnalyzing) return;
     const field = this.querySelector('#work-text');
     const text = field ? field.value.trim() : '';
     if (!text && !this.files.work.length) { this.showToast(this.t('feedback')); field?.focus(); return; }
+    this.auditText = text;
+    this.recordAuditSession(text);
     this.advance(1); this.appendMessage(this.t('submitted'));
-    window.setTimeout(() => { this.advance(2); this.appendMessage(`${this.t('incorrect')}<div style="margin-top:7px"><span class="prompt">${this.t('greetingPrompt')}</span></div>`); this.addReplies(); }, 500);
+    this.runAnalysis(() => { this.advance(2); this.appendMessage(`${this.t('incorrect')}<div style="margin-top:7px"><span class="prompt">${this.t('greetingPrompt')}</span></div>`); this.addReplies(); }, 700);
   }
   sendMessage() {
+    if (this.isAnalyzing) return;
     const input = this.querySelector('#chat-message');
     if (!input) return;
     const value = input.value.trim(); if (!value) return;
     this.appendMessage(this.escape(value), true); input.value = '';
     const normalized = value.toLowerCase();
-    window.setTimeout(() => {
+    this.runAnalysis(() => {
       if (/gợi ý|hint|ヒント|không tìm|can't|cant|không biết/.test(normalized)) { this.advance(3); this.appendMessage(this.t('hint')); this.addReplies(); }
       else if (/sửa|fixed|chỉnh|修正|đổi/.test(normalized)) { this.advance(5); this.appendMessage(this.t('correct')); this.addReplies(); }
       else if (/đáp án|cứu|answer|解答|rescue/.test(normalized)) { this.advance(5); this.appendMessage(this.t('rescue')); this.addReplies(); }
       else { if (this.step < 4) this.advance(this.step + 1); this.appendMessage(this.t('incorrect')); this.addReplies(); }
-    }, 350);
+    }, 650);
+  }
+  setAnalyzing(active) {
+    this.isAnalyzing = active;
+    this.querySelectorAll('#start-audit, #chat-message, .send-button, .reply-chip').forEach(element => { element.disabled = active; });
+    const existing = this.querySelector('#typing-indicator');
+    if (active && !existing) this.querySelector('#messages')?.insertAdjacentHTML('beforeend', this.typingMarkup());
+    if (!active) existing?.remove();
+  }
+  runAnalysis(callback, delay = 650) {
+    this.setAnalyzing(true);
+    window.setTimeout(() => { this.setAnalyzing(false); callback(); }, delay);
   }
   addReplies() {
     const messages = this.querySelector('#messages');
     if (!messages) return;
     messages.querySelectorAll('.quick-replies').forEach(el => el.remove());
     const wrap = document.createElement('div'); wrap.className = 'quick-replies'; wrap.innerHTML = `<button class="reply-chip" data-action="hint">${this.lang === 'en' ? 'I need a hint' : this.lang === 'jp' ? 'ヒントがほしい' : 'Mình cần gợi ý'}</button><button class="reply-chip" data-action="rescue">${this.lang === 'en' ? 'Show the full solution' : this.lang === 'jp' ? '解説を見る' : 'Xem lời giải'}</button><button class="reply-chip" data-action="practice">${this.lang === 'en' ? 'Give me a similar problem' : this.lang === 'jp' ? '似た問題を出して' : 'Cho bài tương tự'}</button>`;
-    wrap.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', () => { const action = btn.dataset.action; if (action === 'hint') { this.advance(3); this.appendMessage(this.t('hint')); } if (action === 'rescue') { this.advance(5); this.appendMessage(this.t('rescue')); } if (action === 'practice') { this.advance(6); this.appendMessage(this.t('practiceFeedback')); } wrap.remove(); this.addReplies(); }));
+    wrap.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', () => { const action = btn.dataset.action; wrap.remove(); this.runAnalysis(() => { if (action === 'hint') { this.advance(3); this.appendMessage(this.t('hint')); } if (action === 'rescue') { this.advance(5); this.appendMessage(this.t('rescue')); } if (action === 'practice') { this.advance(6); this.appendMessage(this.t('practiceFeedback')); } this.addReplies(); }); }));
     messages.append(wrap);
   }
   appendMessage(html, user = false) {
     const messages = this.querySelector('#messages');
+    this.auditMessages.push({ html, user, at: new Date().toISOString() });
+    this.auditMessages = this.auditMessages.slice(-60);
+    this.saveAuditState();
     if (!messages) return;
     const initials = (this.user?.name || 'U').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
     const item = document.createElement('audit-message'); item.className = `message ${user ? 'user' : ''}`;
@@ -701,6 +1030,8 @@ class EduApp extends HTMLElement {
   }
   advance(step) {
     this.step = Math.max(0, Math.min(6, step));
+    this.updateAuditProgress(this.step);
+    this.saveAuditState();
     const root = this.querySelector('audit-stepper');
     if (!root) return;
     root.innerHTML = this.t('stepLabels').map((s, i) => `<div class="step ${i < this.step ? 'done' : ''} ${i === this.step ? 'active' : ''}"><span class="step-num">${i < this.step ? '✓' : i + 1}</span><span class="step-name">${s}</span></div>`).join('');
