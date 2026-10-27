@@ -341,6 +341,9 @@ class EduApp extends HTMLElement {
   bind() {
     this.querySelector('#logout-button')?.addEventListener('click', () => this.logout());
     this.applyStoredTheme();
+    if (window.matchMedia('(max-width: 540px)').matches) {
+      requestAnimationFrame(() => this.querySelector('.nav-item.active')?.scrollIntoView({ block: 'nearest', inline: 'center' }));
+    }
     this.querySelector('#lang-toggle')?.addEventListener('click', () => {
       const langs = ['vi', 'en', 'jp'];
       this.lang = langs[(langs.indexOf(this.lang) + 1) % langs.length];

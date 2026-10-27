@@ -380,7 +380,7 @@ body.dark .continue-card, body.dark .daily-card { background: #1b2a21; }
     padding-inline: 18px;
     gap: 10px;
   }
-  .landing .landing-brand { min-width: 0; }
+  .landing .landing-brand { order: 2; min-width: 0; margin-right: auto; }
   .landing .landing-brand span { min-width: 0; }
   .landing .landing-brand small {
     overflow: hidden;
@@ -389,6 +389,7 @@ body.dark .continue-card, body.dark .daily-card { background: #1b2a21; }
     white-space: nowrap;
   }
   .landing .mobile-menu-toggle {
+    order: 1;
     flex: 0 0 40px;
     width: 40px;
     height: 40px;
