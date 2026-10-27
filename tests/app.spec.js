@@ -88,6 +88,8 @@ test.describe('app shell', () => {
     await seedSession(page);
     await page.goto('/#/dashboard');
     const toggle = page.locator('[data-theme-toggle]').first();
+    await expect(page.locator('.continue-step')).toHaveText('01 / 07');
+    await expect(page.locator('.continue-progress')).toHaveAttribute('aria-valuenow', '1');
 
     await toggle.click();
     await expect(page.locator('body')).toHaveClass(/dark/);

@@ -43,7 +43,7 @@ class EduApp extends HTMLElement {
     this.handleRoute();
     this.loadAuditState().then(() => {
       this.auditStorageReady = true;
-      if (this.user && this.view === 'audit') this.render();
+      if (this.user && ['audit', 'dashboard'].includes(this.view)) this.render();
     });
   }
   disconnectedCallback() {

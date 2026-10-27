@@ -79,7 +79,7 @@ body.dark .footer-sitemap:hover { color: #c6f277; }
 .continue-card h2 { margin: 14px 0 8px; font: 500 25px/1.2 'Lora', Georgia, serif; letter-spacing: -.03em; }
 .continue-card p { max-width: 520px; margin: 0 0 18px; color: #c6cfc2; font-size: 11px; line-height: 1.7; }
 .continue-progress { height: 5px; overflow: hidden; border-radius: 99px; background: #3b4f41; }
-.continue-progress span { display: block; width: 57%; height: 100%; background: #c6f277; }
+.continue-progress span { display: block; height: 100%; background: #c6f277; }
 .continue-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 15px; }
 .continue-foot .difficulty { color: #c6f277; }
 .continue-card .primary-button { background: #f5f2e9; color: #24382c; }

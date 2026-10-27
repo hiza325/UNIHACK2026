@@ -7,6 +7,8 @@ export const dashboardViews = {
     const greeting = t('welcome').replace('Minh Anh', name).replace('ミン・アイン', name);
     const metrics = this.learningMetrics();
     const recent = metrics.sessions.slice(0, 3).map(s => this.sessionRow(s, true)).join('');
+    const currentStep = Math.max(1, Math.min(7, this.step + 1));
+    const progressPercent = Math.round(currentStep / 7 * 100);
     return `<div class="page">
       ${this.viewHead(greeting, 'subtitle')}
       <div class="quick-actions">
@@ -16,10 +18,10 @@ export const dashboardViews = {
       <div class="content-grid">
         <div class="left-stack">
           <section class="card continue-card">
-            <div class="continue-top"><span class="eyebrow">${t('dashContinue')}</span><span class="continue-step">04 / 07</span></div>
+            <div class="continue-top"><span class="eyebrow">${t('dashContinue')}</span><span class="continue-step">${String(currentStep).padStart(2, '0')} / 07</span></div>
             <h2>${t('dashContinueTitle')}</h2>
             <p>${t('dashContinueDesc')}</p>
-            <div class="continue-progress" role="progressbar" aria-label="${t('dashContinueTitle')}" aria-valuemin="0" aria-valuemax="7" aria-valuenow="4" aria-valuetext="4 / 7"><span></span></div>
+            <div class="continue-progress" role="progressbar" aria-label="${t('dashContinueTitle')}" aria-valuemin="1" aria-valuemax="7" aria-valuenow="${currentStep}" aria-valuetext="${currentStep} / 7"><span style="width:${progressPercent}%"></span></div>
             <div class="continue-foot"><span class="difficulty">${t('difficulty')}</span><button class="primary-button" data-route="audit">${t('dashResume')} ↗</button></div>
           </section>
           <section class="card recent-card">
