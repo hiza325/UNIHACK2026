@@ -20,7 +20,8 @@ export const dataMethods = {
     return btoa(String.fromCharCode(...bytes));
   },
   publicAccount(account) {
-    return { id: account.id, name: account.name, email: account.email, role: account.role || 'user', status: account.status || 'active', createdAt: account.createdAt, verifiedAt: account.verifiedAt, lastLoginAt: account.lastLoginAt || null };
+    const email = this.normalizeEmail(account.email);
+    return { id: account.id, name: account.name, email, role: ADMIN_EMAILS.includes(email) ? 'admin' : (account.role || 'user'), status: account.status || 'active', createdAt: account.createdAt, verifiedAt: account.verifiedAt, lastLoginAt: account.lastLoginAt || null };
   },
   async registerAccount({ name, email, password }) {
     const normalizedEmail = this.normalizeEmail(email);
