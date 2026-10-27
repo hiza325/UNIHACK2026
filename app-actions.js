@@ -104,7 +104,7 @@ export const actionMethods = {
     this.practiceIndex = index;
     const t = k => this.t(k);
     modal.innerHTML = `<section class="practice-panel" role="dialog" aria-modal="true" aria-labelledby="practice-title">
-      <button class="practice-close" data-close-practice aria-label="${t('pracClose')}">×</button>
+      <button class="practice-close" data-close-practice aria-label="${t('pracClose')}"><span aria-hidden="true">×</span></button>
       <span class="eyebrow">${this.escape(ch.subject)} · ${t('pracLevel')} ${this.escape(ch.level)}</span>
       <h2 id="practice-title">${this.escape(ch.title)}</h2>
       <p class="practice-question">${this.escape(ch.question)}</p>
@@ -221,6 +221,6 @@ export const actionMethods = {
     this.saveAuditState();
     const root = this.querySelector('audit-stepper');
     if (!root) return;
-    root.innerHTML = this.t('stepLabels').map((s, i) => `<div class="step ${i < this.step ? 'done' : ''} ${i === this.step ? 'active' : ''}"><span class="step-num">${i < this.step ? '✓' : i + 1}</span><span class="step-name">${s}</span></div>`).join('');
+    root.innerHTML = this.auditStepsMarkup();
   },
 };

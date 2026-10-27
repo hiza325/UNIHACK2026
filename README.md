@@ -46,7 +46,8 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | `app.js` | Web Component gốc, vòng đời, routing và điều phối các module |
 | `app-config.js` | Cấu hình dùng chung, bản dịch nền và danh sách điều hướng |
 | `app-data.js` | IndexedDB/localStorage, History và dữ liệu Analytics |
-| `app-views.js` | Template cho landing page và các màn hình ứng dụng |
+| `app-views.js` | Re-export `viewMethods`; template nằm trong `views/` |
+| `views/` | Template tách theo khu vực: `landing`, `shell`, `cards` (helper chung), `dashboard`, `audit`, `history`, `analytics`, `practice`, `profile`, `about`, `settings`, `sitemap` |
 | `app-actions.js` | Tương tác Audit, Practice, upload và modal |
 | `i18n.js` | Bản dịch bổ sung cho 8 khu vực, Việt/Anh/Nhật |
 | `demo.js` | Dữ liệu demo cho phiên học, thử thách, biểu đồ và kỹ năng |
@@ -57,6 +58,22 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | `logo-mark.svg` | Logo PARADOX dạng vector |
 
 Khi sửa giao diện, cập nhật trực tiếp `styles.css`, `editorial.css` hoặc `views.css`. `index.html` tải `views.css` sau `editorial.css` để các view mới kế thừa đúng art direction. Không cần file SCSS hoặc bước biên dịch.
+
+## Kiểm thử
+
+Test end-to-end dùng Playwright + axe-core (`tests/app.spec.js`): đăng ký/đăng nhập/đăng xuất, route guard, theme, Practice Lab, bộ lọc History và quét accessibility ở mức critical cho landing, dashboard, audit và modal luyện tập.
+
+```bash
+npm install
+npx playwright install chromium
+npm test
+```
+
+`npm run serve` chạy static server (`tests/static-server.mjs`) tại `http://127.0.0.1:8173` nếu muốn tự duyệt thay vì `python -m http.server`.
+
+CI (`.github/workflows/test.yml`) chạy Playwright mỗi lần push/pull request và audit Lighthouse cho bản static.
+
+Axe chỉ fail ở mức **critical**; các vi phạm khác được log để xử lý dần. Vấn đề đã biết: `color-contrast` ở các nhãn mono xám cỡ nhỏ (quyết định art direction — cần chỉnh design token nếu muốn đạt AA).
 
 ### Điều hướng nhanh
 

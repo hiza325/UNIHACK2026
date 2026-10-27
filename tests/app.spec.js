@@ -1,0 +1,142 @@
+import { test, expect } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
+
+const SESSION = { name: 'Test User', email: 'test@example.com' };
+
+function seedSession(page) {
+  return page.addInitScript(user => localStorage.setItem('paradox-session', JSON.stringify(user)), SESSION);
+}
+
+async function blockFontRequests(page) {
+  await page.route(/fonts\.googleapis\.com|fonts\.gstatic\.com/, route => route.abort());
+}
+
+async function axeCriticalViolations(page, contextName) {
+  const results = await new AxeBuilder({ page }).analyze();
+  if (results.violations.length) {
+    console.log(`[axe:${contextName}]`, results.violations.map(v => `${v.impact}:${v.id}`).join(', '));
+  }
+  return results.violations.filter(v => v.impact === 'critical');
+}
+
+test.beforeEach(async ({ page }) => {
+  await blockFontRequests(page);
+});
+
+test.describe('auth', () => {
+  test('landing renders and passes axe (critical)', async ({ page }) => {
+    await page.goto('/');
+    await expect(page).toHaveTitle(/PARADOX AI/);
+    await expect(page.locator('#landing-login')).toBeVisible();
+    expect(await axeCriticalViolations(page, 'landing')).toEqual([]);
+  });
+
+  test('signup creates a session, logout returns to landing', async ({ page }) => {
+    await page.goto('/');
+    await page.click('#hero-start');
+    await page.fill('input[name="name"]', SESSION.name);
+    await page.fill('input[name="email"]', SESSION.email);
+    await page.fill('input[name="password"]', 'secret123');
+    await page.fill('input[name="confirm"]', 'secret123');
+    await page.click('.auth-submit');
+    await expect(page.locator('.sidebar')).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('paradox-session'))?.email)).toBe(SESSION.email);
+
+    await page.click('#logout-button');
+    await expect(page.locator('#landing-login')).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem('paradox-session'))).toBeNull();
+  });
+
+  test('signup rejects mismatched passwords', async ({ page }) => {
+    await page.goto('/');
+    await page.click('#hero-start');
+    await page.fill('input[name="name"]', SESSION.name);
+    await page.fill('input[name="email"]', SESSION.email);
+    await page.fill('input[name="password"]', 'secret123');
+    await page.fill('input[name="confirm"]', 'different');
+    await page.click('.auth-submit');
+    await expect(page.locator('#auth-error')).not.toBeEmpty();
+    expect(await page.evaluate(() => localStorage.getItem('paradox-session'))).toBeNull();
+  });
+});
+
+test.describe('route guard', () => {
+  test('protected hash prompts login, then lands on the requested view', async ({ page }) => {
+    await page.goto('/#/history');
+    await expect(page.locator('#auth-backdrop')).toBeVisible();
+
+    await page.fill('input[name="email"]', SESSION.email);
+    await page.fill('input[name="password"]', 'secret123');
+    await page.click('.auth-submit');
+
+    await expect(page).toHaveURL(/#\/history$/);
+    await expect(page.getByRole('heading', { name: 'Lịch sử bài làm' })).toBeVisible();
+  });
+
+  test('sitemap stays public without a session', async ({ page }) => {
+    await page.goto('/#/sitemap');
+    await expect(page.locator('.sitemap-page')).toBeVisible();
+    await expect(page.locator('#auth-backdrop')).toBeHidden();
+  });
+});
+
+test.describe('app shell', () => {
+  test('theme toggle switches dark mode and persists', async ({ page }) => {
+    await seedSession(page);
+    await page.goto('/#/dashboard');
+    const toggle = page.locator('[data-theme-toggle]').first();
+
+    await toggle.click();
+    await expect(page.locator('body')).toHaveClass(/dark/);
+    expect(await page.evaluate(() => localStorage.getItem('paradox-theme'))).toBe('dark');
+
+    await toggle.click();
+    await expect(page.locator('body')).not.toHaveClass(/dark/);
+    expect(await page.evaluate(() => localStorage.getItem('paradox-theme'))).toBe('light');
+  });
+
+  test('all main views pass axe (critical)', async ({ page }) => {
+    await seedSession(page);
+    test.setTimeout(60000);
+    for (const view of ['dashboard', 'audit', 'history', 'analytics', 'practice', 'profile', 'about', 'settings']) {
+      await page.goto(`/#/${view}`);
+      await expect(page.locator('.page')).toBeVisible();
+      expect(await axeCriticalViolations(page, view), `axe violations on ${view}`).toEqual([]);
+    }
+  });
+});
+
+test.describe('practice lab', () => {
+  test('answering a challenge marks it solved and persists', async ({ page }) => {
+    await seedSession(page);
+    await page.goto('/#/practice');
+    await page.locator('.challenge-card [data-challenge="0"]').click();
+    await expect(page.locator('#practice-modal')).toBeVisible();
+
+    await page.locator('[data-option="1"]').click(); // correct answer for challenge 0
+    await expect(page.locator('#practice-result.ok')).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('paradox-practice') || '[]'))).toContain(0);
+
+    expect(await axeCriticalViolations(page, 'practice-modal')).toEqual([]);
+    await page.locator('.practice-close').click();
+    await expect(page.locator('#practice-modal')).toBeHidden();
+  });
+});
+
+test.describe('history filters', () => {
+  test('status chip and search narrow the session list', async ({ page }) => {
+    await seedSession(page);
+    await page.goto('/#/history');
+
+    const rows = page.locator('[data-session-status]');
+    await expect(rows).toHaveCount(6);
+    await expect(page.locator('[data-session-status]:visible')).toHaveCount(5); // page size
+
+    await page.click('[data-history-filter="mastered"]');
+    await expect(page.locator('[data-session-status]:visible')).toHaveCount(3);
+
+    await page.click('[data-history-filter="all"]');
+    await page.fill('#history-search', 'python');
+    await expect(page.locator('[data-session-status]:visible')).toHaveCount(1);
+  });
+});

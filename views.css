@@ -110,7 +110,7 @@ body.dark .footer-sitemap:hover { color: #c6f277; }
 /* Practice Lab */
 .daily-card { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; padding: 20px 22px; margin: 0 0 16px; border: 0; background: #24382c; color: #f5f2e9; }
 .daily-card .eyebrow { color: #b9c3ae; }
-.daily-card h3 { margin: 11px 0 7px; font: 500 23px/1.2 'Lora', Georgia, serif; letter-spacing: -.02em; }
+.daily-card h2 { margin: 11px 0 7px; font: 500 23px/1.2 'Lora', Georgia, serif; letter-spacing: -.02em; }
 .daily-card p { margin: 0; color: #c6cfc2; font-size: 11px; line-height: 1.6; }
 .daily-side { display: flex; flex: 0 0 auto; align-items: center; gap: 14px; }
 .daily-card .difficulty { color: #c6f277; }
@@ -200,7 +200,7 @@ body.dark .footer-sitemap:hover { color: #c6f277; }
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 14px; }
 .setting-group { padding-bottom: 6px; }
 .setting-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 13px 20px; border-top: 1px solid #ecece5; }
-.setting-row h4 { margin: 0 0 3px; font-size: 11px; }
+.setting-row h3 { margin: 0 0 3px; font-size: 11px; }
 .setting-row p { max-width: 300px; margin: 0; color: #8b958b; font-size: 9px; line-height: 1.5; }
 .setting-row .ghost-button { flex: 0 0 auto; }
 .segmented { display: inline-flex; overflow: hidden; border: 1px solid #d9dcd3; border-radius: 7px; background: #fffdf7; }
@@ -299,7 +299,7 @@ body.sitemap-mode { background: #080808; color: #f4f4f0; }
 /* Dark theme for the new views */
 body.dark .stat-card, body.dark .challenge-card, body.dark .search-field, body.dark .setting-row select, body.dark .segmented, body.dark .profile-form input, body.dark .badge-tile { background: #1c2420; border-color: #2c3630; color: #dce5df; }
 body.dark .view-sub, body.dark .panel-sub, body.dark .session-date, body.dark .session-skill, body.dark .setting-row p, body.dark .challenge-card p, body.dark .empty-note, body.dark .practice-count, body.dark .profile-since, body.dark .profile-hero-copy p, body.dark .badge-tile small, body.dark .challenge-meta, body.dark .challenge-badge, body.dark .search-field, body.dark .practice-source, body.dark .stat-label { color: #98a69c; }
-body.dark .view-head h1, body.dark .section-title, body.dark .panel-title, body.dark .session-title, body.dark .setting-row h4, body.dark .profile-hero-copy h2, body.dark .profile-plan strong, body.dark .challenge-card h3, body.dark .guide-step h3, body.dark .principle h3, body.dark .faq-list summary { color: #edf3ef; }
+body.dark .view-head h1, body.dark .section-title, body.dark .panel-title, body.dark .session-title, body.dark .setting-row h3, body.dark .profile-hero-copy h2, body.dark .profile-plan strong, body.dark .challenge-card h3, body.dark .guide-step h3, body.dark .principle h3, body.dark .faq-list summary { color: #edf3ef; }
 body.dark .session-row, body.dark .session-head, body.dark .recent-list, body.dark .guide-step, body.dark .setting-row, body.dark .faq-list details, body.dark .big-chart { border-color: #2b342e; }
 body.dark .session-row:hover { background: #202a24; }
 body.dark .session-score, body.dark .stat-value { color: #edf3ef; }
