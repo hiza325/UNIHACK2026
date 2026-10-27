@@ -366,3 +366,184 @@ body.dark .continue-card, body.dark .daily-card { background: #1b2a21; }
   .nav-item { padding-block: 8px; }
   .plan-card { display: none; }
 }
+
+/* Mobile polish — keep these overrides isolated from tablet/desktop layouts */
+@media (max-width: 600px) {
+  html { scroll-padding-bottom: 78px; }
+  body { overflow-x: hidden; }
+  button, a, input, select, textarea { touch-action: manipulation; }
+
+  /* Landing */
+  .landing { padding-inline: 18px; }
+  .landing .landing-nav {
+    margin-inline: -18px;
+    padding-inline: 18px;
+    gap: 10px;
+  }
+  .landing .landing-brand { min-width: 0; }
+  .landing .landing-brand span { min-width: 0; }
+  .landing .landing-brand small {
+    overflow: hidden;
+    max-width: 170px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .landing .mobile-menu-toggle {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+  }
+  .landing .landing-nav nav#landing-nav-links {
+    left: 18px;
+    right: 18px;
+    max-height: calc(100dvh - 82px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .landing .landing-nav nav#landing-nav-links a,
+  .landing .landing-nav nav#landing-nav-links button:not(.landing-theme-toggle) {
+    min-height: 42px;
+  }
+  .landing .hero {
+    min-height: 0;
+    padding-top: 14px;
+  }
+  .landing .hero h1 {
+    font-size: clamp(38px, 12vw, 48px);
+    overflow-wrap: anywhere;
+  }
+  .landing .hero-actions { align-items: stretch; }
+  .landing .hero-primary { min-height: 48px; }
+  .study-scene {
+    max-width: 100%;
+    padding: 18px 5px 24px;
+  }
+  .study-scene::before { inset: 12px 0 24px 14px; }
+  .study-sheet {
+    width: calc(100% - 7px);
+    padding: 20px 17px 18px;
+    transform: rotate(-.7deg);
+  }
+  .solution-line { gap: 13px; font-size: clamp(13px, 4vw, 16px); }
+  .solution-line.wrong { flex-wrap: wrap; }
+  .correction { font-size: 13px; }
+  .margin-note { padding-left: 16px; font-size: 15px; }
+  .landing .desktop-panels .landing-proof { padding-block: 19px; }
+  .landing .landing-footer { gap: 9px 14px; }
+
+  /* Auth modal */
+  .auth-backdrop { padding: 12px; }
+  .auth-panel {
+    max-height: calc(100dvh - 24px);
+    padding: 25px 18px 20px;
+    border-radius: 12px;
+  }
+  .auth-panel input, .auth-submit { min-height: 44px; }
+
+  /* Signed-in application */
+  .app-shell .main { padding: 0 12px 25px; }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    height: 58px;
+    margin-inline: -12px;
+    padding-inline: 12px;
+    background: rgba(246, 247, 243, .94);
+    backdrop-filter: blur(10px);
+  }
+  body.dark .topbar { background: rgba(21, 27, 24, .94); }
+  .top-actions { width: 100%; justify-content: flex-end; }
+  .topbar .icon-button,
+  .topbar .lang-button,
+  .topbar .logout-button { min-height: 38px; }
+  .topbar .logout-button {
+    overflow: hidden;
+    max-width: 88px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .view-head { padding: 22px 2px 16px; }
+  .view-head h1 {
+    margin-top: 8px;
+    font-size: clamp(25px, 8vw, 31px);
+    overflow-wrap: anywhere;
+  }
+  .view-sub { font-size: 12px; line-height: 1.6; }
+  .quick-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .quick-actions > * { min-height: 42px; }
+  .content-grid, .right-stack { grid-template-columns: minmax(0, 1fr); }
+  .right-duo { grid-column: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .right-stack .source-card, .right-stack .activity-card { grid-column: auto; }
+  .card { min-width: 0; }
+
+  /* Audit */
+  .card-heading { flex-direction: column; gap: 7px; }
+  .session-id { align-self: flex-start; }
+  .stepper { overflow: hidden; }
+  .upload-fields { grid-template-columns: 1fr; }
+  .file-drop { min-height: 68px; }
+  .text-actions { align-items: flex-start; flex-direction: column; }
+  .text-actions .primary-button { width: 100%; min-height: 44px; }
+  .message { max-width: 100%; }
+  .quick-replies { padding-left: 0; }
+  .reply-chip { min-height: 36px; }
+  .chat-input { padding-block: 6px; }
+  .send-button { flex: 0 0 36px; width: 36px; height: 36px; }
+
+  /* Tables, cards and forms */
+  .filter-row { gap: 11px; }
+  .chip-row { flex-wrap: nowrap; width: 100%; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .chip-row::-webkit-scrollbar { display: none; }
+  .chip { flex: 0 0 auto; min-height: 36px; }
+  .daily-side { width: 100%; justify-content: space-between; }
+  .daily-side .primary-button { min-height: 42px; }
+  .profile-hero { gap: 13px; }
+  .profile-hero-copy h2 { overflow-wrap: anywhere; }
+  .profile-plan { align-items: flex-start; }
+  .setting-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .setting-row .segmented,
+  .setting-row select,
+  .hint-control { width: 100%; margin-left: 0; }
+  .segmented button { flex: 1; min-height: 38px; }
+  .setting-row select { min-height: 40px; }
+  .hint-control input { flex: 1; min-width: 0; }
+  .setting-row .switch { align-self: flex-end; }
+  .setting-row .ghost-button { width: 100%; min-height: 40px; margin-left: 0; }
+
+}
+
+@media (max-width: 540px) {
+  /* Bottom navigation: preserve usable tap targets instead of squeezing 8 icons. */
+  .app-shell { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .app-shell .sidebar {
+    height: calc(62px + env(safe-area-inset-bottom));
+    padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, .96);
+    backdrop-filter: blur(12px);
+  }
+  body.dark .app-shell .sidebar { background: rgba(28, 36, 32, .96); }
+  .app-shell .nav-group { scroll-snap-type: x proximity; }
+  .app-shell .nav-item {
+    flex: 0 0 46px;
+    min-width: 46px;
+    scroll-snap-align: center;
+  }
+  .app-footer { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .toast { bottom: calc(74px + env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 380px) {
+  .landing { padding-inline: 14px; }
+  .landing .landing-nav { margin-inline: -14px; padding-inline: 14px; }
+  .landing .landing-nav nav#landing-nav-links { left: 14px; right: 14px; }
+  .landing .landing-brand small { display: none; }
+  .landing .hero-actions { display: grid; gap: 14px; }
+  .landing .hero-secondary { padding-block: 8px; }
+  .sheet-meta span:last-child, .sheet-bottom span:last-child { display: none; }
+  .quick-actions { grid-template-columns: 1fr; }
+  .right-duo { grid-template-columns: 1fr; }
+  .topbar .logout-button { max-width: 72px; padding-inline: 6px; }
+  .stat-grid { grid-template-columns: 1fr; }
+  .badge-grid { grid-template-columns: 1fr; }
+}
