@@ -11,6 +11,7 @@ import { profileViews } from './profile.js';
 import { aboutViews } from './about.js';
 import { settingsViews } from './settings.js';
 import { sitemapViews } from './sitemap.js';
+import { adminViews } from './admin.js';
 
 export const viewMethods = {
   ...landingViews,
@@ -25,4 +26,5 @@ export const viewMethods = {
   ...aboutViews,
   ...settingsViews,
   ...sitemapViews,
+  ...adminViews,
 };

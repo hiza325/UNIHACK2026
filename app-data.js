@@ -1,5 +1,69 @@
+import { ADMIN_EMAILS } from './app-config.js';
+
+const ACCOUNT_KEY = 'paradox-accounts';
+
 export const dataMethods = {
   readJSON(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch { return fallback; } },
+  normalizeEmail(value) { return String(value || '').trim().toLowerCase(); },
+  getAccounts() {
+    const accounts = this.readJSON(ACCOUNT_KEY, []);
+    return Array.isArray(accounts) ? accounts.filter(account => account && account.email) : [];
+  },
+  saveAccounts(accounts) { localStorage.setItem(ACCOUNT_KEY, JSON.stringify(accounts)); },
+  async hashPassword(password, salt) {
+    const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: Uint8Array.from(atob(salt), char => char.charCodeAt(0)), iterations: 120000 }, material, 256);
+    return btoa(String.fromCharCode(...new Uint8Array(bits)));
+  },
+  createSalt() {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    return btoa(String.fromCharCode(...bytes));
+  },
+  publicAccount(account) {
+    return { id: account.id, name: account.name, email: account.email, role: account.role || 'user', status: account.status || 'active', createdAt: account.createdAt, verifiedAt: account.verifiedAt, lastLoginAt: account.lastLoginAt || null };
+  },
+  async registerAccount({ name, email, password }) {
+    const normalizedEmail = this.normalizeEmail(email);
+    const accounts = this.getAccounts();
+    if (accounts.some(account => this.normalizeEmail(account.email) === normalizedEmail)) throw new Error(this.t('authAccountExists'));
+    const salt = this.createSalt();
+    const now = new Date().toISOString();
+    const account = {
+      id: crypto.randomUUID?.() || `account-${Date.now()}`,
+      name: String(name || normalizedEmail.split('@')[0]).trim(),
+      email: normalizedEmail,
+      passwordHash: await this.hashPassword(password, salt),
+      salt,
+      role: ADMIN_EMAILS.includes(normalizedEmail) ? 'admin' : 'user',
+      status: 'active',
+      createdAt: now,
+      verifiedAt: now,
+      lastLoginAt: now,
+    };
+    accounts.push(account);
+    this.saveAccounts(accounts);
+    return this.publicAccount(account);
+  },
+  async loginAccount(email, password) {
+    const normalizedEmail = this.normalizeEmail(email);
+    const accounts = this.getAccounts();
+    const account = accounts.find(item => this.normalizeEmail(item.email) === normalizedEmail);
+    if (!account || !account.salt || !account.passwordHash) throw new Error(this.t('authInvalidCredentials'));
+    const passwordHash = await this.hashPassword(password, account.salt);
+    if (passwordHash !== account.passwordHash) throw new Error(this.t('authInvalidCredentials'));
+    if (account.status === 'suspended') throw new Error(this.t('authAccountSuspended'));
+    account.lastLoginAt = new Date().toISOString();
+    this.saveAccounts(accounts);
+    return this.publicAccount(account);
+  },
+  setAccountStatus(accountId, status) {
+    if (!['active', 'suspended'].includes(status)) return;
+    const accounts = this.getAccounts();
+    const account = accounts.find(item => item.id === accountId);
+    if (!account || account.email === this.user?.email) return;
+    account.status = status;
+    this.saveAccounts(accounts);
+  },
   userStorageKey(name, email = this.user?.email) {
     const owner = encodeURIComponent(String(email || 'guest').trim().toLowerCase());
     return `paradox-user:${owner}:${name}`;

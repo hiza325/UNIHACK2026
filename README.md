@@ -6,29 +6,35 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 
 ## Chạy giao diện
 
-Đây là frontend tĩnh, không cần cài dependency. Vì ứng dụng dùng ES module, hãy chạy qua static server thay vì mở trực tiếp `index.html`.
+Ứng dụng dùng ES module và endpoint serverless để gửi OTP. Cài dependency rồi chạy server local tích hợp:
 
-1. Chạy static server tại thư mục dự án:
+1. Cài dependency và trình duyệt kiểm thử:
 
    ```bash
-   python -m http.server 8123
+   npm install
+   npx playwright install chromium
    ```
 
-   Sau đó truy cập `http://127.0.0.1:8123`.
+2. Chạy ứng dụng:
 
-2. Hoặc mở thư mục dự án bằng VS Code và chạy với Live Server.
+   ```bash
+   npm run serve
+   ```
+
+   Sau đó truy cập `http://127.0.0.1:8173`. Khi chưa cấu hình email, mã OTP local được hiển thị ngay trong hộp thoại để phát triển và demo.
 
 ## Tính năng giao diện
 
 - Trang giới thiệu responsive, có điều hướng đến **Trang chủ**, **Cách hoạt động**, **Có gì ở PARADOX?** và **Lợi ích**.
-- Ứng dụng 8 khu vực theo sitemap: **AI Audit**, **Dashboard**, **History**, **Analytics**, **Practice Lab**, **Profile**, **About / Guide** và **Settings**.
+- Ứng dụng gồm **AI Audit**, **Dashboard**, **History**, **Analytics**, **Practice Lab**, **Profile**, **About / Guide**, **Settings** và trang **Admin** có phân quyền.
 - Điều hướng bằng hash (`#/audit`, `#/dashboard`, …). Riêng `#/sitemap` là màn hình sitemap tối, mở được khi chưa đăng nhập; các trang còn lại yêu cầu phiên demo.
 - Luồng phản biện học tập 7 bước, khu vực chọn đề/bài làm, hội thoại mô phỏng và thử thách luyện tập.
 - Dashboard tổng hợp tiến độ; History có bộ lọc trạng thái và tìm kiếm; Analytics có biểu đồ 7/30/90 ngày.
 - Practice Lab có câu hỏi trắc nghiệm, phản hồi đáp án và lưu trạng thái đã giải trong `localStorage`.
 - Profile cho phép đổi tên hiển thị; Settings lưu giao diện, ngôn ngữ, môn học, mức gợi ý và tùy chọn thông báo.
 - Chuyển ngôn ngữ Việt, Anh, Nhật; nút sáng/tối ở landing và thanh trên cùng của ứng dụng; xuất dữ liệu demo dạng JSON và đặt lại tiến độ luyện tập.
-- Màn hình đăng nhập/đăng ký và đăng xuất dạng prototype.
+- Đăng ký xác minh email bằng OTP 6 số; đăng nhập kiểm tra mật khẩu đã băm; đăng xuất và bảo vệ route theo phiên.
+- Trang Admin quản lý danh sách tài khoản, tìm kiếm, tạm khóa/mở khóa người dùng. Email admin demo mặc định là `admin@paradox.ai` và vẫn phải đăng ký/xác minh OTP trước.
 - Biểu tượng logo SVG, có thể phóng to mà không vỡ hình.
 
 ## Công nghệ
@@ -36,7 +42,7 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 - HTML5
 - Vanilla JavaScript và Web Components
 - CSS thuần, chạy trực tiếp trên trình duyệt; không cần Sass hoặc bước biên dịch
-- PHP/MySQL và Gemini API là định hướng backend, chưa tích hợp trong bản hiện tại
+- Supabase Auth, cơ sở dữ liệu người dùng và Node.js serverless API trên Vercel
 
 ## Cấu trúc chính
 
@@ -51,7 +57,9 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | `app-config.js` | Cấu hình dùng chung, bản dịch nền và danh sách điều hướng |
 | `app-data.js` | IndexedDB/localStorage, History và dữ liệu Analytics |
 | `app-views.js` | Re-export `viewMethods`; template nằm trong `views/` |
-| `views/` | Template tách theo khu vực: `landing`, `shell`, `cards` (helper chung), `dashboard`, `audit`, `history`, `analytics`, `practice`, `profile`, `about`, `settings`, `sitemap` |
+| `views/` | Template tách theo khu vực, gồm `admin`, `landing`, `dashboard`, `audit`, `history`, `analytics`, `practice`, `profile`, `about`, `settings`, `sitemap` |
+| `api/auth/` | API đăng ký, OTP, đăng nhập, session cookie và đăng xuất qua Supabase |
+| `api/admin/users.js` | API quản trị người dùng, được bảo vệ bằng role admin phía server |
 | `app-actions.js` | Tương tác Audit, Practice, upload và modal |
 | `i18n.js` | Bản dịch bổ sung cho 8 khu vực, Việt/Anh/Nhật |
 | `demo.js` | Dữ liệu demo cho phiên học, thử thách, biểu đồ và kỹ năng |
@@ -75,6 +83,28 @@ npm test
 ```
 
 `npm run serve` chạy static server (`tests/static-server.mjs`) tại `http://127.0.0.1:8173` nếu muốn tự duyệt thay vì `python -m http.server`.
+
+## Xác thực nhiều người dùng với Supabase
+
+Sao chép `.env.example` thành `.env` và cấu hình:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+ADMIN_EMAILS=admin@paradox.ai
+```
+
+Trong Supabase Dashboard:
+
+1. Mở **Authentication → Providers → Email**, bật email/password và xác nhận email.
+2. Mở **Authentication → Email Templates → Confirm signup** và dùng `{{ .Token }}` trong nội dung email để người dùng nhận mã OTP 6 số thay vì magic link.
+3. Với môi trường thật, cấu hình **Project Settings → Auth → SMTP Settings** bằng Resend hoặc nhà cung cấp SMTP của bạn để gửi ổn định đến Gmail.
+4. Thêm bốn biến môi trường trên vào Vercel. `SUPABASE_SERVICE_ROLE_KEY` chỉ được đặt ở server, tuyệt đối không đưa vào frontend hoặc commit Git.
+
+Sau khi cấu hình, tài khoản nằm trong Supabase Auth, người dùng có thể đăng nhập trên nhiều thiết bị, phiên được giữ bằng cookie `HttpOnly`, và trang admin gọi API server để liệt kê/tạm khóa tài khoản. Khi chưa cấu hình Supabase ở local, ứng dụng tự dùng chế độ tài khoản/OTP demo trên trình duyệt.
+
+Triển khai bằng Vercel để thư mục `api/` được nhận diện là serverless functions; GitHub Pages thuần tĩnh không thể chạy hệ thống xác thực này.
 
 CI (`.github/workflows/test.yml`) chạy Playwright mỗi lần push/pull request và audit Lighthouse cho bản static.
 
@@ -135,11 +165,12 @@ System prompt được áp đặt lại ở backend; trường `system` từ cli
 | `#/profile` | Hồ sơ cá nhân |
 | `#/about` | Giới thiệu & hướng dẫn |
 | `#/settings` | Cài đặt hệ thống |
+| `#/admin` | Quản trị người dùng (chỉ role admin) |
 | `#/sitemap` | Website Sitemap (công khai) |
 
 ## Trạng thái prototype và bảo mật
 
-- Đăng nhập/đăng ký hiện chỉ tạo phiên demo trên trình duyệt, lưu tên và email trong `localStorage`; mật khẩu không được lưu và chưa được xác thực với máy chủ. Vì vậy, đây chưa phải hệ thống tài khoản an toàn.
+- Khi có cấu hình Supabase, tài khoản và mật khẩu được Supabase quản lý, access/refresh token nằm trong cookie `HttpOnly`, còn `localStorage` chỉ giữ hồ sơ hiển thị và dữ liệu học tập demo. Khi thiếu cấu hình, ứng dụng dùng chế độ local dành cho phát triển.
 - Chọn tệp chỉ cập nhật tên tệp trên giao diện. Tệp chưa được tải lên hoặc phân tích.
 - Phản hồi hội thoại và các bước AI là nội dung mô phỏng phía trình duyệt, chưa gọi Gemini.
-- Trước khi dùng với người dùng thật, cần xây backend PHP/MySQL, băm mật khẩu bằng bcrypt, quản lý session phía máy chủ, xác thực quyền truy cập và xử lý tệp an toàn. Gemini API key cần được giữ ở backend.
+- Dữ liệu học tập hiện vẫn nằm trên từng trình duyệt. Nếu cần đồng bộ lịch sử học trên nhiều thiết bị, bước tiếp theo là chuyển các bảng lịch sử/practice/settings sang Supabase PostgreSQL với Row Level Security.

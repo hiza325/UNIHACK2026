@@ -2,23 +2,159 @@ import { demo } from './demo.js';
 import { MAX_FILE_SIZE, ALLOWED_FILE_EXTENSIONS } from './app-config.js';
 
 export const actionMethods = {
-  openAuth(mode) { this.authMode=mode; this.querySelector('#auth-error').textContent=''; this.querySelector('#auth-backdrop').hidden=false; this.updateAuthText(({vi:{loginTitle:'Chào mừng trở lại',signupTitle:'Tạo tài khoản PARADOX',name:'Tên của bạn',email:'Địa chỉ email',password:'Mật khẩu',confirm:'Nhập lại mật khẩu',submitLogin:'Đăng nhập',submitSignup:'Tạo tài khoản',switchLogin:'Đã có tài khoản? Đăng nhập',switchSignup:'Chưa dùng PARADOX? Tạo tài khoản'},en:{loginTitle:'Welcome back',signupTitle:'Create your PARADOX account',name:'Your name',email:'Email address',password:'Password',confirm:'Confirm password',submitLogin:'Log in',submitSignup:'Create account',switchLogin:'Already have an account? Log in',switchSignup:'New to PARADOX? Sign up'},jp:{loginTitle:'おかえりなさい',signupTitle:'アカウントを作成',name:'お名前',email:'メールアドレス',password:'パスワード',confirm:'パスワードの確認',submitLogin:'ログイン',submitSignup:'登録する',switchLogin:'アカウントをお持ちですか？ログイン',switchSignup:'初めての方はこちら'}})[this.lang]); },
+  authText() {
+    return ({vi:{loginTitle:'Chào mừng trở lại',signupTitle:'Tạo tài khoản PARADOX',name:'Tên của bạn',email:'Địa chỉ email',password:'Mật khẩu',confirm:'Nhập lại mật khẩu',submitLogin:'Đăng nhập',submitSignup:'Gửi mã xác nhận',switchLogin:'Đã có tài khoản? Đăng nhập',switchSignup:'Chưa dùng PARADOX? Tạo tài khoản'},en:{loginTitle:'Welcome back',signupTitle:'Create your PARADOX account',name:'Your name',email:'Email address',password:'Password',confirm:'Confirm password',submitLogin:'Log in',submitSignup:'Send verification code',switchLogin:'Already have an account? Log in',switchSignup:'New to PARADOX? Sign up'},jp:{loginTitle:'おかえりなさい',signupTitle:'アカウントを作成',name:'お名前',email:'メールアドレス',password:'パスワード',confirm:'パスワードの確認',submitLogin:'ログイン',submitSignup:'認証コードを送信',switchLogin:'アカウントをお持ちですか？ログイン',switchSignup:'初めての方はこちら'}})[this.lang];
+  },
+  openAuth(mode) {
+    this.authMode = mode;
+    if (mode !== 'otp') { this.pendingSignup = null; this.authOtpChallenge = ''; this.authDemoCode = ''; }
+    this.querySelector('#auth-error').textContent = '';
+    this.querySelector('#auth-backdrop').hidden = false;
+    this.updateAuthText(this.authText());
+  },
+  setAuthLoading(loading) {
+    const submit = this.querySelector('.auth-submit');
+    if (submit) submit.disabled = loading;
+    this.querySelectorAll('#auth-form input, #auth-resend').forEach(element => { element.disabled = loading; });
+  },
+  async requestOtp(payload) {
+    const response = await fetch('/api/auth/otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || this.t('authOtpError'));
+    return data;
+  },
+  async requestServerAuth(action, payload, method = 'POST') {
+    let response;
+    try {
+      response = await fetch(`/api/auth/${action}`, {
+        method,
+        headers: payload ? { 'Content-Type': 'application/json' } : {},
+        credentials: 'same-origin',
+        ...(payload ? { body: JSON.stringify(payload) } : {}),
+      });
+    } catch (requestError) {
+      if (['localhost', '127.0.0.1'].includes(location.hostname)) return null;
+      throw requestError;
+    }
+    const result = await response.json().catch(() => ({}));
+    const localDevelopment = ['localhost', '127.0.0.1'].includes(location.hostname);
+    if (localDevelopment && (response.status === 404 || result.code === 'AUTH_NOT_CONFIGURED')) return null;
+    if (!response.ok) {
+      const error = new Error(result.error || this.t('authServiceError'));
+      error.status = response.status;
+      throw error;
+    }
+    return result;
+  },
+  async restoreAuthentication() {
+    try {
+      const result = await this.requestServerAuth('session', null, 'GET');
+      if (!result) return;
+      this.authProvider = 'remote';
+      this.user = result.user;
+      localStorage.setItem('paradox-session', JSON.stringify(this.user));
+    } catch (error) {
+      if (error.status === 401) {
+        this.user = null;
+        localStorage.removeItem('paradox-session');
+      }
+    }
+  },
   async authenticate(event, text) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    const error = this.querySelector('#auth-error');
+    error.textContent = '';
+    if (this.authMode === 'otp') {
+      this.setAuthLoading(true);
+      try {
+        const result = this.authProvider === 'remote'
+          ? await this.requestServerAuth('verify', { email: this.pendingSignup?.email, code: data.get('otp') })
+          : await this.requestOtp({ action: 'verify', email: this.pendingSignup?.email, code: data.get('otp'), challenge: this.authOtpChallenge });
+        if (!result.verified) throw new Error(this.t('authOtpInvalid'));
+        const account = result.user || await this.registerAccount(this.pendingSignup);
+        await this.completeAuthentication(account);
+      } catch (requestError) {
+        error.textContent = requestError.message || this.t('authOtpInvalid');
+      } finally {
+        this.setAuthLoading(false);
+      }
+      return;
+    }
     const password = String(data.get('password') || '');
     if (this.authMode === 'signup' && password !== String(data.get('confirm') || '')) {
-      this.querySelector('#auth-error').textContent = text.mismatch;
+      error.textContent = text.mismatch;
       return;
     }
     const email = String(data.get('email') || '').trim();
     const name = String(data.get('name') || '').trim() || email.split('@')[0];
-    this.user = { name, email };
-    this.initializeUserData(email);
+    if (this.authMode === 'signup') {
+      this.setAuthLoading(true);
+      try {
+        const normalizedEmail = this.normalizeEmail(email);
+        const remote = await this.requestServerAuth('signup', { name, email: normalizedEmail, password });
+        if (!remote && this.getAccounts().some(account => this.normalizeEmail(account.email) === normalizedEmail)) throw new Error(this.t('authAccountExists'));
+        this.authProvider = remote ? 'remote' : 'local';
+        this.pendingSignup = { name, email: normalizedEmail, password };
+        if (remote?.user) { await this.completeAuthentication(remote.user); return; }
+        const result = remote || await this.requestOtp({ action: 'send', email: normalizedEmail, language: this.lang });
+        this.authOtpChallenge = result.challenge;
+        this.authDemoCode = result.developmentCode || '';
+        this.authMode = 'otp';
+        this.updateAuthText(text);
+        this.querySelector('input[name="otp"]')?.focus();
+      } catch (requestError) {
+        error.textContent = requestError.message || this.t('authOtpError');
+      } finally {
+        this.setAuthLoading(false);
+      }
+      return;
+    }
+    this.setAuthLoading(true);
+    try {
+      const remote = await this.requestServerAuth('login', { email: this.normalizeEmail(email), password });
+      this.authProvider = remote ? 'remote' : 'local';
+      const account = remote?.user || await this.loginAccount(email, password);
+      await this.completeAuthentication(account);
+    } catch (loginError) {
+      error.textContent = loginError.message || this.t('authInvalidCredentials');
+    } finally {
+      this.setAuthLoading(false);
+    }
+  },
+  async resendSignupOtp() {
+    if (!this.pendingSignup || this.authMode !== 'otp') return;
+    const error = this.querySelector('#auth-error');
+    error.textContent = '';
+    this.setAuthLoading(true);
+    try {
+      const result = this.authProvider === 'remote'
+        ? await this.requestServerAuth('resend', { email: this.pendingSignup.email })
+        : await this.requestOtp({ action: 'send', email: this.pendingSignup.email, language: this.lang });
+      this.authOtpChallenge = result.challenge;
+      this.authDemoCode = result.developmentCode || '';
+      this.updateAuthText(this.authText());
+      this.showToast(this.t('authOtpResent'));
+    } catch (requestError) {
+      error.textContent = requestError.message || this.t('authOtpError');
+    } finally {
+      this.setAuthLoading(false);
+    }
+  },
+  async completeAuthentication(account) {
+    this.user = account;
+    this.initializeUserData(account.email);
     localStorage.setItem('paradox-session', JSON.stringify(this.user));
     await this.loadUserData();
     const target = this.pendingView || 'dashboard';
     this.pendingView = null;
+    this.pendingSignup = null;
+    this.authOtpChallenge = '';
+    this.authDemoCode = '';
     this.navigate(target);
   },
   hydrateFilePreviews() {

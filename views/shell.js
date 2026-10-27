@@ -25,7 +25,8 @@ export const shellViews = {
     const auditLimit = 10;
     const auditsRemaining = Math.max(0, auditLimit - Math.min(auditLimit, sessionCount));
     const remainingPercent = Math.round(auditsRemaining / auditLimit * 100);
-    const nav = NAV_ITEMS.map(([view, key, ic]) => `<button class="nav-item ${this.view === view ? 'active' : ''}" data-route="${view}" ${this.view === view ? 'aria-current="page"' : ''}><span class="nav-icon">${svgIcon(ic)}</span><span class="nav-text">${t(key)}</span>${view === 'history' ? `<span class="nav-count">${count}</span>` : ''}</button>`).join('');
+    const adminItem = this.user.role === 'admin' ? [['admin', 'navAdmin', 'shield']] : [];
+    const nav = [...NAV_ITEMS, ...adminItem].map(([view, key, ic]) => `<button class="nav-item ${this.view === view ? 'active' : ''}" data-route="${view}" ${this.view === view ? 'aria-current="page"' : ''}><span class="nav-icon">${svgIcon(ic)}</span><span class="nav-text">${t(key)}</span>${view === 'history' ? `<span class="nav-count">${count}</span>` : ''}</button>`).join('');
     return `<aside class="sidebar">
       <a class="brand brand-link" href="#/dashboard">
         <img class="brand-mark" src="logo-mark.svg" alt="" />
@@ -59,6 +60,7 @@ export const shellViews = {
       case 'profile': return this.viewProfile();
       case 'about': return this.viewAbout();
       case 'settings': return this.viewSettings();
+      case 'admin': return this.viewAdmin();
       default: return this.viewDashboard();
     }
   },

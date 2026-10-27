@@ -17,6 +17,11 @@ class EduApp extends HTMLElement {
     this.step = 0;
     this.files = { problem: [], work: [] };
     this.authMode = 'login';
+    this.pendingSignup = null;
+    this.authOtpChallenge = '';
+    this.authDemoCode = '';
+    this.authProvider = 'local';
+    this.adminAccounts = null;
     this.user = this.readSession();
     this.view = 'dashboard';
     this.pendingView = null;
@@ -47,10 +52,12 @@ class EduApp extends HTMLElement {
     window.addEventListener('keydown', this.onKeydown);
     window.addEventListener('hashchange', this.onHashChange);
     window.addEventListener('scroll', this.updateBackToTop, { passive: true });
-    this.handleRoute();
-    this.loadAuditState().then(() => {
-      this.auditStorageReady = true;
-      if (this.user && ['audit', 'dashboard'].includes(this.view)) this.render();
+    this.restoreAuthentication().finally(() => {
+      this.handleRoute();
+      this.loadAuditState().then(() => {
+        this.auditStorageReady = true;
+        if (this.user && ['audit', 'dashboard'].includes(this.view)) this.render();
+      });
     });
   }
   disconnectedCallback() {
@@ -63,7 +70,16 @@ class EduApp extends HTMLElement {
     window.removeEventListener('scroll', this.updateBackToTop);
   }
   saveSettings() { localStorage.setItem('paradox-settings', JSON.stringify(this.settings)); }
-  readSession() { try { return JSON.parse(localStorage.getItem('paradox-session') || 'null'); } catch { return null; } }
+  readSession() {
+    try {
+      const session = JSON.parse(localStorage.getItem('paradox-session') || 'null');
+      if (!session?.email) return null;
+      const accounts = JSON.parse(localStorage.getItem('paradox-accounts') || '[]');
+      const account = Array.isArray(accounts) ? accounts.find(item => String(item.email).toLowerCase() === String(session.email).toLowerCase()) : null;
+      if (account?.status === 'suspended') { localStorage.removeItem('paradox-session'); return null; }
+      return account ? { id: account.id, name: account.name, email: account.email, role: account.role || 'user', status: account.status || 'active', createdAt: account.createdAt, verifiedAt: account.verifiedAt, lastLoginAt: account.lastLoginAt || null } : session;
+    } catch { return null; }
+  }
   t(key) { return copy[this.lang][key] || copy.vi[key] || key; }
   escape(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 }

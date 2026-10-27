@@ -11,6 +11,15 @@ function userKey(name, email = SESSION.email) {
   return `paradox-user:${encodeURIComponent(email.toLowerCase())}:${name}`;
 }
 
+async function verifyLocalOtp(page) {
+  await expect(page.locator('input[name="otp"]')).toBeVisible();
+  const message = await page.locator('#auth-demo-code').textContent();
+  const code = message?.match(/\d{6}/)?.[0];
+  expect(code).toBeTruthy();
+  await page.fill('input[name="otp"]', code);
+  await page.click('.auth-submit');
+}
+
 function seedLearningSessions(page) {
   return page.addInitScript(({ key, sessions }) => localStorage.setItem(key, JSON.stringify(sessions)), {
     key: userKey('audit-sessions'),
@@ -62,6 +71,7 @@ test.describe('auth', () => {
     await page.fill('input[name="password"]', 'secret123');
     await page.fill('input[name="confirm"]', 'secret123');
     await page.click('.auth-submit');
+    await verifyLocalOtp(page);
     await expect(page.locator('.sidebar')).toBeVisible();
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('paradox-session'))?.email)).toBe(SESSION.email);
     await expect(page.locator('.nav-count')).toHaveText('00');
@@ -79,6 +89,12 @@ test.describe('auth', () => {
     await page.click('#logout-button');
     await expect(page.locator('#landing-login')).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem('paradox-session'))).toBeNull();
+
+    await page.click('#landing-login');
+    await page.fill('input[name="email"]', SESSION.email);
+    await page.fill('input[name="password"]', 'secret123');
+    await page.click('.auth-submit');
+    await expect(page.locator('.sidebar')).toBeVisible();
   });
 
   test('signup rejects mismatched passwords', async ({ page }) => {
@@ -99,9 +115,13 @@ test.describe('route guard', () => {
     await page.goto('/#/history');
     await expect(page.locator('#auth-backdrop')).toBeVisible();
 
+    await page.click('#auth-switch');
+    await page.fill('input[name="name"]', SESSION.name);
     await page.fill('input[name="email"]', SESSION.email);
     await page.fill('input[name="password"]', 'secret123');
+    await page.fill('input[name="confirm"]', 'secret123');
     await page.click('.auth-submit');
+    await verifyLocalOtp(page);
 
     await expect(page).toHaveURL(/#\/history$/);
     await expect(page.getByRole('heading', { name: 'Lịch sử bài làm' })).toBeVisible();
@@ -111,6 +131,32 @@ test.describe('route guard', () => {
     await page.goto('/#/sitemap');
     await expect(page.locator('.sitemap-page')).toBeVisible();
     await expect(page.locator('#auth-backdrop')).toBeHidden();
+  });
+
+  test('non-admin sessions cannot open the admin route', async ({ page }) => {
+    await seedSession(page);
+    await page.goto('/#/admin');
+    await expect(page).toHaveURL(/#\/dashboard$/);
+    await expect(page.locator('.admin-page')).toHaveCount(0);
+  });
+});
+
+test.describe('admin', () => {
+  test('verified configured admin can open user management', async ({ page }) => {
+    await page.goto('/');
+    await page.click('#hero-start');
+    await page.fill('input[name="name"]', 'PARADOX Admin');
+    await page.fill('input[name="email"]', 'admin@paradox.ai');
+    await page.fill('input[name="password"]', 'Admin123!');
+    await page.fill('input[name="confirm"]', 'Admin123!');
+    await page.click('.auth-submit');
+    await verifyLocalOtp(page);
+
+    await page.locator('[data-route="admin"]').click();
+    await expect(page.locator('.admin-page')).toBeVisible();
+    await expect(page.locator('[data-admin-user]')).toHaveCount(1);
+    await expect(page.locator('[data-admin-user]')).toContainText('admin@paradox.ai');
+    expect(await axeHighImpactViolations(page, 'admin')).toEqual([]);
   });
 });
 

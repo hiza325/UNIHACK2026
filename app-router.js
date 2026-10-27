@@ -23,20 +23,30 @@ export const routerMethods = {
       else this.pendingView = null;
       return;
     }
+    if (raw === 'admin' && this.user.role !== 'admin') {
+      this.view = 'dashboard';
+      this.render();
+      history.replaceState(null, '', `${location.pathname}${location.search}#/dashboard`);
+      requestAnimationFrame(() => this.showToast(this.t('adminForbidden')));
+      return;
+    }
     this.view = APP_VIEWS.includes(raw) ? raw : 'dashboard';
     this.render();
+    if (this.view === 'admin') this.loadAdminAccounts();
   },
   navigate(view) {
     const target = `#/${view}`;
     if (location.hash === target) this.handleRoute();
     else location.hash = target;
   },
-  logout() {
+  async logout() {
+    try { await this.requestServerAuth('logout', {}); } catch { /* Always clear the browser session. */ }
     localStorage.removeItem('paradox-session');
     this.resetInMemoryUserData();
     this.user = null;
     this.view = 'landing';
     this.pendingView = null;
+    this.adminAccounts = null;
     document.body.classList.remove('sitemap-mode');
     document.body.style.overflow = '';
     history.replaceState(null, '', location.pathname + location.search);

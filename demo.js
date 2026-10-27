@@ -182,4 +182,4 @@ export const demo = {
   }
 };
 
-export const APP_VIEWS = ['dashboard', 'audit', 'history', 'analytics', 'practice', 'profile', 'about', 'settings'];
+export const APP_VIEWS = ['dashboard', 'audit', 'history', 'analytics', 'practice', 'profile', 'about', 'settings', 'admin'];
