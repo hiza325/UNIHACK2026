@@ -7,7 +7,7 @@ export const extraCopy = {
     pageAnalytics: 'Phân tích tiến bộ', pagePractice: 'Practice Lab',
     pageProfile: 'Hồ sơ cá nhân', pageAbout: 'Giới thiệu & hướng dẫn',
     pageSettings: 'Cài đặt hệ thống',
-    menuOpen: 'Mở menu', menuClose: 'Đóng menu', close: 'Đóng', send: 'Gửi',
+    menuOpen: 'Mở menu', menuClose: 'Đóng menu', close: 'Đóng', send: 'Gửi', backToTop: 'Lên đầu trang',
     authLegal: 'Bản prototype · Mật khẩu không được lưu',
     contestFooter: 'SẢN PHẨM DỰ THI UNIHACK 2026',
 
@@ -158,7 +158,7 @@ export const extraCopy = {
     pageDashboard: 'Learning overview', pageHistory: 'Learning history',
     pageAnalytics: 'Progress analytics', pagePractice: 'Practice Lab',
     pageProfile: 'Profile', pageAbout: 'About / Guide', pageSettings: 'Settings',
-    menuOpen: 'Open menu', menuClose: 'Close menu', close: 'Close', send: 'Send',
+    menuOpen: 'Open menu', menuClose: 'Close menu', close: 'Close', send: 'Send', backToTop: 'Back to top',
     authLegal: 'Prototype only · Passwords are not stored',
     contestFooter: 'UNIHACK 2026 COMPETITION ENTRY',
 
@@ -309,7 +309,7 @@ export const extraCopy = {
     pageDashboard: '学習の概要', pageHistory: '学習履歴',
     pageAnalytics: '進捗分析', pagePractice: '練習ラボ',
     pageProfile: 'プロフィール', pageAbout: '概要とガイド', pageSettings: 'システム設定',
-    menuOpen: 'メニューを開く', menuClose: 'メニューを閉じる', close: '閉じる', send: '送信',
+    menuOpen: 'メニューを開く', menuClose: 'メニューを閉じる', close: '閉じる', send: '送信', backToTop: 'ページの先頭へ',
     authLegal: 'プロトタイプのみ・パスワードは保存されません',
     contestFooter: 'UNIHACK 2026 出場作品',
 

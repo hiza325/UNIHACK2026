@@ -37,6 +37,7 @@ class EduApp extends HTMLElement {
     this.supportLoading = false;
     this.onHashChange = this.onHashChange.bind(this);
     this.onKeydown = this.onKeydown.bind(this);
+    this.updateBackToTop = this.updateBackToTop.bind(this);
   }
   connectedCallback() {
     this.addEventListener('click', this.onClick);
@@ -45,6 +46,7 @@ class EduApp extends HTMLElement {
     this.addEventListener('submit', this.onSubmit);
     window.addEventListener('keydown', this.onKeydown);
     window.addEventListener('hashchange', this.onHashChange);
+    window.addEventListener('scroll', this.updateBackToTop, { passive: true });
     this.handleRoute();
     this.loadAuditState().then(() => {
       this.auditStorageReady = true;
@@ -58,6 +60,7 @@ class EduApp extends HTMLElement {
     this.removeEventListener('submit', this.onSubmit);
     window.removeEventListener('keydown', this.onKeydown);
     window.removeEventListener('hashchange', this.onHashChange);
+    window.removeEventListener('scroll', this.updateBackToTop);
   }
   saveSettings() { localStorage.setItem('paradox-settings', JSON.stringify(this.settings)); }
   readSession() { try { return JSON.parse(localStorage.getItem('paradox-session') || 'null'); } catch { return null; } }

@@ -1,5 +1,10 @@
 export const eventMethods = {
   onClick(event) {
+    if (event.target.closest?.('[data-back-to-top]')) {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+      return;
+    }
     if (event.target.closest?.('[data-support-toggle]')) { this.toggleSupport(); return; }
     if (event.target.closest?.('[data-support-close]')) { this.toggleSupport(false); return; }
     if (event.target.closest?.('[data-theme-toggle]')) { this.toggleTheme(); return; }
