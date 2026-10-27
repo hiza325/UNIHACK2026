@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "serve": "node tests/static-server.mjs",
+    "fonts:vendor": "node scripts/vendor-fonts.mjs",
     "test": "playwright test",
     "test:ui": "playwright test --ui"
   },

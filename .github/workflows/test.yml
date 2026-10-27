@@ -30,6 +30,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: treosh/lighthouse-ci-action@v12
         with:
-          staticDistDir: .
+          configPath: ./lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: true

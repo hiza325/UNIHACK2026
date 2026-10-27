@@ -43,7 +43,11 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | Tệp | Mục đích |
 | --- | --- |
 | `index.html` | Điểm vào ứng dụng, font chữ, favicon và stylesheet |
-| `app.js` | Web Component gốc, vòng đời, routing và điều phối các module |
+| `app.js` | Web Component gốc, state ban đầu, vòng đời và điều phối module |
+| `app-router.js` | Hash routing, route guard và đăng xuất |
+| `app-theme.js` | Light/dark theme và markup nút chuyển giao diện |
+| `app-events.js` | Event delegation cho app shell và các view |
+| `components.js` | Đăng ký các Web Component dùng trong ứng dụng |
 | `app-config.js` | Cấu hình dùng chung, bản dịch nền và danh sách điều hướng |
 | `app-data.js` | IndexedDB/localStorage, History và dữ liệu Analytics |
 | `app-views.js` | Re-export `viewMethods`; template nằm trong `views/` |
@@ -55,6 +59,7 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | `styles.css` | CSS nền cho các màn hình và component |
 | `editorial.css` | Typography, màu sắc và bố cục sổ tay học tập; tải sau `styles.css` |
 | `views.css` | Bố cục các view mới, dark mode và màn hình sitemap; tải sau `editorial.css` |
+| `fonts.css`, `fonts/` | Font WOFF2 self-hosted, subset Latin/Vietnamese với `font-display: swap` |
 | `logo-mark.svg` | Logo PARADOX dạng vector |
 
 Khi sửa giao diện, cập nhật trực tiếp `styles.css`, `editorial.css` hoặc `views.css`. `index.html` tải `views.css` sau `editorial.css` để các view mới kế thừa đúng art direction. Không cần file SCSS hoặc bước biên dịch.
@@ -73,7 +78,13 @@ npm test
 
 CI (`.github/workflows/test.yml`) chạy Playwright mỗi lần push/pull request và audit Lighthouse cho bản static.
 
-Axe chỉ fail ở mức **critical**; các vi phạm khác được log để xử lý dần. Vấn đề đã biết: `color-contrast` ở các nhãn mono xám cỡ nhỏ (quyết định art direction — cần chỉnh design token nếu muốn đạt AA).
+Axe chặn lỗi ở cả mức **serious** và **critical** trên landing, toàn bộ 8 view và modal luyện tập. Lighthouse CI áp ngưỡng tối thiểu cho Performance (0.75), Accessibility (0.95), Best Practices (0.90) và SEO (0.90).
+
+Font đã được self-host để trang không phụ thuộc Google Fonts khi chạy. Muốn tải lại đúng các subset/weight đang dùng:
+
+```bash
+npm run fonts:vendor
+```
 
 ### Điều hướng nhanh
 

@@ -7,28 +7,22 @@ function seedSession(page) {
   return page.addInitScript(user => localStorage.setItem('paradox-session', JSON.stringify(user)), SESSION);
 }
 
-async function blockFontRequests(page) {
-  await page.route(/fonts\.googleapis\.com|fonts\.gstatic\.com/, route => route.abort());
-}
-
-async function axeCriticalViolations(page, contextName) {
+async function axeHighImpactViolations(page, contextName) {
   const results = await new AxeBuilder({ page }).analyze();
   if (results.violations.length) {
     console.log(`[axe:${contextName}]`, results.violations.map(v => `${v.impact}:${v.id}`).join(', '));
   }
-  return results.violations.filter(v => v.impact === 'critical');
+  return results.violations.filter(v => ['critical', 'serious'].includes(v.impact));
 }
 
-test.beforeEach(async ({ page }) => {
-  await blockFontRequests(page);
-});
-
 test.describe('auth', () => {
-  test('landing renders and passes axe (critical)', async ({ page }) => {
+  test('landing renders with self-hosted fonts and passes axe', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle(/PARADOX AI/);
     await expect(page.locator('#landing-login')).toBeVisible();
-    expect(await axeCriticalViolations(page, 'landing')).toEqual([]);
+    expect(await page.locator('link[href*="fonts.googleapis.com"], link[href*="fonts.gstatic.com"]')).toHaveCount(0);
+    expect(await page.locator('link[rel="preload"][as="font"]')).toHaveCount(3);
+    expect(await axeHighImpactViolations(page, 'landing')).toEqual([]);
   });
 
   test('signup creates a session, logout returns to landing', async ({ page }) => {
@@ -95,13 +89,13 @@ test.describe('app shell', () => {
     expect(await page.evaluate(() => localStorage.getItem('paradox-theme'))).toBe('light');
   });
 
-  test('all main views pass axe (critical)', async ({ page }) => {
+  test('all main views pass axe (serious and critical)', async ({ page }) => {
     await seedSession(page);
     test.setTimeout(60000);
     for (const view of ['dashboard', 'audit', 'history', 'analytics', 'practice', 'profile', 'about', 'settings']) {
       await page.goto(`/#/${view}`);
       await expect(page.locator('.page')).toBeVisible();
-      expect(await axeCriticalViolations(page, view), `axe violations on ${view}`).toEqual([]);
+      expect(await axeHighImpactViolations(page, view), `axe violations on ${view}`).toEqual([]);
     }
   });
 });
@@ -117,7 +111,7 @@ test.describe('practice lab', () => {
     await expect(page.locator('#practice-result.ok')).toBeVisible();
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('paradox-practice') || '[]'))).toContain(0);
 
-    expect(await axeCriticalViolations(page, 'practice-modal')).toEqual([]);
+    expect(await axeHighImpactViolations(page, 'practice-modal')).toEqual([]);
     await page.locator('.practice-close').click();
     await expect(page.locator('#practice-modal')).toBeHidden();
   });
