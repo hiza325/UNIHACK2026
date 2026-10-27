@@ -12,6 +12,7 @@ import resendHandler from '../api/auth/resend.js';
 import sessionHandler from '../api/auth/session.js';
 import logoutHandler from '../api/auth/logout.js';
 import adminUsersHandler from '../api/admin/users.js';
+import debateHandler from '../api/debate.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const port = Number(process.env.PORT || 8173);
@@ -51,6 +52,7 @@ const API_HANDLERS = new Map([
   ['/api/auth/login', loginHandler], ['/api/auth/resend', resendHandler],
   ['/api/auth/session', sessionHandler], ['/api/auth/logout', logoutHandler],
   ['/api/admin/users', adminUsersHandler],
+  ['/api/debate', debateHandler],
 ]);
 
 async function runApiHandler(handler, req, res) {

@@ -28,7 +28,7 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 - Trang giới thiệu responsive, có điều hướng đến **Trang chủ**, **Cách hoạt động**, **Có gì ở PARADOX?** và **Lợi ích**.
 - Ứng dụng gồm **AI Audit**, **Dashboard**, **History**, **Analytics**, **Practice Lab**, **Profile**, **About / Guide**, **Settings** và trang **Admin** có phân quyền.
 - Điều hướng bằng hash (`#/audit`, `#/dashboard`, …). Riêng `#/sitemap` là màn hình sitemap tối, mở được khi chưa đăng nhập; các trang còn lại yêu cầu phiên demo.
-- Luồng phản biện học tập 7 bước, khu vực chọn đề/bài làm, hội thoại mô phỏng và thử thách luyện tập.
+- AI Debate Engine nhận đề bài và lời giải, gọi AnyRouter thực tế để đánh giá đúng/sai/chưa đủ dữ kiện, phân loại lỗi kiến thức/logic/phương pháp và hỗ trợ hỏi tiếp theo ngữ cảnh.
 - Dashboard tổng hợp tiến độ; History có bộ lọc trạng thái và tìm kiếm; Analytics có biểu đồ 7/30/90 ngày.
 - Practice Lab có câu hỏi trắc nghiệm, phản hồi đáp án và lưu trạng thái đã giải trong `localStorage`.
 - Profile cho phép đổi tên hiển thị; Settings lưu giao diện, ngôn ngữ, môn học, mức gợi ý và tùy chọn thông báo.
@@ -60,6 +60,8 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | `views/` | Template tách theo khu vực, gồm `admin`, `landing`, `dashboard`, `audit`, `history`, `analytics`, `practice`, `profile`, `about`, `settings`, `sitemap` |
 | `api/auth/` | API đăng ký, OTP, đăng nhập, session cookie và đăng xuất qua Supabase |
 | `api/admin/users.js` | API quản trị người dùng, được bảo vệ bằng role admin phía server |
+| `api/debate.js` | Proxy AI Debate Engine, validation đầu vào/đầu ra và timeout AnyRouter |
+| `debate-ai.js`, `debate-prompt.js` | Client gọi Debate API và system prompt học thuật phía server |
 | `app-actions.js` | Tương tác Audit, Practice, upload và modal |
 | `i18n.js` | Bản dịch bổ sung cho 8 khu vực, Việt/Anh/Nhật |
 | `demo.js` | Dữ liệu demo cho phiên học, thử thách, biểu đồ và kỹ năng |
@@ -82,7 +84,7 @@ npx playwright install chromium
 npm test
 ```
 
-`npm run serve` chạy static server (`tests/static-server.mjs`) tại `http://127.0.0.1:8173` nếu muốn tự duyệt thay vì `python -m http.server`.
+`npm run serve` chạy static server (`tests/static-server.mjs`) tại `http://127.0.0.1:8173` nếu muốn tự duyệt thay vì `python -m http.server`. Dự án dùng CSS và ES module trực tiếp nên không có bước build bundle; `npm test` đồng thời khởi động server và kiểm tra bản chạy thực tế.
 
 ## Xác thực nhiều người dùng với Supabase
 
@@ -166,6 +168,41 @@ Backend trả về:
 
 System prompt được áp đặt lại ở backend; trường `system` từ client bị bỏ qua để người dùng không thể thay đổi phạm vi trợ lý. Nếu proxy nằm ở domain khác, cần đổi `proxyUrl` trong `support-ai-config.js` và thêm domain đó vào `connect-src` trong CSP của `index.html`.
 
+## AI Debate Engine
+
+Trang `#/audit` gọi endpoint cùng domain `/api/debate`. Endpoint tái sử dụng `ANYROUTER_API_KEY` và `ANYROUTER_MODEL`, giữ key hoàn toàn ở server. Input được giới hạn độ dài; request upstream có timeout 25 giây; JSON từ mô hình được kiểm tra lại theo schema trước khi trả cho frontend.
+
+Kết quả chuẩn hóa gồm:
+
+- `status`: `correct`, `incorrect` hoặc `insufficient`.
+- `summary` và `confidence`.
+- `issues`: tối đa 8 lỗi, mỗi lỗi có `category`, `step`, `explanation`, `suggestion`.
+- `strengths`, `nextQuestion` và `reply` cho câu hỏi tiếp theo.
+
+Prompt bắt buộc không bịa lỗi cho bài đúng và phải trả `insufficient` khi thiếu cơ sở đánh giá. Nội dung do người dùng gửi được coi là dữ liệu không tin cậy, không được phép thay đổi system prompt.
+
+Trong một phiên Audit, cùng endpoint còn hỗ trợ bốn mode: `analyze`, `discuss`, `hint`, `resubmit`. Hội thoại gần nhất, tối đa ba gợi ý và tối đa mười lần nộp được lưu trong audit state ở IndexedDB. Gợi ý chỉ tăng từ cấp 1 đến cấp 3 khi người học bấm yêu cầu; server kiểm tra đúng cấp và từ chối nội dung trùng hoàn toàn. Khi nộp lại, AI nhận cả lời giải trước và sau để trả phần so sánh, còn giao diện theo dõi số lần sửa và giữ nguyên lịch sử khi chuyển trang.
+
+### Rubric đánh giá bài sửa
+
+Mode `resubmit` chấm bốn tiêu chí, mỗi tiêu chí từ 0–25 điểm:
+
+| Tiêu chí | Nội dung đánh giá |
+| --- | --- |
+| `knowledgeAccuracy` | Độ chính xác kiến thức và khái niệm |
+| `reasoningLogic` | Tính hợp lệ, nhất quán của lập luận |
+| `solutionCompleteness` | Mức độ đầy đủ của bước giải, điều kiện và kết luận |
+| `errorRemediation` | Mức độ khắc phục lỗi trong lần nộp trước |
+
+Server tự tính tổng và không tin tổng điểm/trạng thái do mô hình cung cấp. Trạng thái **Đạt** chỉ xuất hiện khi tổng từ 75, phân tích là `correct`, không còn lỗi, đủ bằng chứng và confidence từ 0,6. Nếu thiếu dữ kiện hoặc confidence thấp, điểm tổng được để trống và trạng thái bắt buộc là **Chưa đủ cơ sở**; các trường hợp còn lại là **Cần cải thiện**. Giao diện hiển thị nhận xét, bằng chứng cho từng tiêu chí, lỗi đã sửa và lỗi còn tồn tại.
+
+### Tối ưu và Proof of Learning
+
+- Frontend gộp các request giống nhau đang chạy và cache mode `analyze` trong 2 phút, tối đa 50 kết quả. `discuss`, `hint` và `resubmit` không cache để tránh dùng lại ngữ cảnh cũ.
+- API giới hạn 15 request/phút/client, timeout upstream 25 giây và chỉ đọc `ANYROUTER_API_KEY` ở server.
+- Mọi output AI được chuẩn hóa và kiểm tra lại; trạng thái rubric được suy ra phía server.
+- Mỗi lần nộp lại tạo `proofRecord` phiên bản `paradox-proof-of-learning-v1`, gồm SHA-256 content hash, rubric version, attempt number, thời gian, model, confidence, trạng thái và các tiêu chí. Cấu trúc này sẵn sàng lưu database và làm payload tham chiếu cho Avalanche; Giai đoạn 2 chưa ghi dữ liệu lên blockchain.
+
 ### Điều hướng nhanh
 
 | Hash | Màn hình |
@@ -185,5 +222,5 @@ System prompt được áp đặt lại ở backend; trường `system` từ cli
 
 - Khi có cấu hình Supabase, tài khoản và mật khẩu được Supabase quản lý, access/refresh token nằm trong cookie `HttpOnly`, còn `localStorage` chỉ giữ hồ sơ hiển thị và dữ liệu học tập demo. Khi thiếu cấu hình, ứng dụng dùng chế độ local dành cho phát triển.
 - Chọn tệp chỉ cập nhật tên tệp trên giao diện. Tệp chưa được tải lên hoặc phân tích.
-- Phản hồi hội thoại và các bước AI là nội dung mô phỏng phía trình duyệt, chưa gọi Gemini.
+- AI Debate Engine gọi AnyRouter thật; Practice Lab và dữ liệu biểu đồ vẫn là nội dung demo. Kết quả AI có thể sai nên chỉ nên dùng như phản hồi hỗ trợ học tập, không phải đáp án có thẩm quyền.
 - Dữ liệu học tập hiện vẫn nằm trên từng trình duyệt. Nếu cần đồng bộ lịch sử học trên nhiều thiết bị, bước tiếp theo là chuyển các bảng lịch sử/practice/settings sang Supabase PostgreSQL với Row Level Security.

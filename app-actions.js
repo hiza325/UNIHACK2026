@@ -1,5 +1,6 @@
 import { demo } from './demo.js';
 import { MAX_FILE_SIZE, ALLOWED_FILE_EXTENSIONS } from './app-config.js';
+import { requestDebateAnalysis } from './debate-ai.js';
 
 export const actionMethods = {
   authText() {
@@ -299,47 +300,178 @@ export const actionMethods = {
     if (index !== null) this.querySelector(`[data-challenge="${index}"]`)?.focus();
     this.practiceIndex = null;
   },
-  startAudit() {
-    if (this.isAnalyzing) return;
-    const field = this.querySelector('#work-text');
-    const text = field ? field.value.trim() : '';
-    if (!text && !this.files.work.length) { this.showToast(this.t('feedback')); field?.focus(); return; }
-    this.auditText = text;
-    this.recordAuditSession(text);
-    this.advance(1); this.appendMessage(this.t('submitted'));
-    this.runAnalysis(() => { this.advance(2); this.appendMessage(`${this.t('incorrect')}<div style="margin-top:7px"><span class="prompt">${this.t('greetingPrompt')}</span></div>`); this.addReplies(); }, 700);
+  async auditInputText(type, value) {
+    const text = String(value || '').trim();
+    if (text) return text;
+    const file = this.files[type]?.[0];
+    const extension = file?.name?.split('.').pop()?.toLowerCase();
+    if (file && ['txt', 'js', 'py'].includes(extension)) return (await file.slice(0, 16000).text()).trim();
+    return '';
   },
-  sendMessage() {
+  debateErrorText(error) {
+    if (error?.code === 'NOT_CONFIGURED') return this.t('debateNotConfigured');
+    if (error?.code === 'TIMEOUT') return this.t('debateTimeout');
+    if (error?.code === 'INVALID_INPUT') return this.t('debateInvalidInput');
+    if (error?.code === 'INVALID_OUTPUT') return this.t('debateInvalidOutput');
+    if (error?.code === 'RATE_LIMIT') return this.t('debateRateLimit');
+    return this.t('debateApiError');
+  },
+  updateDebateResult() {
+    const slot = this.querySelector('#debate-result-slot');
+    if (slot) slot.innerHTML = this.debateResultMarkup();
+    const initialSubmit = this.querySelector('#start-audit');
+    if (initialSubmit) initialSubmit.hidden = Boolean(this.auditResult);
+  },
+  ensureDebateSession() {
+    if (!this.debateSession || typeof this.debateSession !== 'object') this.debateSession = { revisionCount: 0, hintLevel: 0, hints: [], attempts: [], conversation: [] };
+    return this.debateSession;
+  },
+  async startAudit() {
+    return this.submitAuditAttempt('analyze');
+  },
+  async resubmitAudit() {
+    return this.submitAuditAttempt('resubmit');
+  },
+  async submitAuditAttempt(mode) {
+    if (this.isAnalyzing) return;
+    const problemField = this.querySelector('#problem-text');
+    const solutionField = this.querySelector('#work-text');
+    const problem = await this.auditInputText('problem', problemField?.value);
+    const solution = await this.auditInputText('work', solutionField?.value);
+    if (!problem) { this.showToast(this.t('debateProblemRequired')); problemField?.focus(); return; }
+    if (!solution) { this.showToast(this.t('debateSolutionRequired')); solutionField?.focus(); return; }
+    const session = this.ensureDebateSession();
+    const previousAttempt = session.attempts.at(-1);
+    if (mode === 'resubmit' && !previousAttempt) return;
+    if (mode === 'resubmit' && previousAttempt.solution.trim() === solution.trim()) { this.showToast(this.t('debateNoChanges')); solutionField?.focus(); return; }
+    this.auditProblemText = problem;
+    this.auditText = solution;
+    if (mode === 'analyze') {
+      this.auditResult = null;
+      this.debateSession = { revisionCount: 0, hintLevel: 0, hints: [], attempts: [], conversation: [] };
+      this.recordAuditSession(`${problem}\n${solution}`);
+    }
+    const activeSession = this.ensureDebateSession();
+    this.saveAuditState();
+    this.advance(1);
+    this.appendMessage(this.escape(mode === 'resubmit' ? this.t('debateResubmitted') : this.t('submitted')), mode === 'resubmit');
+    this.setAnalyzing(true);
+    try {
+      const result = await requestDebateAnalysis({
+        mode,
+        problem,
+        solution,
+        language: this.lang,
+        previousSolution: mode === 'resubmit' ? previousAttempt.solution : '',
+        previousAnalysis: mode === 'resubmit' ? previousAttempt.analysis : null,
+        conversation: activeSession.conversation,
+        previousHints: activeSession.hints,
+        attemptNumber: mode === 'resubmit' ? activeSession.revisionCount + 2 : 1,
+      });
+      if (mode === 'resubmit') {
+        activeSession.revisionCount += 1;
+        result.comparison = { ...result.comparison, previousSolution: previousAttempt.solution, currentSolution: solution };
+      }
+      this.auditResult = result;
+      activeSession.attempts.push({ solution, analysis: result, at: new Date().toISOString() });
+      activeSession.attempts = activeSession.attempts.slice(-10);
+      activeSession.conversation.push({ role: 'assistant', text: result.summary });
+      activeSession.conversation = activeSession.conversation.slice(-40);
+      this.advance(result.status === 'correct' ? 5 : result.status === 'incorrect' ? 2 : 1);
+      this.appendMessage(this.escape(result.summary));
+      this.updateDebateResult();
+      this.addReplies();
+    } catch (error) {
+      const message = this.debateErrorText(error);
+      this.appendMessage(`<span class="message-error">${this.escape(message)}</span>`);
+      this.showToast(message);
+    } finally {
+      this.setAnalyzing(false);
+      this.saveAuditState();
+    }
+  },
+  async sendMessage(quickQuestion = '') {
     if (this.isAnalyzing) return;
     const input = this.querySelector('#chat-message');
-    if (!input) return;
-    const value = input.value.trim(); if (!value) return;
-    this.appendMessage(this.escape(value), true); input.value = '';
-    const normalized = value.toLowerCase();
-    this.runAnalysis(() => {
-      if (/gợi ý|hint|ヒント|không tìm|can't|cant|không biết/.test(normalized)) { this.advance(3); this.appendMessage(this.t('hint')); this.addReplies(); }
-      else if (/sửa|fixed|chỉnh|修正|đổi/.test(normalized)) { if (this.step < 3) this.markCurrentSessionSelfDetected(); this.advance(5); this.appendMessage(this.t('correct')); this.addReplies(); }
-      else if (/đáp án|cứu|answer|解答|rescue/.test(normalized)) { this.advance(5); this.appendMessage(this.t('rescue')); this.addReplies(); }
-      else { if (this.step < 4) this.advance(this.step + 1); this.appendMessage(this.t('incorrect')); this.addReplies(); }
-    }, 650);
+    const value = String(quickQuestion || input?.value || '').trim();
+    if (!value || !this.auditProblemText || !this.auditText) return;
+    const session = this.ensureDebateSession();
+    this.appendMessage(this.escape(value), true);
+    session.conversation.push({ role: 'user', text: value });
+    session.conversation = session.conversation.slice(-40);
+    if (input) input.value = '';
+    this.setAnalyzing(true);
+    try {
+      const result = await requestDebateAnalysis({ mode: 'discuss', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: value, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints });
+      this.auditResult = { ...result, comparison: this.auditResult?.comparison || result.comparison };
+      const reply = result.reply || result.summary;
+      session.conversation.push({ role: 'assistant', text: reply });
+      session.conversation = session.conversation.slice(-40);
+      this.appendMessage(this.escape(reply));
+      this.updateDebateResult();
+      this.addReplies();
+    } catch (error) {
+      const message = this.debateErrorText(error);
+      this.appendMessage(`<span class="message-error">${this.escape(message)}</span>`);
+      this.showToast(message);
+    } finally {
+      this.setAnalyzing(false);
+      this.saveAuditState();
+    }
+  },
+  async requestDebateHint() {
+    if (this.isAnalyzing || !this.auditResult) return;
+    const session = this.ensureDebateSession();
+    const nextLevel = session.hintLevel + 1;
+    if (nextLevel > 3) { this.showToast(this.t('debateHintMax')); return; }
+    const requestText = this.t('debateHintRequest').replace('{level}', String(nextLevel));
+    this.appendMessage(this.escape(requestText), true);
+    session.conversation.push({ role: 'user', text: requestText });
+    this.setAnalyzing(true);
+    try {
+      const result = await requestDebateAnalysis({ mode: 'hint', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: requestText, hintLevel: nextLevel, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints });
+      const hint = result.hint;
+      if (!hint || hint.level !== nextLevel) throw Object.assign(new Error('Invalid hint'), { code: 'INVALID_OUTPUT' });
+      session.hintLevel = nextLevel;
+      session.hints.push(hint);
+      session.hints = session.hints.slice(0, 3);
+      const reply = hint.content;
+      session.conversation.push({ role: 'assistant', text: reply });
+      session.conversation = session.conversation.slice(-40);
+      this.auditResult = { ...result, comparison: this.auditResult.comparison || result.comparison };
+      this.appendMessage(`<span class="hint-level-tag">${this.escape(this.t('debateHintLevel').replace('{level}', String(nextLevel)))}</span>${this.escape(reply)}`);
+      this.updateDebateResult();
+    } catch (error) {
+      const message = this.debateErrorText(error);
+      this.appendMessage(`<span class="message-error">${this.escape(message)}</span>`);
+      this.showToast(message);
+    } finally {
+      this.setAnalyzing(false);
+      this.saveAuditState();
+    }
   },
   setAnalyzing(active) {
     this.isAnalyzing = active;
-    this.querySelectorAll('#start-audit, #chat-message, .send-button, .reply-chip').forEach(element => { element.disabled = active; });
+    this.querySelectorAll('#start-audit, #problem-text, #work-text, #chat-message, .send-button, .reply-chip, [data-request-hint], [data-resubmit]').forEach(element => {
+      element.disabled = active || (element.hasAttribute('data-request-hint') && this.ensureDebateSession().hintLevel >= 3);
+    });
+    const submit = this.querySelector('#start-audit');
+    if (submit) submit.innerHTML = `${this.t(active ? 'debateAnalyzing' : 'debateAnalyze')} <span class="button-arrow">↗</span>`;
     const existing = this.querySelector('#typing-indicator');
     if (active && !existing) this.querySelector('#messages')?.insertAdjacentHTML('beforeend', this.typingMarkup());
     if (!active) existing?.remove();
-  },
-  runAnalysis(callback, delay = 650) {
-    this.setAnalyzing(true);
-    window.setTimeout(() => { this.setAnalyzing(false); callback(); }, delay);
   },
   addReplies() {
     const messages = this.querySelector('#messages');
     if (!messages) return;
     messages.querySelectorAll('.quick-replies').forEach(el => el.remove());
-    const wrap = document.createElement('div'); wrap.className = 'quick-replies'; wrap.innerHTML = `<button class="reply-chip" data-action="hint">${this.lang === 'en' ? 'I need a hint' : this.lang === 'jp' ? 'ヒントがほしい' : 'Mình cần gợi ý'}</button><button class="reply-chip" data-action="rescue">${this.lang === 'en' ? 'Show the full solution' : this.lang === 'jp' ? '解説を見る' : 'Xem lời giải'}</button><button class="reply-chip" data-action="practice">${this.lang === 'en' ? 'Give me a similar problem' : this.lang === 'jp' ? '似た問題を出して' : 'Cho bài tương tự'}</button>`;
-    wrap.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', () => { const action = btn.dataset.action; wrap.remove(); this.runAnalysis(() => { if (action === 'hint') { this.advance(3); this.appendMessage(this.t('hint')); } if (action === 'rescue') { this.advance(5); this.appendMessage(this.t('rescue')); } if (action === 'practice') { this.advance(6); this.appendMessage(this.t('practiceFeedback')); } this.addReplies(); }); }));
+    const wrap = document.createElement('div'); wrap.className = 'quick-replies'; wrap.innerHTML = `<button class="reply-chip" data-action="hint">${this.lang === 'en' ? 'I need a hint' : this.lang === 'jp' ? 'ヒントがほしい' : 'Mình cần gợi ý'}</button><button class="reply-chip" data-action="explain">${this.lang === 'en' ? 'Explain the next step' : this.lang === 'jp' ? '次のステップを説明して' : 'Giải thích bước tiếp theo'}</button><button class="reply-chip" data-action="practice">${this.lang === 'en' ? 'Give me a similar problem' : this.lang === 'jp' ? '似た問題を出して' : 'Cho bài tương tự'}</button>`;
+    const questions = {
+      hint: this.lang === 'en' ? 'Give me one hint without revealing the answer.' : this.lang === 'jp' ? '答えを明かさずにヒントを一つください。' : 'Cho mình một gợi ý nhưng chưa tiết lộ đáp án.',
+      explain: this.lang === 'en' ? 'Ask me a question that helps me find the next step without giving the complete answer.' : this.lang === 'jp' ? '完全な答えを出さず、次のステップを見つける質問をしてください。' : 'Hãy hỏi để giúp mình tìm bước tiếp theo mà chưa đưa đáp án hoàn chỉnh.',
+      practice: this.lang === 'en' ? 'Suggest one similar practice problem.' : this.lang === 'jp' ? '似た練習問題を一つ提案してください。' : 'Gợi ý một bài luyện tập tương tự.',
+    };
+    wrap.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', () => { const action = btn.dataset.action; wrap.remove(); if (action === 'hint') this.requestDebateHint(); else this.sendMessage(questions[action]); }));
     messages.append(wrap);
   },
   appendMessage(html, user = false) {

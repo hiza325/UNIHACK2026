@@ -81,7 +81,10 @@ export const dataMethods = {
     this.files = { problem: [], work: [] };
     this.filePreviewUrls = {};
     this.auditMessages = [];
+    this.auditProblemText = '';
     this.auditText = '';
+    this.auditResult = null;
+    this.debateSession = { revisionCount: 0, hintLevel: 0, hints: [], attempts: [], conversation: [] };
     this.practiceSolved = [];
     this.practiceActivity = [];
   },
@@ -113,7 +116,20 @@ export const dataMethods = {
     if (!state) return;
     this.step = Number.isInteger(state.step) ? Math.max(0, Math.min(6, state.step)) : 0;
     this.auditMessages = Array.isArray(state.messages) ? state.messages.slice(-60) : [];
+    this.auditProblemText = typeof state.problemText === 'string' ? state.problemText : '';
     this.auditText = typeof state.text === 'string' ? state.text : '';
+    this.auditResult = state.result && typeof state.result === 'object' ? state.result : null;
+    const savedSession = state.debateSession && typeof state.debateSession === 'object' ? state.debateSession : {};
+    this.debateSession = {
+      revisionCount: Math.max(0, Number(savedSession.revisionCount) || 0),
+      hintLevel: Math.max(0, Math.min(3, Number(savedSession.hintLevel) || 0)),
+      hints: Array.isArray(savedSession.hints) ? savedSession.hints.slice(0, 3) : [],
+      attempts: Array.isArray(savedSession.attempts) ? savedSession.attempts.slice(-10) : [],
+      conversation: Array.isArray(savedSession.conversation) ? savedSession.conversation.slice(-40) : [],
+    };
+    if (this.auditResult && this.auditText && !this.debateSession.attempts.length) {
+      this.debateSession.attempts.push({ solution: this.auditText, analysis: this.auditResult, at: new Date().toISOString() });
+    }
     this.files = {
       problem: state.files?.problem ? [state.files.problem] : [],
       work: state.files?.work ? [state.files.work] : []
@@ -123,7 +139,10 @@ export const dataMethods = {
     if (!this.auditDB) return;
     const state = {
       step: this.step,
+      problemText: this.auditProblemText,
       text: this.auditText,
+      result: this.auditResult,
+      debateSession: this.debateSession,
       messages: this.auditMessages.slice(-60),
       files: { problem: this.files.problem[0] || null, work: this.files.work[0] || null }
     };

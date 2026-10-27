@@ -269,6 +269,90 @@ test.describe('practice lab', () => {
   });
 });
 
+test.describe('AI Debate Engine', () => {
+  test('submits the problem and solution and renders structured AI findings', async ({ page }) => {
+    const requestBodies = [];
+    await seedSession(page);
+    await page.route('**/api/debate', async route => {
+      const requestBody = route.request().postDataJSON();
+      requestBodies.push(requestBody);
+      const isHint = requestBody.mode === 'hint';
+      const isResubmit = requestBody.mode === 'resubmit';
+      const status = isResubmit ? 'correct' : 'incorrect';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ analysis: {
+          status, summary: isResubmit ? 'Lời giải mới đã sửa đúng bước cuối.' : 'Bước cuối sử dụng sai phép toán ngược.', confidence: 0.96,
+          issues: isResubmit ? [] : [{ category: 'logic', step: 'x = 8 - 2', explanation: 'Hai vế phải được chia cho 2.', suggestion: 'Xem lại phép toán đang tác động lên x.' }],
+          strengths: ['Biến đổi hai bước đầu đúng.'], nextQuestion: 'Muốn tách x khỏi hệ số 2, bạn dùng phép toán nào?', reply: requestBody.question ? 'Hãy dùng phép chia để đảo phép nhân với 2.' : '',
+          hint: isHint ? { level: requestBody.hintLevel, content: `Gợi ý không lặp ở cấp ${requestBody.hintLevel}.` } : null,
+          comparison: isResubmit ? { summary: 'Bước cuối đã được sửa từ phép trừ thành phép chia.', improvements: ['Đã tìm đúng x = 4.'], remainingIssues: [] } : null,
+          evaluation: isResubmit ? {
+            rubricVersion: 'paradox-rubric-v1', evidenceSufficient: true, score: 91, status: 'pass', comment: 'Bài sửa chính xác và đầy đủ.',
+            criteria: {
+              knowledgeAccuracy: { score: 24, evidence: 'Kiến thức đúng.' }, reasoningLogic: { score: 23, evidence: 'Lập luận logic.' },
+              solutionCompleteness: { score: 21, evidence: 'Đủ bước chính.' }, errorRemediation: { score: 23, evidence: 'Đã sửa lỗi cuối.' },
+            },
+            correctedIssues: ['Đã thay phép trừ bằng phép chia.'], remainingIssues: [],
+          } : null,
+          proofRecord: isResubmit ? { schemaVersion: 'paradox-proof-of-learning-v1', contentHash: 'a'.repeat(64) } : null,
+        } }),
+      });
+    });
+    await page.goto('/#/audit');
+    await page.fill('#problem-text', 'Giải phương trình 2x + 5 = 13');
+    await page.fill('#work-text', '2x = 8, do đó x = 8 - 2 = 6');
+    await page.click('#start-audit');
+
+    await expect(page.locator('.debate-result.incorrect')).toBeVisible();
+    await expect(page.locator('.debate-issue')).toContainText('Logic');
+    await expect(page.locator('.debate-issue')).toContainText('x = 8 - 2');
+    expect(requestBodies[0].problem).toContain('2x + 5 = 13');
+    expect(requestBodies[0].solution).toContain('x = 8 - 2');
+    expect(requestBodies[0].language).toBe('vi');
+
+    await page.fill('#chat-message', 'Cho mình một gợi ý.');
+    await page.locator('#chat-form button').click();
+    await expect(page.locator('#messages .bubble').last()).toContainText('phép chia');
+    expect(requestBodies[1].question).toBe('Cho mình một gợi ý.');
+    expect(requestBodies[1].previousAnalysis.status).toBe('incorrect');
+
+    for (const level of [1, 2, 3]) {
+      await page.locator('[data-request-hint]').click();
+      await expect(page.locator('.debate-hint-history article')).toHaveCount(level);
+      await expect(page.locator('.debate-session-tools')).toContainText(`${level} / 3`);
+    }
+    expect(requestBodies.slice(2, 5).map(body => body.hintLevel)).toEqual([1, 2, 3]);
+    await expect(page.locator('[data-request-hint]')).toBeDisabled();
+
+    await page.fill('#work-text', '2x = 8, do đó chia hai vế cho 2 và được x = 4.');
+    await page.locator('[data-resubmit]').click();
+    await expect(page.locator('.debate-result.correct')).toBeVisible();
+    await expect(page.locator('.debate-comparison')).toContainText('phép trừ thành phép chia');
+    await expect(page.locator('.debate-evaluation')).toContainText('91');
+    await expect(page.locator('.debate-evaluation')).toContainText('ĐẠT');
+    await expect(page.locator('.debate-evaluation')).toContainText('Đã thay phép trừ bằng phép chia');
+    await expect(page.locator('.debate-session-tools')).toContainText('Số lần sửa: 1');
+    expect(requestBodies[5].mode).toBe('resubmit');
+    expect(requestBodies[5].previousSolution).toContain('x = 8 - 2');
+    expect(requestBodies[5].solution).toContain('x = 4');
+    expect(await axeHighImpactViolations(page, 'debate-result')).toEqual([]);
+
+    await page.locator('.sidebar [data-route="dashboard"]').click();
+    await page.locator('.sidebar [data-route="audit"]').click();
+    await expect(page.locator('#work-text')).toHaveValue(/x = 4/);
+    await expect(page.locator('.debate-hint-history article')).toHaveCount(3);
+    await expect(page.locator('.debate-session-tools')).toContainText('Số lần sửa: 1');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator('.debate-evaluation')).toBeVisible();
+    expect(await page.locator('.debate-evaluation').evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    expect(await page.locator('.evaluation-criteria').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(1);
+    expect(await axeHighImpactViolations(page, 'debate-result-mobile')).toEqual([]);
+  });
+});
+
 test.describe('history filters', () => {
   test('status chip and search narrow the session list', async ({ page }) => {
     await seedSession(page);

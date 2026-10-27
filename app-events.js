@@ -32,6 +32,8 @@ export const eventMethods = {
     if (themeBtn) { this.applyTheme(themeBtn.dataset.setTheme === 'dark'); return; }
     if (event.target.closest?.('[data-upgrade]')) { this.showToast(this.t('profUpgradeToast')); return; }
     if (event.target.closest?.('[data-test-notification]')) { this.testNotification(); return; }
+    if (event.target.closest?.('[data-request-hint]')) { this.requestDebateHint(); return; }
+    if (event.target.closest?.('[data-resubmit]')) { this.resubmitAudit(); return; }
     const accountStatus = event.target.closest?.('[data-account-status]');
     if (accountStatus && this.user?.role === 'admin') { this.updateAccountStatus(accountStatus.dataset.accountId, accountStatus.dataset.accountStatus); return; }
     if (event.target.closest?.('#export-data')) { this.exportData(); return; }
@@ -52,6 +54,7 @@ export const eventMethods = {
   onInput(event) {
     if (event.target.id === 'history-search') { this.historyPage = 1; this.filterHistory(); }
     if (event.target.id === 'work-text') { this.auditText = event.target.value; this.saveAuditState(); }
+    if (event.target.id === 'problem-text') { this.auditProblemText = event.target.value; this.saveAuditState(); }
     if (event.target.id === 'admin-search') { this.filterAdminUsers(event.target.value); return; }
     if (event.target.id === 'hint-level') {
       const label = this.querySelector('#hint-value');

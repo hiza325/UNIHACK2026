@@ -26,13 +26,13 @@ export const shellViews = {
     const auditsRemaining = Math.max(0, auditLimit - Math.min(auditLimit, sessionCount));
     const remainingPercent = Math.round(auditsRemaining / auditLimit * 100);
     const adminItem = this.user.role === 'admin' ? [['admin', 'navAdmin', 'shield']] : [];
-    const nav = [...NAV_ITEMS, ...adminItem].map(([view, key, ic]) => `<button class="nav-item ${this.view === view ? 'active' : ''}" data-route="${view}" ${this.view === view ? 'aria-current="page"' : ''}><span class="nav-icon">${svgIcon(ic)}</span><span class="nav-text">${t(key)}</span>${view === 'history' ? `<span class="nav-count">${count}</span>` : ''}</button>`).join('');
+    const nav = [...NAV_ITEMS, ...adminItem].map(([view, key, ic]) => `<button class="nav-item ${this.view === view ? 'active' : ''}" data-route="${view}" ${this.view === view ? 'aria-current="page"' : ''}><span class="nav-icon" aria-hidden="true">${svgIcon(ic)}</span><span class="nav-text">${t(key)}</span>${view === 'history' ? `<span class="nav-count">${count}</span>` : ''}</button>`).join('');
     return `<aside class="sidebar">
       <a class="brand brand-link" href="#/dashboard">
         <img class="brand-mark" src="logo-mark.svg" alt="" />
         <div class="brand-copy"><div class="brand-name">PARADOX<span class="brand-ai"> AI</span></div><div class="brand-sub">NEXUS ACADEMY ANALYTICS</div></div>
       </a>
-      <div style="width:100%"><div class="workspace-label">${t('workspace')}</div><nav class="nav-group">${nav}<button class="nav-item mobile-more ${['about', 'settings'].includes(this.view) ? 'active' : ''}" type="button" data-mobile-more aria-expanded="false" ${['about', 'settings'].includes(this.view) ? 'aria-current="page"' : ''}><span class="nav-icon">•••</span><span class="nav-text">${t('more')}</span></button></nav></div>
+      <div style="width:100%"><div class="workspace-label">${t('workspace')}</div><nav class="nav-group">${nav}<button class="nav-item mobile-more ${['about', 'settings'].includes(this.view) ? 'active' : ''}" type="button" data-mobile-more aria-expanded="false" ${['about', 'settings'].includes(this.view) ? 'aria-current="page"' : ''}><span class="nav-icon" aria-hidden="true">•••</span><span class="nav-text">${t('more')}</span></button></nav></div>
       <div class="mobile-more-menu" id="mobile-more-menu" hidden><button data-route="about">${svgIcon('help')} ${t('navAbout')}</button><button data-route="settings">${svgIcon('settings')} ${t('navSettings')}</button></div>
       <div class="sidebar-spacer"></div>
       <div class="plan-card"><div class="plan-top"><span>${t('plan')}</span><span class="plan-tag">FREE</span></div><p>${t('remaining')}</p><div class="progress-track" role="progressbar" aria-label="${t('remaining')}" aria-valuemin="0" aria-valuemax="${auditLimit}" aria-valuenow="${auditsRemaining}" aria-valuetext="${auditsRemaining} / ${auditLimit}"><div class="progress-fill" style="width:${remainingPercent}%"></div></div><div class="plan-foot"><span>${String(auditsRemaining).padStart(2, '0')} / ${auditLimit}</span><span>${remainingPercent}%</span></div></div>
