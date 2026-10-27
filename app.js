@@ -19,8 +19,8 @@ class EduApp extends HTMLElement {
     this.view = 'dashboard';
     this.pendingView = null;
     this.practiceIndex = null;
-    this.practiceSolved = this.readJSON('paradox-practice', []);
-    this.practiceActivity = this.readJSON('paradox-practice-activity', []);
+    this.practiceSolved = this.readJSON(this.userStorageKey('practice'), []);
+    this.practiceActivity = this.readJSON(this.userStorageKey('practice-activity'), []);
     this.settings = this.readJSON('paradox-settings', { reminder: true, digest: true, sound: false, subject: 'math', hint: 2 });
     this.auditMessages = [];
     this.auditText = '';

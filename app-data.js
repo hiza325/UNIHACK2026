@@ -1,7 +1,31 @@
-import { demo } from './demo.js';
-
 export const dataMethods = {
   readJSON(key, fallback) { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch { return fallback; } },
+  userStorageKey(name, email = this.user?.email) {
+    const owner = encodeURIComponent(String(email || 'guest').trim().toLowerCase());
+    return `paradox-user:${owner}:${name}`;
+  },
+  initializeUserData(email) {
+    ['audit-sessions', 'practice', 'practice-activity'].forEach(name => {
+      const key = this.userStorageKey(name, email);
+      if (localStorage.getItem(key) === null) localStorage.setItem(key, '[]');
+    });
+  },
+  resetInMemoryUserData() {
+    Object.values(this.filePreviewUrls || {}).forEach(url => URL.revokeObjectURL(url));
+    this.step = 0;
+    this.files = { problem: [], work: [] };
+    this.filePreviewUrls = {};
+    this.auditMessages = [];
+    this.auditText = '';
+    this.practiceSolved = [];
+    this.practiceActivity = [];
+  },
+  async loadUserData() {
+    this.resetInMemoryUserData();
+    this.practiceSolved = this.readJSON(this.userStorageKey('practice'), []);
+    this.practiceActivity = this.readJSON(this.userStorageKey('practice-activity'), []);
+    await this.loadAuditState();
+  },
   openAuditDB() {
     if (!('indexedDB' in window)) return Promise.resolve(null);
     return new Promise(resolve => {
@@ -17,7 +41,7 @@ export const dataMethods = {
     this.auditDB = await this.openAuditDB();
     if (!this.auditDB) return;
     const state = await new Promise(resolve => {
-      const request = this.auditDB.transaction('state', 'readonly').objectStore('state').get('audit');
+      const request = this.auditDB.transaction('state', 'readonly').objectStore('state').get(this.userStorageKey('audit-state'));
       request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => resolve(null);
     });
@@ -38,12 +62,12 @@ export const dataMethods = {
       messages: this.auditMessages.slice(-60),
       files: { problem: this.files.problem[0] || null, work: this.files.work[0] || null }
     };
-    try { this.auditDB.transaction('state', 'readwrite').objectStore('state').put(state, 'audit'); } catch { /* IndexedDB may be unavailable in private mode. */ }
+    try { this.auditDB.transaction('state', 'readwrite').objectStore('state').put(state, this.userStorageKey('audit-state')); } catch { /* IndexedDB may be unavailable in private mode. */ }
   },
   getSessions() {
-    const saved = this.readJSON('paradox-audit-sessions', []);
+    const saved = this.readJSON(this.userStorageKey('audit-sessions'), []);
     const seen = new Set();
-    return [...saved, ...demo[this.lang].sessions].filter(item => {
+    return saved.filter(item => {
       const key = item.id || `${item.date}|${item.title}|${item.skill}`;
       if (seen.has(key)) return false;
       seen.add(key);
@@ -63,7 +87,8 @@ export const dataMethods = {
     const sessions = this.getSessions();
     const average = sessions.length ? Math.round(sessions.reduce((sum, item) => sum + Number(item.score || 0), 0) / sessions.length) : 0;
     const mastered = sessions.filter(item => item.status === 'mastered').length;
-    const accuracy = sessions.length ? Math.round(mastered / sessions.length * 100) : 0;
+    const selfDetected = sessions.filter(item => item.selfDetected === true).length;
+    const accuracy = sessions.length ? Math.round(selfDetected / sessions.length * 100) : 0;
     const dates = new Set([
       ...sessions.map(item => this.sessionISODate(item)),
       ...this.practiceActivity.map(item => item.isoDate)
@@ -85,7 +110,7 @@ export const dataMethods = {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     const activities = [
-      ...this.getSessions().map(item => ({ isoDate: this.sessionISODate(item), minutes: 6 + Math.round(Number(item.score || 0) / 20) })),
+      ...this.getSessions().map(item => ({ isoDate: this.sessionISODate(item), minutes: Number(item.minutes || 0) })),
       ...this.practiceActivity
     ];
     activities.forEach(item => {
@@ -104,7 +129,7 @@ export const dataMethods = {
     const subjectKeys = { math: 'setSubjectMath', algebra: 'setSubjectAlgebra', code: 'setSubjectCode' };
     const source = this.files.problem[0]?.name || String(text || '').split(/\r?\n/)[0].slice(0, 54) || this.t('sessionTitle');
     const now = new Date();
-    const sessions = this.readJSON('paradox-audit-sessions', []);
+    const sessions = this.readJSON(this.userStorageKey('audit-sessions'), []);
     sessions.unshift({
       id: `audit-${now.getTime()}`,
       date: `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`,
@@ -112,16 +137,28 @@ export const dataMethods = {
       title: source,
       skill: this.t(subjectKeys[this.settings.subject] || 'setSubjectMath'),
       status: 'progress',
-      score: 50
+      score: 50,
+      selfDetected: false,
+      startedAt: now.toISOString(),
+      minutes: 0
     });
-    localStorage.setItem('paradox-audit-sessions', JSON.stringify(sessions.slice(0, 100)));
+    localStorage.setItem(this.userStorageKey('audit-sessions'), JSON.stringify(sessions.slice(0, 100)));
   },
   updateAuditProgress(step) {
-    const sessions = this.readJSON('paradox-audit-sessions', []);
+    const sessions = this.readJSON(this.userStorageKey('audit-sessions'), []);
     if (!sessions.length) return;
     sessions[0].score = Math.min(95, 50 + step * 8);
     sessions[0].status = step >= 5 ? 'mastered' : 'progress';
-    localStorage.setItem('paradox-audit-sessions', JSON.stringify(sessions));
+    const startedAt = new Date(sessions[0].startedAt || Date.now()).getTime();
+    sessions[0].minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
+    localStorage.setItem(this.userStorageKey('audit-sessions'), JSON.stringify(sessions));
+  },
+  markCurrentSessionSelfDetected() {
+    const key = this.userStorageKey('audit-sessions');
+    const sessions = this.readJSON(key, []);
+    if (!sessions.length) return;
+    sessions[0].selfDetected = true;
+    localStorage.setItem(key, JSON.stringify(sessions));
   },
   filterHistory() {
     const active = this.querySelector('[data-history-filter].active')?.dataset.historyFilter || 'all';
@@ -182,7 +219,7 @@ export const dataMethods = {
           score: Math.max(0, Math.min(100, Math.round(Number(item.score))))
         };
       });
-      localStorage.setItem('paradox-audit-sessions', JSON.stringify(sessions.slice(0, 100)));
+      localStorage.setItem(this.userStorageKey('audit-sessions'), JSON.stringify(sessions.slice(0, 100)));
       this.historyPage = 1;
       this.render();
       this.showToast(this.t('histImportDone'));
@@ -202,8 +239,8 @@ export const dataMethods = {
     this.showToast(this.t('setExportDone'));
   },
   resetPractice() {
-    localStorage.removeItem('paradox-practice');
-    localStorage.removeItem('paradox-practice-activity');
+    localStorage.setItem(this.userStorageKey('practice'), '[]');
+    localStorage.setItem(this.userStorageKey('practice-activity'), '[]');
     this.practiceSolved = [];
     this.practiceActivity = [];
     this.render();

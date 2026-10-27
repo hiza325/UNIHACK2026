@@ -50,7 +50,9 @@ export const cardViews = {
     return `<div class="file-field"><label class="file-drop" for="file-${type}"><span class="file-symbol">${type === 'problem' ? '▧' : '▤'}</span><span><span class="file-title">${title}</span><span class="file-meta">${meta} · MAX 10 MB</span></span><span class="file-plus">＋</span><input class="file-input" type="file" id="file-${type}" data-file="${type}" accept="image/*,.pdf,.doc,.docx,.txt,.js,.py" /></label>${this.fileSelectionMarkup(type)}</div>`;
   },
   auditMessagesMarkup() {
-    const greeting = `<audit-message class="message"><span class="message-icon">✳</span><div class="bubble">${this.t('greeting')}<div style="margin-top:7px">${this.t('greetingPrompt')}</div><div class="message-time">${this.t('timeNow')}</div></div></audit-message>`;
+    const name = this.escape(this.user?.name || this.user?.email || 'U');
+    const greetingText = this.t('greeting').replace('Minh Anh', name).replace('ミン・アイン', name);
+    const greeting = `<audit-message class="message"><span class="message-icon">✳</span><div class="bubble">${greetingText}<div style="margin-top:7px">${this.t('greetingPrompt')}</div><div class="message-time">${this.t('timeNow')}</div></div></audit-message>`;
     const saved = this.auditMessages.map(item => {
       const initials = (this.user?.name || 'U').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
       return `<audit-message class="message ${item.user ? 'user' : ''}"><span class="message-icon">${item.user ? this.escape(initials) : '✳'}</span><div class="bubble">${item.html}<div class="message-time">${this.t('timeNow')}</div></div></audit-message>`;

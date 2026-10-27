@@ -7,6 +7,24 @@ function seedSession(page) {
   return page.addInitScript(user => localStorage.setItem('paradox-session', JSON.stringify(user)), SESSION);
 }
 
+function userKey(name, email = SESSION.email) {
+  return `paradox-user:${encodeURIComponent(email.toLowerCase())}:${name}`;
+}
+
+function seedLearningSessions(page) {
+  return page.addInitScript(({ key, sessions }) => localStorage.setItem(key, JSON.stringify(sessions)), {
+    key: userKey('audit-sessions'),
+    sessions: [
+      { id: '1', date: '26/10', isoDate: '2026-10-26', title: 'Đạo hàm', skill: 'Giải tích', status: 'needs', score: 62, selfDetected: false, minutes: 8 },
+      { id: '2', date: '24/10', isoDate: '2026-10-24', title: 'Đại số', skill: 'Đại số', status: 'mastered', score: 88, selfDetected: true, minutes: 10 },
+      { id: '3', date: '22/10', isoDate: '2026-10-22', title: 'Python list', skill: 'Lập trình', status: 'mastered', score: 92, selfDetected: true, minutes: 12 },
+      { id: '4', date: '19/10', isoDate: '2026-10-19', title: 'Giới hạn', skill: 'Giải tích', status: 'progress', score: 54, selfDetected: false, minutes: 6 },
+      { id: '5', date: '17/10', isoDate: '2026-10-17', title: 'Logic', skill: 'Logic', status: 'needs', score: 67, selfDetected: false, minutes: 7 },
+      { id: '6', date: '15/10', isoDate: '2026-10-15', title: 'Xác suất', skill: 'Thống kê', status: 'mastered', score: 85, selfDetected: true, minutes: 9 }
+    ]
+  });
+}
+
 async function axeHighImpactViolations(page, contextName) {
   const results = await new AxeBuilder({ page }).analyze();
   if (results.violations.length) {
@@ -21,7 +39,9 @@ test.describe('auth', () => {
     await expect(page).toHaveTitle(/PARADOX AI/);
     await expect(page.locator('#landing-login')).toBeVisible();
     expect(await page.locator('link[href*="fonts.googleapis.com"], link[href*="fonts.gstatic.com"]')).toHaveCount(0);
-    expect(await page.locator('link[rel="preload"][as="font"]')).toHaveCount(3);
+    expect(await page.locator('link[rel="preload"][as="font"]')).toHaveCount(4);
+    await page.evaluate(() => document.fonts.ready);
+    expect(await page.evaluate(() => document.fonts.check('500 48px "Lora"', 'Chào buổi chiều'))).toBe(true);
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /social-preview\.png$/);
     await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
     const previewSize = await page.evaluate(() => new Promise(resolve => {
@@ -34,7 +54,7 @@ test.describe('auth', () => {
     expect(await axeHighImpactViolations(page, 'landing')).toEqual([]);
   });
 
-  test('signup creates a session, logout returns to landing', async ({ page }) => {
+  test('signup initializes empty learning data, logout returns to landing', async ({ page }) => {
     await page.goto('/');
     await page.click('#hero-start');
     await page.fill('input[name="name"]', SESSION.name);
@@ -44,6 +64,14 @@ test.describe('auth', () => {
     await page.click('.auth-submit');
     await expect(page.locator('.sidebar')).toBeVisible();
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('paradox-session'))?.email)).toBe(SESSION.email);
+    await expect(page.locator('.nav-count')).toHaveText('00');
+    await expect(page.locator('section[aria-label^="Tự phát hiện lỗi"]')).toHaveAttribute('aria-label', 'Tự phát hiện lỗi: 0%');
+    expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), userKey('audit-sessions'))).toEqual([]);
+    expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), userKey('practice'))).toEqual([]);
+
+    await page.locator('.sidebar [data-route="audit"]').click();
+    await expect(page.locator('#messages .bubble').first()).toContainText(SESSION.name);
+    await expect(page.locator('#messages .bubble').first()).not.toContainText('Minh Anh');
 
     await page.click('#logout-button');
     await expect(page.locator('#landing-login')).toBeVisible();
@@ -120,7 +148,7 @@ test.describe('practice lab', () => {
 
     await page.locator('[data-option="1"]').click(); // correct answer for challenge 0
     await expect(page.locator('#practice-result.ok')).toBeVisible();
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('paradox-practice') || '[]'))).toContain(0);
+    expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '[]'), userKey('practice'))).toContain(0);
 
     expect(await axeHighImpactViolations(page, 'practice-modal')).toEqual([]);
     await page.locator('.practice-close').click();
@@ -131,6 +159,7 @@ test.describe('practice lab', () => {
 test.describe('history filters', () => {
   test('status chip and search narrow the session list', async ({ page }) => {
     await seedSession(page);
+    await seedLearningSessions(page);
     await page.goto('/#/history');
 
     const rows = page.locator('[data-session-status]');

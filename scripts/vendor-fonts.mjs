@@ -13,8 +13,7 @@ const css = await cssResponse.text();
 const blocks = [...css.matchAll(/\/\* ([^*]+) \*\/\s*(@font-face\s*\{.*?\})/gs)];
 
 const selected = blocks.filter(([, subset, block]) => {
-  const family = block.match(/font-family: '([^']+)'/)?.[1];
-  return subset === 'latin' || (family === 'Be Vietnam Pro' && subset === 'vietnamese');
+  return ['latin', 'vietnamese'].includes(subset);
 });
 
 await rm(outputDir, { recursive: true, force: true });

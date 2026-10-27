@@ -1,4 +1,5 @@
 /* analytics views — extracted from app-views.js. Methods are merged into viewMethods. */
+import { demo } from '../demo.js';
 export const analyticsViews = {
   viewAnalytics() {
     const t = k => this.t(k);
@@ -7,7 +8,10 @@ export const analyticsViews = {
     const series = this.activitySeries(period);
     const labels = period === 7 ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] : series.values.map((_, i) => String(i + 1));
     const chart = this.barChartMarkup(series, labels, { title: t('anaWeekly'), chartClass: 'big-chart', labelsClass: 'big-chart-labels' });
-    const skillValues = [metrics.accuracy, metrics.average, Math.min(100, 45 + this.practiceSolved.length * 8), Math.min(100, 40 + metrics.mastered * 10)];
+    const practiceTotal = demo[this.lang].challenges.length;
+    const practiceProgress = practiceTotal ? Math.round(this.practiceSolved.length / practiceTotal * 100) : 0;
+    const masteryProgress = metrics.sessions.length ? Math.round(metrics.mastered / metrics.sessions.length * 100) : 0;
+    const skillValues = [metrics.accuracy, metrics.average, practiceProgress, masteryProgress];
     const skillRows = skillValues.map((value, i) => `<div class="skill-row"><div class="skill-top"><span>${t('skill' + (i + 1))}</span><span>${value}%</span></div><div class="skill-track" role="progressbar" aria-label="${t('skill' + (i + 1))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${value}"><span style="width:${value}%"></span></div></div>`).join('');
     return `<div class="page">
       ${this.viewHead(t('pageAnalytics'), 'anaSub')}

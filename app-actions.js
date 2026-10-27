@@ -3,7 +3,7 @@ import { MAX_FILE_SIZE, ALLOWED_FILE_EXTENSIONS } from './app-config.js';
 
 export const actionMethods = {
   openAuth(mode) { this.authMode=mode; this.querySelector('#auth-error').textContent=''; this.querySelector('#auth-backdrop').hidden=false; this.updateAuthText(({vi:{loginTitle:'Chào mừng trở lại',signupTitle:'Tạo tài khoản PARADOX',name:'Tên của bạn',email:'Địa chỉ email',password:'Mật khẩu',confirm:'Nhập lại mật khẩu',submitLogin:'Đăng nhập',submitSignup:'Tạo tài khoản',switchLogin:'Đã có tài khoản? Đăng nhập',switchSignup:'Chưa dùng PARADOX? Tạo tài khoản'},en:{loginTitle:'Welcome back',signupTitle:'Create your PARADOX account',name:'Your name',email:'Email address',password:'Password',confirm:'Confirm password',submitLogin:'Log in',submitSignup:'Create account',switchLogin:'Already have an account? Log in',switchSignup:'New to PARADOX? Sign up'},jp:{loginTitle:'おかえりなさい',signupTitle:'アカウントを作成',name:'お名前',email:'メールアドレス',password:'パスワード',confirm:'パスワードの確認',submitLogin:'ログイン',submitSignup:'登録する',switchLogin:'アカウントをお持ちですか？ログイン',switchSignup:'初めての方はこちら'}})[this.lang]); },
-  authenticate(event, text) {
+  async authenticate(event, text) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const password = String(data.get('password') || '');
@@ -14,7 +14,9 @@ export const actionMethods = {
     const email = String(data.get('email') || '').trim();
     const name = String(data.get('name') || '').trim() || email.split('@')[0];
     this.user = { name, email };
+    this.initializeUserData(email);
     localStorage.setItem('paradox-session', JSON.stringify(this.user));
+    await this.loadUserData();
     const target = this.pendingView || 'dashboard';
     this.pendingView = null;
     this.navigate(target);
@@ -134,9 +136,9 @@ export const actionMethods = {
     result.innerHTML = `<strong>${correct ? this.t('pracCorrect') : this.t('pracWrong')}</strong><p>${this.escape(ch.explanation)}</p>${correct ? '' : `<button class="ghost-button" type="button" data-retry-practice>${this.t('pracRetry')}</button>`}`;
     if (correct && !this.practiceSolved.includes(this.practiceIndex)) {
       this.practiceSolved.push(this.practiceIndex);
-      localStorage.setItem('paradox-practice', JSON.stringify(this.practiceSolved));
+      localStorage.setItem(this.userStorageKey('practice'), JSON.stringify(this.practiceSolved));
       this.practiceActivity.push({ isoDate: this.localDateKey(), minutes: ch.mins, subject: ch.subject, challenge: this.practiceIndex });
-      localStorage.setItem('paradox-practice-activity', JSON.stringify(this.practiceActivity.slice(-200)));
+      localStorage.setItem(this.userStorageKey('practice-activity'), JSON.stringify(this.practiceActivity.slice(-200)));
       this.querySelectorAll(`[data-challenge="${this.practiceIndex}"]`).forEach(btn => {
         btn.textContent = `${this.t('pracSolved')} ↗`;
         btn.closest('.challenge-card')?.classList.add('solved');
@@ -180,7 +182,7 @@ export const actionMethods = {
     const normalized = value.toLowerCase();
     this.runAnalysis(() => {
       if (/gợi ý|hint|ヒント|không tìm|can't|cant|không biết/.test(normalized)) { this.advance(3); this.appendMessage(this.t('hint')); this.addReplies(); }
-      else if (/sửa|fixed|chỉnh|修正|đổi/.test(normalized)) { this.advance(5); this.appendMessage(this.t('correct')); this.addReplies(); }
+      else if (/sửa|fixed|chỉnh|修正|đổi/.test(normalized)) { if (this.step < 3) this.markCurrentSessionSelfDetected(); this.advance(5); this.appendMessage(this.t('correct')); this.addReplies(); }
       else if (/đáp án|cứu|answer|解答|rescue/.test(normalized)) { this.advance(5); this.appendMessage(this.t('rescue')); this.addReplies(); }
       else { if (this.step < 4) this.advance(this.step + 1); this.appendMessage(this.t('incorrect')); this.addReplies(); }
     }, 650);

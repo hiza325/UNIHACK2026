@@ -26,6 +26,7 @@ export const routerMethods = {
   },
   logout() {
     localStorage.removeItem('paradox-session');
+    this.resetInMemoryUserData();
     this.user = null;
     this.view = 'landing';
     this.pendingView = null;
