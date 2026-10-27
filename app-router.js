@@ -2,7 +2,14 @@ import { APP_VIEWS } from './demo.js';
 
 export const routerMethods = {
   onHashChange() {
-    if (!location.hash || location.hash.startsWith('#/')) this.handleRoute();
+    if (!location.hash || location.hash.startsWith('#/')) {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (this.user && document.startViewTransition && !reduceMotion) {
+        document.startViewTransition(() => this.handleRoute());
+      } else {
+        this.handleRoute();
+      }
+    }
   },
   handleRoute() {
     const raw = location.hash.startsWith('#/') ? location.hash.slice(2).replace(/\/+$/, '') : '';

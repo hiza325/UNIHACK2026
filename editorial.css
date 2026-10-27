@@ -2,6 +2,11 @@
 /* PARADOX — study journal visual direction */
 :root { --journal-ink:#24382c; --journal-paper:#f5f2e9; --journal-accent:#b7472c; font-family:'Be Vietnam Pro',sans-serif; }
 body { min-width:320px; background:var(--journal-paper); }
+.app-shell .main { view-transition-name: app-page; }
+::view-transition-old(app-page) { animation:app-page-out .2s ease-out both; }
+::view-transition-new(app-page) { animation:app-page-in .38s cubic-bezier(.22,1,.36,1) both; }
+@keyframes app-page-out { to { opacity:0; transform:translateY(-3px); } }
+@keyframes app-page-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 .landing { background:var(--journal-paper); color:var(--journal-ink); padding:0 clamp(22px,6vw,100px); }
 .landing .landing-nav { max-width:1320px; height:92px; border-bottom:1px solid #c9cebe; }
 .landing-brand b { font:700 21px 'Be Vietnam Pro',sans-serif; letter-spacing:-.07em; }
