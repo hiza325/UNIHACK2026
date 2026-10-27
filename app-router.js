@@ -4,12 +4,12 @@ export const routerMethods = {
   onHashChange() {
     if (!location.hash || location.hash.startsWith('#/')) {
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (this.user && document.startViewTransition && !reduceMotion) {
-        document.startViewTransition(() => this.handleRoute());
-      } else {
-        this.handleRoute();
-      }
+      this.transitionPage(() => this.handleRoute(), reduceMotion);
     }
+  },
+  transitionPage(update, reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (document.startViewTransition && !reduceMotion) return document.startViewTransition(update);
+    update();
   },
   handleRoute() {
     const raw = location.hash.startsWith('#/') ? location.hash.slice(2).replace(/\/+$/, '') : '';
@@ -41,6 +41,6 @@ export const routerMethods = {
     document.body.style.overflow = '';
     history.replaceState(null, '', location.pathname + location.search);
     window.scrollTo(0, 0);
-    this.renderLanding();
+    this.transitionPage(() => this.renderLanding());
   },
 };

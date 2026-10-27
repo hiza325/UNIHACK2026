@@ -2,7 +2,7 @@
 /* PARADOX — study journal visual direction */
 :root { --journal-ink:#24382c; --journal-paper:#f5f2e9; --journal-accent:#b7472c; font-family:'Be Vietnam Pro',sans-serif; }
 body { min-width:320px; background:var(--journal-paper); }
-.app-shell .main { view-transition-name: app-page; }
+.app-shell .main, .landing, .sitemap-page { view-transition-name: app-page; }
 ::view-transition-old(app-page) { animation:app-page-out .2s ease-out both; }
 ::view-transition-new(app-page) { animation:app-page-in .38s cubic-bezier(.22,1,.36,1) both; }
 @keyframes app-page-out { to { opacity:0; transform:translateY(-3px); } }
