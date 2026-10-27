@@ -60,9 +60,22 @@ function emailCopy(language, code) {
   };
 }
 
-async function sendEmail(email, code, language, env, fetcher) {
-  if (!env.RESEND_API_KEY || !env.OTP_FROM_EMAIL) return false;
+async function sendEmail(email, code, language, env, fetcher, suppliedTransporter) {
   const copy = emailCopy(language, code);
+  if (env.GMAIL_USER && env.GMAIL_APP_PASSWORD) {
+    const transporter = suppliedTransporter || (await import('nodemailer')).createTransport({
+        service: 'gmail',
+        auth: { user: env.GMAIL_USER, pass: String(env.GMAIL_APP_PASSWORD).replace(/\s+/g, '') },
+      });
+    await transporter.sendMail({
+      from: `"${String(env.GMAIL_FROM_NAME || 'PARADOX AI').replace(/["\r\n]/g, '')}" <${env.GMAIL_USER}>`,
+      to: email,
+      subject: copy.subject,
+      html: copy.html,
+    });
+    return true;
+  }
+  if (!env.RESEND_API_KEY || !env.OTP_FROM_EMAIL) return false;
   const response = await fetcher(RESEND_URL, {
     method: 'POST',
     headers: {
@@ -87,7 +100,7 @@ export async function processOtpRequest(payload, options = {}) {
   if (action === 'send') {
     const code = String(randomInt(0, 1000000)).padStart(6, '0');
     const challenge = createChallenge(email, code, secret, options.now?.() ?? Date.now());
-    const delivered = await sendEmail(email, code, ['vi', 'en', 'jp'].includes(payload?.language) ? payload.language : 'vi', env, fetcher);
+    const delivered = await sendEmail(email, code, ['vi', 'en', 'jp'].includes(payload?.language) ? payload.language : 'vi', env, fetcher, options.transporter);
     if (!delivered && production) throw Object.assign(new Error('Email service is not configured'), { status: 503 });
     return { challenge, expiresIn: OTP_LIFETIME_MS / 1000, ...(delivered ? {} : { developmentCode: code }) };
   }

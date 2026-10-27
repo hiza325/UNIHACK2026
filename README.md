@@ -93,14 +93,27 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ADMIN_EMAILS=admin@paradox.ai
+OTP_SECRET=mot-chuoi-bi-mat-ngau-nhien-toi-thieu-32-ky-tu
+GMAIL_USER=email-cua-ban@gmail.com
+GMAIL_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
+GMAIL_FROM_NAME=PARADOX AI
 ```
 
-Trong Supabase Dashboard:
+### Gửi OTP bằng chính Gmail của bạn
+
+1. Bật **Xác minh 2 bước** cho tài khoản Google.
+2. Mở [Google App Passwords](https://myaccount.google.com/apppasswords), tạo mật khẩu ứng dụng mới và đặt vào `GMAIL_APP_PASSWORD`. Không dùng mật khẩu Gmail thông thường.
+3. Đặt địa chỉ Gmail vào `GMAIL_USER`, tạo `OTP_SECRET` dài ít nhất 32 ký tự và thêm tất cả biến trên vào Vercel.
+4. Redeploy ứng dụng. Email gửi đi sẽ hiển thị dạng `PARADOX AI <email-cua-ban@gmail.com>`.
+
+Khi cấu hình Gmail đầy đủ, backend tạo tài khoản chưa xác minh trong Supabase, gửi OTP bằng Gmail SMTP, chỉ xác nhận tài khoản sau khi OTP đúng rồi mới tạo session. Nếu gửi email thất bại, tài khoản chờ được dọn khỏi Supabase để người dùng có thể thử lại.
+
+Nếu không muốn dùng Gmail SMTP, có thể dùng cơ chế email mặc định của Supabase:
 
 1. Mở **Authentication → Providers → Email**, bật email/password và xác nhận email.
 2. Mở **Authentication → Email Templates → Confirm signup** và dùng `{{ .Token }}` trong nội dung email để người dùng nhận mã OTP 6 số thay vì magic link.
 3. Với môi trường thật, cấu hình **Project Settings → Auth → SMTP Settings** bằng Resend hoặc nhà cung cấp SMTP của bạn để gửi ổn định đến Gmail.
-4. Thêm bốn biến môi trường trên vào Vercel. `SUPABASE_SERVICE_ROLE_KEY` chỉ được đặt ở server, tuyệt đối không đưa vào frontend hoặc commit Git.
+4. `SUPABASE_SERVICE_ROLE_KEY`, Gmail App Password và `OTP_SECRET` chỉ được đặt ở server, tuyệt đối không đưa vào frontend hoặc commit Git.
 
 Sau khi cấu hình, tài khoản nằm trong Supabase Auth, người dùng có thể đăng nhập trên nhiều thiết bị, phiên được giữ bằng cookie `HttpOnly`, và trang admin gọi API server để liệt kê/tạm khóa tài khoản. Khi chưa cấu hình Supabase ở local, ứng dụng tự dùng chế độ tài khoản/OTP demo trên trình duyệt.
 

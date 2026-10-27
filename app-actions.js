@@ -44,7 +44,7 @@ export const actionMethods = {
     const localDevelopment = ['localhost', '127.0.0.1'].includes(location.hostname);
     if (localDevelopment && (response.status === 404 || result.code === 'AUTH_NOT_CONFIGURED')) return null;
     if (!response.ok) {
-      const error = new Error(result.error || this.t('authServiceError'));
+      const error = new Error(response.status >= 500 ? this.t('authServiceError') : (result.error || this.t('authServiceError')));
       error.status = response.status;
       throw error;
     }
@@ -73,7 +73,7 @@ export const actionMethods = {
       this.setAuthLoading(true);
       try {
         const result = this.authProvider === 'remote'
-          ? await this.requestServerAuth('verify', { email: this.pendingSignup?.email, code: data.get('otp') })
+          ? await this.requestServerAuth('verify', { email: this.pendingSignup?.email, code: data.get('otp'), password: this.pendingSignup?.password, userId: this.pendingSignup?.userId, challenge: this.authOtpChallenge })
           : await this.requestOtp({ action: 'verify', email: this.pendingSignup?.email, code: data.get('otp'), challenge: this.authOtpChallenge });
         if (!result.verified) throw new Error(this.t('authOtpInvalid'));
         const account = result.user || await this.registerAccount(this.pendingSignup);
@@ -96,10 +96,10 @@ export const actionMethods = {
       this.setAuthLoading(true);
       try {
         const normalizedEmail = this.normalizeEmail(email);
-        const remote = await this.requestServerAuth('signup', { name, email: normalizedEmail, password });
+        const remote = await this.requestServerAuth('signup', { name, email: normalizedEmail, password, language: this.lang });
         if (!remote && this.getAccounts().some(account => this.normalizeEmail(account.email) === normalizedEmail)) throw new Error(this.t('authAccountExists'));
         this.authProvider = remote ? 'remote' : 'local';
-        this.pendingSignup = { name, email: normalizedEmail, password };
+        this.pendingSignup = { name, email: normalizedEmail, password, userId: remote?.userId || '' };
         if (remote?.user) { await this.completeAuthentication(remote.user); return; }
         const result = remote || await this.requestOtp({ action: 'send', email: normalizedEmail, language: this.lang });
         this.authOtpChallenge = result.challenge;
@@ -133,7 +133,7 @@ export const actionMethods = {
     this.setAuthLoading(true);
     try {
       const result = this.authProvider === 'remote'
-        ? await this.requestServerAuth('resend', { email: this.pendingSignup.email })
+        ? await this.requestServerAuth('resend', { email: this.pendingSignup.email, language: this.lang })
         : await this.requestOtp({ action: 'send', email: this.pendingSignup.email, language: this.lang });
       this.authOtpChallenge = result.challenge;
       this.authDemoCode = result.developmentCode || '';

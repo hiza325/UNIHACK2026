@@ -1,9 +1,26 @@
-import { normalizeCredentials, parseBody, publicUser, sendError, setSession, supabaseRequest } from './_supabase.js';
+import { gmailOtpConfigured, normalizeCredentials, parseBody, publicUser, sendError, setSession, supabaseRequest } from './_supabase.js';
+import { processOtpRequest } from './otp.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'Method not allowed' }); }
   try {
     const { email, password, name } = normalizeCredentials(parseBody(req), true);
+    if (gmailOtpConfigured()) {
+      let user;
+      try {
+        user = await supabaseRequest('/auth/v1/admin/users', { body: { email, password, email_confirm: false, user_metadata: { full_name: name } }, service: true });
+      } catch (error) {
+        if ([400, 409, 422].includes(error.status)) return res.status(409).json({ error: 'This email is already registered' });
+        throw error;
+      }
+      try {
+        const otp = await processOtpRequest({ action: 'send', email, language: parseBody(req).language });
+        return res.status(200).json({ requiresOtp: true, challenge: otp.challenge, userId: user.id });
+      } catch (emailError) {
+        await supabaseRequest(`/auth/v1/admin/users/${encodeURIComponent(user.id)}`, { method: 'DELETE', service: true }).catch(() => {});
+        throw emailError;
+      }
+    }
     const data = await supabaseRequest('/auth/v1/signup', { body: { email, password, data: { full_name: name } } });
     const user = data.user || data;
     if (Array.isArray(user.identities) && user.identities.length === 0) return res.status(409).json({ error: 'This email is already registered' });

@@ -9,6 +9,10 @@ export function authConfig(env = process.env) {
   return { url, anonKey, serviceKey, adminEmails: String(env.ADMIN_EMAILS || 'admin@paradox.ai').split(',').map(email => email.trim().toLowerCase()).filter(Boolean) };
 }
 
+export function gmailOtpConfigured(env = process.env) {
+  return Boolean(env.GMAIL_USER && env.GMAIL_APP_PASSWORD && env.OTP_SECRET && String(env.OTP_SECRET).length >= 32);
+}
+
 export function parseBody(req) {
   try { return typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {}); }
   catch { throw Object.assign(new Error('Invalid JSON body'), { status: 400 }); }

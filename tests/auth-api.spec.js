@@ -16,8 +16,11 @@ function responseRecorder() {
 
 test('Supabase auth sends signup OTP, creates HttpOnly session and protects admin users', async () => {
   const originalFetch = global.fetch;
-  const previousEnv = { SUPABASE_URL: process.env.SUPABASE_URL, SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY, ADMIN_EMAILS: process.env.ADMIN_EMAILS };
+  const previousEnv = { SUPABASE_URL: process.env.SUPABASE_URL, SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY, ADMIN_EMAILS: process.env.ADMIN_EMAILS, GMAIL_USER: process.env.GMAIL_USER, GMAIL_APP_PASSWORD: process.env.GMAIL_APP_PASSWORD, OTP_SECRET: process.env.OTP_SECRET };
   Object.assign(process.env, { SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_SERVICE_ROLE_KEY: 'service-key', ADMIN_EMAILS: 'admin@example.com' });
+  delete process.env.GMAIL_USER;
+  delete process.env.GMAIL_APP_PASSWORD;
+  delete process.env.OTP_SECRET;
   const calls = [];
   global.fetch = async (url, options) => {
     calls.push({ url, options });
