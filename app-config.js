@@ -5,7 +5,7 @@ export const ALLOWED_FILE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pd
 
 // The browser-only demo has no server-side user database. Accounts matching
 // this list receive the admin role after their email has been verified.
-export const ADMIN_EMAILS = ['admin@paradox.ai', 'huyclasswiz@gmail.com'];
+export const ADMIN_EMAILS = ['admin@paradox.ai', 'huyclasswiz@gmail.com', 'huyriuuu@gmail.com', 'lamnguyen080306@gmail.com'];
 
 export const copy = {
   vi: {

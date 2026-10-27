@@ -6,7 +6,7 @@ export function authConfig(env = process.env) {
   const anonKey = env.SUPABASE_ANON_KEY || '';
   const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY || '';
   if (!url || !anonKey) throw Object.assign(new Error('Authentication service is not configured'), { status: 503, code: 'AUTH_NOT_CONFIGURED' });
-  return { url, anonKey, serviceKey, adminEmails: String(env.ADMIN_EMAILS || 'admin@paradox.ai').split(',').map(email => email.trim().toLowerCase()).filter(Boolean) };
+  return { url, anonKey, serviceKey, adminEmails: String(env.ADMIN_EMAILS || 'admin@paradox.ai,huyclasswiz@gmail.com,huyriuuu@gmail.com,lamnguyen080306@gmail.com').split(',').map(email => email.trim().toLowerCase()).filter(Boolean) };
 }
 
 export function gmailOtpConfigured(env = process.env) {
