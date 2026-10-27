@@ -87,6 +87,10 @@ export const dataMethods = {
     this.debateSession = { revisionCount: 0, hintLevel: 0, hints: [], attempts: [], conversation: [] };
     this.practiceSolved = [];
     this.practiceActivity = [];
+    this.passportSelectedCredentialCode = '';
+    this.passportVerificationQuery = '';
+    this.passportVerificationResult = null;
+    this.passportVerificationSearched = false;
   },
   async loadUserData() {
     this.resetInMemoryUserData();

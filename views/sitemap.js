@@ -14,6 +14,7 @@ export const sitemapViews = {
       ['analytics', 'smAnalytics', 'smAnalyticsDesc', 'chart'],
       ['practice', 'smPractice', 'smPracticeDesc', 'book'],
       ['profile', 'smProfile', 'smProfileDesc', 'user'],
+      ['passport', 'smPassport', 'smPassportDesc', 'award'],
       ['about', 'smAbout', 'smAboutDesc', 'help'],
       ['settings', 'smSettings', 'smSettingsDesc', 'settings']
     ].map(([route, title, desc, ic]) => `<a class="sitemap-card" href="#/${route}"><span class="sitemap-card-title">${svgIcon(ic)}<b>${t(title)}</b></span><span class="sitemap-card-desc">${t(desc)}</span></a>`).join('');

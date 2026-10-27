@@ -34,6 +34,12 @@ export const eventMethods = {
     if (event.target.closest?.('[data-test-notification]')) { this.testNotification(); return; }
     if (event.target.closest?.('[data-request-hint]')) { this.requestDebateHint(); return; }
     if (event.target.closest?.('[data-resubmit]')) { this.resubmitAudit(); return; }
+    const credentialDetails = event.target.closest?.('[data-certificate-details]');
+    if (credentialDetails) { this.openPassportCredential(credentialDetails.dataset.certificateDetails); return; }
+    if (event.target.closest?.('[data-open-passport-verify]')) { this.openPassportVerification(); return; }
+    const verifyCredential = event.target.closest?.('[data-verify-certificate]');
+    if (verifyCredential) { this.openPassportVerification(verifyCredential.dataset.verifyCertificate); return; }
+    if (event.target.closest?.('[data-close-passport-detail]') || event.target.id === 'passport-detail-modal') { this.closePassportCredential(); return; }
     const accountStatus = event.target.closest?.('[data-account-status]');
     if (accountStatus && this.user?.role === 'admin') { this.updateAccountStatus(accountStatus.dataset.accountId, accountStatus.dataset.accountStatus); return; }
     if (event.target.closest?.('#export-data')) { this.exportData(); return; }
@@ -63,6 +69,11 @@ export const eventMethods = {
     }
   },
   onSubmit(event) {
+    if (event.target.id === 'passport-verify-form') {
+      event.preventDefault();
+      this.searchPassportCredential(event.target);
+      return;
+    }
     if (event.target.id === 'support-form') {
       event.preventDefault();
       const input = event.target.elements.message;
@@ -86,6 +97,8 @@ export const eventMethods = {
     if (modal && !modal.hidden) { this.closePractice(); return; }
     const reset = this.querySelector('#reset-modal');
     if (reset && !reset.hidden) { this.closeResetModal(); return; }
+    const passportDetail = this.querySelector('#passport-detail-modal');
+    if (passportDetail && !passportDetail.hidden) { this.closePassportCredential(); return; }
     const more = this.querySelector('#mobile-more-menu');
     if (more && !more.hidden) { more.hidden = true; this.querySelector('[data-mobile-more]')?.setAttribute('aria-expanded', 'false'); return; }
     const auth = this.querySelector('#auth-backdrop');

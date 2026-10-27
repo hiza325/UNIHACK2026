@@ -8,6 +8,7 @@ import { historyViews } from './history.js';
 import { analyticsViews } from './analytics.js';
 import { practiceViews } from './practice.js';
 import { profileViews } from './profile.js';
+import { passportViews } from './passport.js';
 import { aboutViews } from './about.js';
 import { settingsViews } from './settings.js';
 import { sitemapViews } from './sitemap.js';
@@ -23,6 +24,7 @@ export const viewMethods = {
   ...analyticsViews,
   ...practiceViews,
   ...profileViews,
+  ...passportViews,
   ...aboutViews,
   ...settingsViews,
   ...sitemapViews,

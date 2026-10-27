@@ -26,7 +26,10 @@ export const shellViews = {
     const auditsRemaining = Math.max(0, auditLimit - Math.min(auditLimit, sessionCount));
     const remainingPercent = Math.round(auditsRemaining / auditLimit * 100);
     const adminItem = this.user.role === 'admin' ? [['admin', 'navAdmin', 'shield']] : [];
-    const nav = [...NAV_ITEMS, ...adminItem].map(([view, key, ic]) => `<button class="nav-item ${this.view === view ? 'active' : ''}" data-route="${view}" ${this.view === view ? 'aria-current="page"' : ''}><span class="nav-icon" aria-hidden="true">${svgIcon(ic)}</span><span class="nav-text">${t(key)}</span>${view === 'history' ? `<span class="nav-count">${count}</span>` : ''}</button>`).join('');
+    const nav = [...NAV_ITEMS, ...adminItem].map(([view, key, ic]) => {
+      const active = this.view === view || (this.view === 'verify' && view === 'passport');
+      return `<button class="nav-item ${active ? 'active' : ''}" data-route="${view}" ${active ? 'aria-current="page"' : ''}><span class="nav-icon" aria-hidden="true">${svgIcon(ic)}</span><span class="nav-text">${t(key)}</span>${view === 'history' ? `<span class="nav-count">${count}</span>` : ''}</button>`;
+    }).join('');
     return `<aside class="sidebar">
       <a class="brand brand-link" href="#/dashboard">
         <img class="brand-mark" src="logo-mark.svg" alt="" />
@@ -58,6 +61,8 @@ export const shellViews = {
       case 'analytics': return this.viewAnalytics();
       case 'practice': return this.viewPractice();
       case 'profile': return this.viewProfile();
+      case 'passport': return this.viewPassport();
+      case 'verify': return this.viewPassportVerify();
       case 'about': return this.viewAbout();
       case 'settings': return this.viewSettings();
       case 'admin': return this.viewAdmin();

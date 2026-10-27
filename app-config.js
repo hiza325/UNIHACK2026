@@ -30,11 +30,13 @@ export const NAV_ITEMS = [
   ['analytics', 'navAnalytics', 'chart'],
   ['practice', 'navPractice', 'book'],
   ['profile', 'navProfile', 'user'],
+  ['passport', 'navPassport', 'award'],
   ['about', 'navAbout', 'help'],
   ['settings', 'navSettings', 'settings']
 ];
 export const PAGE_KEYS = {
   dashboard: 'pageDashboard', audit: 'page', history: 'pageHistory',
   analytics: 'pageAnalytics', practice: 'pagePractice', profile: 'pageProfile',
+  passport: 'pagePassport', verify: 'pagePassportVerify',
   about: 'pageAbout', settings: 'pageSettings', admin: 'pageAdmin'
 };

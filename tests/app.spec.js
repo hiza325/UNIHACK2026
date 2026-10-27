@@ -244,7 +244,7 @@ test.describe('app shell', () => {
   test('all main views pass axe (serious and critical)', async ({ page }) => {
     await seedSession(page);
     test.setTimeout(60000);
-    for (const view of ['dashboard', 'audit', 'history', 'analytics', 'practice', 'profile', 'about', 'settings']) {
+    for (const view of ['dashboard', 'audit', 'history', 'analytics', 'practice', 'profile', 'passport', 'verify', 'about', 'settings']) {
       await page.goto(`/#/${view}`);
       await expect(page.locator('.page')).toBeVisible();
       expect(await axeHighImpactViolations(page, view), `axe violations on ${view}`).toEqual([]);

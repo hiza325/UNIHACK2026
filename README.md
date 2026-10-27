@@ -26,7 +26,7 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 ## Tính năng giao diện
 
 - Trang giới thiệu responsive, có điều hướng đến **Trang chủ**, **Cách hoạt động**, **Có gì ở PARADOX?** và **Lợi ích**.
-- Ứng dụng gồm **AI Audit**, **Dashboard**, **History**, **Analytics**, **Practice Lab**, **Profile**, **About / Guide**, **Settings** và trang **Admin** có phân quyền.
+- Ứng dụng gồm **AI Audit**, **Dashboard**, **History**, **Analytics**, **Practice Lab**, **Profile**, **Learning Passport**, **About / Guide**, **Settings** và trang **Admin** có phân quyền.
 - Điều hướng bằng hash (`#/audit`, `#/dashboard`, …). Riêng `#/sitemap` là màn hình sitemap tối, mở được khi chưa đăng nhập; các trang còn lại yêu cầu phiên demo.
 - AI Debate Engine nhận đề bài và lời giải, gọi AnyRouter thực tế để đánh giá đúng/sai/chưa đủ dữ kiện, phân loại lỗi kiến thức/logic/phương pháp và hỗ trợ hỏi tiếp theo ngữ cảnh.
 - Dashboard tổng hợp tiến độ; History có bộ lọc trạng thái và tìm kiếm; Analytics có biểu đồ 7/30/90 ngày.
@@ -62,6 +62,9 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | `api/admin/users.js` | API quản trị người dùng, được bảo vệ bằng role admin phía server |
 | `api/debate.js` | Proxy AI Debate Engine, validation đầu vào/đầu ra và timeout AnyRouter |
 | `debate-ai.js`, `debate-prompt.js` | Client gọi Debate API và system prompt học thuật phía server |
+| `learning-passport-service.js` | Service contract cho kết quả AI, tra cứu chứng nhận và Avalanche adapter tương lai |
+| `learning-passport-mock.js` | Fixtures được gắn nhãn rõ ràng cho giao diện Learning Passport |
+| `learning-passport-actions.js` | Tương tác chi tiết và tra cứu chứng nhận |
 | `app-actions.js` | Tương tác Audit, Practice, upload và modal |
 | `i18n.js` | Bản dịch bổ sung cho 8 khu vực, Việt/Anh/Nhật |
 | `demo.js` | Dữ liệu demo cho phiên học, thử thách, biểu đồ và kỹ năng |
@@ -203,6 +206,20 @@ Server tự tính tổng và không tin tổng điểm/trạng thái do mô hìn
 - Mọi output AI được chuẩn hóa và kiểm tra lại; trạng thái rubric được suy ra phía server.
 - Mỗi lần nộp lại tạo `proofRecord` phiên bản `paradox-proof-of-learning-v1`, gồm SHA-256 content hash, rubric version, attempt number, thời gian, model, confidence, trạng thái và các tiêu chí. Cấu trúc này sẵn sàng lưu database và làm payload tham chiếu cho Avalanche; Giai đoạn 2 chưa ghi dữ liệu lên blockchain.
 
+## Learning Passport — Giai đoạn 5
+
+Hai route `#/passport` và `#/verify` cung cấp hồ sơ năng lực, tiến độ, kết quả đánh giá, danh sách chứng nhận, modal chi tiết và trang tra cứu theo mã. Toàn bộ dữ liệu hiện tại đến từ `learning-passport-mock.js` và luôn có nhãn **DỮ LIỆU MẪU / MOCK DATA**; không có dữ liệu nào được mô tả là kết quả AI hoặc blockchain thật.
+
+`learning-passport-service.js` chuẩn bị các điểm tích hợp nhưng không tự gọi blockchain:
+
+- `LEARNING_PASSPORT_API_INTERFACE` mô tả route dự kiến để lấy Passport, nhập `proofRecord` từ AI và xác minh chứng nhận.
+- `createCredentialDraftFromAiEvaluation()` chuyển proof record thành bản nháp chứng nhận ở trạng thái `unverified`.
+- `AVALANCHE_CREDENTIAL_INTERFACE` mô tả network, explorer và chữ ký hàm contract dự kiến; địa chỉ contract hiện để `null`.
+- Trạng thái `verified` chỉ được hiển thị khi có Transaction Hash hợp lệ và kết quả kiểm tra thật với `verification.source = "avalanche"`, `checked = true`, `valid = true`.
+- Nút Avalanche Explorer chỉ hoạt động khi Transaction Hash đúng định dạng 32-byte và network nằm trong danh sách hỗ trợ.
+
+Giai đoạn này không tạo database, không deploy smart contract và không phát sinh giao dịch Avalanche.
+
 ### Điều hướng nhanh
 
 | Hash | Màn hình |
@@ -213,6 +230,8 @@ Server tự tính tổng và không tin tổng điểm/trạng thái do mô hìn
 | `#/analytics` | Phân tích tiến bộ |
 | `#/practice` | Luyện tập củng cố |
 | `#/profile` | Hồ sơ cá nhân |
+| `#/passport` | Learning Passport và danh sách chứng nhận |
+| `#/verify` | Tra cứu và xác minh chứng nhận |
 | `#/about` | Giới thiệu & hướng dẫn |
 | `#/settings` | Cài đặt hệ thống |
 | `#/admin` | Quản trị người dùng (chỉ role admin) |
