@@ -6,7 +6,7 @@ export const supportMethods = {
       ? this.supportMessages
       : [{ role: 'assistant', text: this.t('supportWelcome') }];
     return `<aside class="support-widget" aria-label="${this.t('supportTitle')}">
-      <button class="support-launcher" type="button" data-support-toggle aria-label="${this.t('supportOpen')}" aria-expanded="${this.supportOpen}" aria-controls="support-panel"><span aria-hidden="true">?</span></button>
+      <button class="support-launcher" type="button" data-support-toggle aria-label="${this.t('supportOpen')}" aria-expanded="${this.supportOpen}" aria-controls="support-panel"><img src="chatbot-avatar.png" alt="" aria-hidden="true"></button>
       <section class="support-panel" id="support-panel" role="dialog" aria-modal="false" aria-labelledby="support-title" ${this.supportOpen ? '' : 'hidden'}>
         <header class="support-head"><div><span class="support-kicker">PARADOX AI</span><h2 id="support-title">${this.t('supportTitle')}</h2></div><button type="button" data-support-close aria-label="${this.t('close')}"><span aria-hidden="true">×</span></button></header>
         <div class="support-messages" id="support-messages" aria-live="polite">${messages.map(item => this.supportMessageMarkup(item)).join('')}${this.supportLoading ? this.supportTypingMarkup() : ''}</div>

@@ -182,6 +182,7 @@ test.describe('app shell', () => {
       });
     });
     await page.goto('/#/dashboard');
+    await expect(page.locator('[data-support-toggle] img')).toHaveAttribute('src', 'chatbot-avatar.png');
     await page.locator('[data-support-toggle]').click();
     await expect(page.locator('#support-panel')).toBeVisible();
     await page.fill('#support-input', 'Tôi xem lịch sử ở đâu?');
