@@ -29,7 +29,7 @@ edu-app { display: block; }
 .plan-tag { border-radius: 20px; padding: 4px 7px; background: #ebf5d8; color: #456a24; font: 9px 'DM Mono', monospace; }
 .plan-card p { margin: 8px 0 12px; color: #5f6b63; font-size: 11px; line-height: 1.5; }
 .progress-track { height: 4px; border-radius: 9px; background: #e7ebe3; overflow: hidden; }
-.progress-fill { width: 40%; height: 100%; background: #a8d75c; border-radius: inherit; }
+.progress-fill { height: 100%; background: #a8d75c; border-radius: inherit; }
 .plan-foot { display: flex; justify-content: space-between; margin-top: 7px; font: 9px 'DM Mono', monospace; color: #5f6b63; }
 .profile { display: flex; align-items: center; gap: 10px; padding: 4px 6px 0; }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: #e7ddff; display: grid; place-items: center; color: #534498; font-size: 11px; font-weight: 700; }

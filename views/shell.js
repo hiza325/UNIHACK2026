@@ -20,7 +20,11 @@ export const shellViews = {
   },
   sidebar() {
     const t = k => this.t(k);
-    const count = String(this.getSessions().length).padStart(2, '0');
+    const sessionCount = this.getSessions().length;
+    const count = String(sessionCount).padStart(2, '0');
+    const auditLimit = 10;
+    const auditsRemaining = Math.max(0, auditLimit - Math.min(auditLimit, sessionCount));
+    const remainingPercent = Math.round(auditsRemaining / auditLimit * 100);
     const nav = NAV_ITEMS.map(([view, key, ic]) => `<button class="nav-item ${this.view === view ? 'active' : ''}" data-route="${view}" ${this.view === view ? 'aria-current="page"' : ''}><span class="nav-icon">${svgIcon(ic)}</span><span class="nav-text">${t(key)}</span>${view === 'history' ? `<span class="nav-count">${count}</span>` : ''}</button>`).join('');
     return `<aside class="sidebar">
       <a class="brand brand-link" href="#/dashboard">
@@ -30,7 +34,7 @@ export const shellViews = {
       <div style="width:100%"><div class="workspace-label">${t('workspace')}</div><nav class="nav-group">${nav}<button class="nav-item mobile-more ${['about', 'settings'].includes(this.view) ? 'active' : ''}" type="button" data-mobile-more aria-expanded="false" ${['about', 'settings'].includes(this.view) ? 'aria-current="page"' : ''}><span class="nav-icon">•••</span><span class="nav-text">${t('more')}</span></button></nav></div>
       <div class="mobile-more-menu" id="mobile-more-menu" hidden><button data-route="about">${svgIcon('help')} ${t('navAbout')}</button><button data-route="settings">${svgIcon('settings')} ${t('navSettings')}</button></div>
       <div class="sidebar-spacer"></div>
-      <div class="plan-card"><div class="plan-top"><span>${t('plan')}</span><span class="plan-tag">FREE</span></div><p>${t('remaining')}</p><div class="progress-track" role="progressbar" aria-label="${t('remaining')}" aria-valuemin="0" aria-valuemax="10" aria-valuenow="4" aria-valuetext="4 / 10"><div class="progress-fill"></div></div><div class="plan-foot"><span>04 / 10</span><span>60%</span></div></div>
+      <div class="plan-card"><div class="plan-top"><span>${t('plan')}</span><span class="plan-tag">FREE</span></div><p>${t('remaining')}</p><div class="progress-track" role="progressbar" aria-label="${t('remaining')}" aria-valuemin="0" aria-valuemax="${auditLimit}" aria-valuenow="${auditsRemaining}" aria-valuetext="${auditsRemaining} / ${auditLimit}"><div class="progress-fill" style="width:${remainingPercent}%"></div></div><div class="plan-foot"><span>${String(auditsRemaining).padStart(2, '0')} / ${auditLimit}</span><span>${remainingPercent}%</span></div></div>
       <div class="profile"><div class="avatar">${this.escape((this.user.name || 'U').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase())}</div><div class="profile-copy"><div class="profile-name">${this.escape(this.user.name || this.user.email)}</div><div class="profile-role">${this.escape(this.user.email)}</div></div></div>
     </aside>`;
   },

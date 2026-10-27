@@ -66,6 +66,9 @@ test.describe('auth', () => {
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('paradox-session'))?.email)).toBe(SESSION.email);
     await expect(page.locator('.nav-count')).toHaveText('00');
     await expect(page.locator('section[aria-label^="Tự phát hiện lỗi"]')).toHaveAttribute('aria-label', 'Tự phát hiện lỗi: 0%');
+    await expect(page.locator('.plan-card [role="progressbar"]')).toHaveAttribute('aria-valuenow', '10');
+    await expect(page.locator('.plan-foot')).toContainText('10 / 10');
+    await expect(page.locator('.plan-foot')).toContainText('100%');
     expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), userKey('audit-sessions'))).toEqual([]);
     expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), userKey('practice'))).toEqual([]);
 
