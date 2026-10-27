@@ -124,6 +124,12 @@ export const extraCopy = {
     setDigestDesc: 'Tổng kết các kỹ năng đã cải thiện.',
     setSound: 'Âm thanh khi hoàn thành',
     setSoundDesc: 'Phát một tiếng ngắn khi kết thúc phiên.',
+    setTestNotification: 'Gửi thông báo thử',
+    setTestNotificationDesc: 'Kiểm tra quyền thông báo và âm thanh trên thiết bị này.',
+    notifyTestTitle: 'PARADOX AI · Thông báo thử',
+    notifyTestBody: 'Thông báo đang hoạt động. Hẹn gặp bạn trong phiên học tiếp theo!',
+    notifySent: 'Đã gửi thông báo thử.', notifyDenied: 'Trình duyệt chưa cấp quyền thông báo.',
+    notifyUnsupported: 'Trình duyệt này không hỗ trợ thông báo hệ thống.',
     setPrivacy: 'Dữ liệu & quyền riêng tư', setExport: 'Xuất dữ liệu demo',
     setExportDesc: 'Tải xuống tệp JSON gồm phiên, cài đặt và bài đã giải.',
     setReset: 'Xoá dữ liệu luyện tập',
@@ -139,7 +145,12 @@ export const extraCopy = {
     setResetTitle: 'Xoá tiến độ luyện tập?', setResetConfirm: 'Xoá tiến độ',
     fileRemove: 'Xoá tệp', fileInvalid: 'Loại tệp không được hỗ trợ.',
     fileTooLarge: 'Tệp vượt quá giới hạn 10 MB.', filePreview: 'Xem trước tệp',
-    analyzing: 'PARADOX đang phân tích…', more: 'Thêm'
+    analyzing: 'PARADOX đang phân tích…', more: 'Thêm',
+    supportOpen: 'Mở trợ lý sử dụng web', supportClose: 'Đóng trợ lý',
+    supportTitle: 'Trợ lý sử dụng PARADOX', supportWelcome: 'Chào bạn! Mình có thể hướng dẫn cách dùng các tính năng trên PARADOX. Bạn đang cần hỗ trợ gì?',
+    supportPlaceholder: 'Hỏi cách sử dụng website…', supportScope: 'Trợ lý này chỉ hướng dẫn sử dụng website, không giải bài học.',
+    supportThinking: 'Đang tìm hướng dẫn…', supportNotConfigured: 'Trợ lý hỗ trợ hiện chưa được kết nối. Vui lòng quay lại sau.',
+    supportError: 'Chưa thể kết nối AI hỗ trợ. Vui lòng thử lại sau.'
   },
   en: {
     navDashboard: 'Dashboard', navAnalytics: 'Analytics', navPractice: 'Practice Lab',
@@ -264,6 +275,12 @@ export const extraCopy = {
     setDigestDesc: 'A summary of the skills you improved.',
     setSound: 'Completion sound',
     setSoundDesc: 'Play a short sound when a session ends.',
+    setTestNotification: 'Send test notification',
+    setTestNotificationDesc: 'Check notification permission and sound on this device.',
+    notifyTestTitle: 'PARADOX AI · Test notification',
+    notifyTestBody: 'Notifications are working. See you in your next study session!',
+    notifySent: 'Test notification sent.', notifyDenied: 'Notification permission has not been granted.',
+    notifyUnsupported: 'This browser does not support system notifications.',
     setPrivacy: 'Data & privacy', setExport: 'Export demo data',
     setExportDesc: 'Download a JSON file with sessions, settings, and solved challenges.',
     setReset: 'Clear practice data',
@@ -279,7 +296,12 @@ export const extraCopy = {
     setResetTitle: 'Clear practice progress?', setResetConfirm: 'Clear progress',
     fileRemove: 'Remove file', fileInvalid: 'This file type is not supported.',
     fileTooLarge: 'The file exceeds the 10 MB limit.', filePreview: 'File preview',
-    analyzing: 'PARADOX is analysing…', more: 'More'
+    analyzing: 'PARADOX is analysing…', more: 'More',
+    supportOpen: 'Open website assistant', supportClose: 'Close assistant',
+    supportTitle: 'PARADOX website assistant', supportWelcome: 'Hi! I can help you use PARADOX features. What would you like help with?',
+    supportPlaceholder: 'Ask how to use the website…', supportScope: 'This assistant only explains website usage; it does not solve coursework.',
+    supportThinking: 'Finding guidance…', supportNotConfigured: 'The support assistant is not connected yet. Please check back later.',
+    supportError: 'The support assistant could not connect. Please try again.'
   },
   jp: {
     navDashboard: 'ダッシュボード', navAnalytics: '分析', navPractice: '練習ラボ',
@@ -404,6 +426,12 @@ export const extraCopy = {
     setDigestDesc: '伸びたスキルのまとめ。',
     setSound: '完了時のサウンド',
     setSoundDesc: 'セッション終了時に短い音を鳴らします。',
+    setTestNotification: 'テスト通知を送信',
+    setTestNotificationDesc: 'この端末の通知権限とサウンドを確認します。',
+    notifyTestTitle: 'PARADOX AI・テスト通知',
+    notifyTestBody: '通知は正常に動作しています。次の学習セッションでお会いしましょう。',
+    notifySent: 'テスト通知を送信しました。', notifyDenied: '通知の権限が許可されていません。',
+    notifyUnsupported: 'このブラウザはシステム通知に対応していません。',
     setPrivacy: 'データとプライバシー', setExport: 'デモデータを書き出す',
     setExportDesc: 'セッション、設定、解決済み課題をJSONでダウンロードします。',
     setReset: '練習データを消去',
@@ -419,6 +447,11 @@ export const extraCopy = {
     setResetTitle: '練習の進捗を消去しますか？', setResetConfirm: '進捗を消去',
     fileRemove: 'ファイルを削除', fileInvalid: 'このファイル形式には対応していません。',
     fileTooLarge: 'ファイルは10MBの上限を超えています。', filePreview: 'ファイルのプレビュー',
-    analyzing: 'PARADOXが分析中…', more: 'その他'
+    analyzing: 'PARADOXが分析中…', more: 'その他',
+    supportOpen: 'サイト案内を開く', supportClose: 'サイト案内を閉じる',
+    supportTitle: 'PARADOXサイト案内', supportWelcome: 'こんにちは。PARADOXの機能と使い方をご案内します。何をお手伝いしましょうか？',
+    supportPlaceholder: 'サイトの使い方を質問…', supportScope: 'このアシスタントはサイトの使い方のみを案内し、学習問題には回答しません。',
+    supportThinking: '案内を確認中…', supportNotConfigured: 'サポートAIはまだ接続されていません。後でもう一度お試しください。',
+    supportError: 'サポートAIに接続できませんでした。もう一度お試しください。'
   }
 };

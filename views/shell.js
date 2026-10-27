@@ -15,7 +15,7 @@ export const shellViews = {
         ${this.topbar(pageTitle)}
         ${this.viewMarkup()}
       </main>
-    </div><footer class="app-footer">${this.t('contestFooter')}</footer><div class="toast" id="toast" role="status"></div>`;
+    </div><footer class="app-footer">${this.t('contestFooter')}</footer><div class="toast" id="toast" role="status"></div>${this.supportWidgetMarkup()}`;
     this.bind();
   },
   sidebar() {

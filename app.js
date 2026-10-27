@@ -5,6 +5,8 @@ import { actionMethods } from './app-actions.js';
 import { routerMethods } from './app-router.js';
 import { themeMethods } from './app-theme.js';
 import { eventMethods } from './app-events.js';
+import { notificationMethods } from './app-notifications.js';
+import { supportMethods } from './app-support.js';
 import { defineComponents } from './components.js';
 
 
@@ -30,6 +32,9 @@ class EduApp extends HTMLElement {
     this.historyPage = 1;
     this.historyPageSize = 5;
     this.toastTimer = null;
+    this.supportMessages = [];
+    this.supportOpen = false;
+    this.supportLoading = false;
     this.onHashChange = this.onHashChange.bind(this);
     this.onKeydown = this.onKeydown.bind(this);
   }
@@ -60,6 +65,6 @@ class EduApp extends HTMLElement {
   escape(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 }
 
-Object.assign(EduApp.prototype, dataMethods, viewMethods, actionMethods, routerMethods, themeMethods, eventMethods);
+Object.assign(EduApp.prototype, dataMethods, viewMethods, actionMethods, routerMethods, themeMethods, eventMethods, notificationMethods, supportMethods);
 
 defineComponents(EduApp);

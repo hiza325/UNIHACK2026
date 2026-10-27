@@ -23,6 +23,7 @@ export const settingsViews = {
           ${toggle('reminder', 'setReminder', 'setReminderDesc')}
           ${toggle('digest', 'setDigest', 'setDigestDesc')}
           ${toggle('sound', 'setSound', 'setSoundDesc')}
+          <div class="setting-row"><div><h3>${t('setTestNotification')}</h3><p>${t('setTestNotificationDesc')}</p></div><button class="ghost-button" type="button" data-test-notification>${t('setTestNotification')}</button></div>
         </section>
         <section class="card setting-group"><div class="panel-head"><h2 class="panel-title">${t('setPrivacy')}</h2></div>
           <div class="setting-row"><div><h3>${t('setExport')}</h3><p>${t('setExportDesc')}</p></div><button class="ghost-button" id="export-data">${svgIcon('download')} ${t('setExport')}</button></div>

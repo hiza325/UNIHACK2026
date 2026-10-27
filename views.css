@@ -622,3 +622,45 @@ body.dark .history-pagination { border-color: #2b342e; }
   .stat-grid { grid-template-columns: 1fr; }
   .badge-grid { grid-template-columns: 1fr; }
 }
+
+/* Website-support assistant. */
+.support-widget { position: fixed; right: 22px; bottom: 22px; z-index: 9; font-family: 'Be Vietnam Pro', sans-serif; }
+.support-launcher { display: grid; place-items: center; width: 52px; height: 52px; margin-left: auto; border: 1px solid #314439; border-radius: 50%; background: #24382c; color: #fff; box-shadow: 0 12px 32px rgba(29, 46, 35, .24); cursor: pointer; }
+.support-launcher span { font: 600 22px 'Lora', Georgia, serif; }
+.support-launcher:hover { background: #36523f; transform: translateY(-1px); }
+.support-panel { position: absolute; right: 0; bottom: 64px; display: grid; grid-template-rows: auto minmax(180px, 1fr) auto auto; width: min(370px, calc(100vw - 32px)); height: min(510px, calc(100vh - 120px)); overflow: hidden; border: 1px solid #d9ddd4; border-radius: 16px; background: #fffdf7; box-shadow: 0 24px 70px rgba(26, 39, 31, .24); }
+.support-panel[hidden] { display: none; }
+.support-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 17px 14px; border-bottom: 1px solid #e2e5dc; background: #f5f2e9; }
+.support-kicker { display: block; color: #59645c; font: 9px 'DM Mono', monospace; letter-spacing: .11em; }
+.support-head h2 { margin: 4px 0 0; color: #24382c; font: 600 16px 'Manrope', sans-serif; }
+.support-head button { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: #59645c; font-size: 22px; cursor: pointer; }
+.support-head button:hover { background: #e7e9df; }
+.support-messages { min-height: 0; padding: 16px; overflow-y: auto; background: #fffdf7; }
+.support-message { display: flex; margin-bottom: 10px; }
+.support-message span { max-width: 88%; padding: 10px 12px; border: 1px solid #e0e5dc; border-radius: 4px 12px 12px; background: #fff; color: #465248; font-size: 11px; line-height: 1.65; }
+.support-message.user { justify-content: flex-end; }
+.support-message.user span { border-color: #d8e4c8; border-radius: 12px 4px 12px 12px; background: #edf5e3; color: #31452f; }
+.support-typing span { color: #59645c; font-style: italic; }
+.support-form { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 8px; padding: 12px 14px; border-top: 1px solid #e2e5dc; background: #fff; }
+.support-form input { min-width: 0; height: 40px; padding: 0 11px; border: 1px solid #d6dbd2; border-radius: 8px; background: #fbfcf8; color: #24382c; font-size: 11px; }
+.support-form button { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 8px; background: #24382c; color: #fff; font-size: 18px; cursor: pointer; }
+.support-form button:disabled, .support-form input:disabled { opacity: .6; cursor: wait; }
+.support-note { margin: 0; padding: 0 15px 13px; background: #fff; color: #59645c; font-size: 9px; line-height: 1.45; }
+body.dark .support-launcher { border-color: #60746a; background: #c6f277; color: #17221f; }
+body.dark .support-panel { border-color: #354139; background: #1c2420; box-shadow: 0 24px 70px rgba(0, 0, 0, .42); }
+body.dark .support-head { border-color: #354139; background: #202b25; }
+body.dark .support-head h2 { color: #f1f5f2; }
+body.dark .support-kicker, body.dark .support-head button { color: #bdc9c1; }
+body.dark .support-head button:hover { background: #2c3932; }
+body.dark .support-messages { background: #18211c; }
+body.dark .support-message span { border-color: #354139; background: #222e27; color: #dce5df; }
+body.dark .support-message.user span { border-color: #465b48; background: #2b3b2d; color: #edf5e8; }
+body.dark .support-form, body.dark .support-note { border-color: #354139; background: #202b25; }
+body.dark .support-form input { border-color: #405047; background: #18211c; color: #edf3ef; }
+body.dark .support-form button { background: #c6f277; color: #17221f; }
+body.dark .support-note { color: #bdc9c1; }
+
+@media (max-width: 540px) {
+  .support-widget { right: 14px; bottom: calc(78px + env(safe-area-inset-bottom)); }
+  .support-panel { position: fixed; inset: 14px 14px calc(78px + env(safe-area-inset-bottom)); width: auto; height: auto; }
+}

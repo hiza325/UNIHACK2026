@@ -26,6 +26,6 @@ export const sitemapViews = {
       <nav class="sitemap-grid" aria-label="${t('smBadge')}">${cards}</nav>
       <p class="sitemap-hint">${t('smHint')}</p>
       <footer class="sitemap-footer"><a href="#/">← ${t('smHome')}</a><span>PARADOX AI © 2026</span><span>NEXUS ACADEMY ANALYTICS</span></footer>
-    </main>`;
+    </main>${this.supportWidgetMarkup()}`;
   },
 };

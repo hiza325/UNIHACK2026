@@ -1,5 +1,7 @@
 export const eventMethods = {
   onClick(event) {
+    if (event.target.closest?.('[data-support-toggle]')) { this.toggleSupport(); return; }
+    if (event.target.closest?.('[data-support-close]')) { this.toggleSupport(false); return; }
     if (event.target.closest?.('[data-theme-toggle]')) { this.toggleTheme(); return; }
     const more = event.target.closest?.('[data-mobile-more]');
     if (more) { const menu = this.querySelector('#mobile-more-menu'); const open = menu?.hidden; if (menu) menu.hidden = !open; more.setAttribute('aria-expanded', String(open)); return; }
@@ -24,6 +26,7 @@ export const eventMethods = {
     const themeBtn = event.target.closest?.('[data-set-theme]');
     if (themeBtn) { this.applyTheme(themeBtn.dataset.setTheme === 'dark'); return; }
     if (event.target.closest?.('[data-upgrade]')) { this.showToast(this.t('profUpgradeToast')); return; }
+    if (event.target.closest?.('[data-test-notification]')) { this.testNotification(); return; }
     if (event.target.closest?.('#export-data')) { this.exportData(); return; }
     if (event.target.closest?.('#export-history')) { this.exportHistory(); return; }
     if (event.target.closest?.('#reset-data')) { this.openResetModal(); return; }
@@ -49,6 +52,14 @@ export const eventMethods = {
     }
   },
   onSubmit(event) {
+    if (event.target.id === 'support-form') {
+      event.preventDefault();
+      const input = event.target.elements.message;
+      const value = input?.value || '';
+      if (input) input.value = '';
+      this.sendSupportMessage(value);
+      return;
+    }
     if (event.target.id !== 'profile-form') return;
     event.preventDefault();
     const name = String(new FormData(event.target).get('name') || '').trim();
@@ -68,6 +79,7 @@ export const eventMethods = {
     if (more && !more.hidden) { more.hidden = true; this.querySelector('[data-mobile-more]')?.setAttribute('aria-expanded', 'false'); return; }
     const auth = this.querySelector('#auth-backdrop');
     if (auth && !auth.hidden) { auth.hidden = true; return; }
+    if (this.supportOpen) { this.toggleSupport(false); return; }
     if (location.hash === '#/sitemap') this.navigate('');
   },
   showToast(text) {

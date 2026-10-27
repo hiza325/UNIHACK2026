@@ -218,7 +218,9 @@ export const actionMethods = {
     messages.append(item); item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   },
   advance(step) {
+    const previousStep = this.step;
     this.step = Math.max(0, Math.min(6, step));
+    if (this.settings.sound && previousStep < 5 && this.step >= 5) this.playCompletionSound();
     this.updateAuditProgress(this.step);
     this.saveAuditState();
     const root = this.querySelector('audit-stepper');

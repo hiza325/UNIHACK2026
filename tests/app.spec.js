@@ -131,6 +131,69 @@ test.describe('app shell', () => {
     expect(await page.evaluate(() => localStorage.getItem('paradox-theme'))).toBe('light');
   });
 
+  test('test notification sends a browser notification and optional sound', async ({ page }) => {
+    await seedSession(page);
+    await page.addInitScript(() => {
+      class MockNotification {
+        static permission = 'granted';
+        static requestPermission = async () => 'granted';
+        constructor(title, options) { window.__testNotification = { title, options }; }
+      }
+      class MockAudioContext {
+        constructor() { this.currentTime = 0; this.destination = {}; }
+        createOscillator() {
+          window.__testSoundPlayed = true;
+          return {
+            frequency: { setValueAtTime() {}, exponentialRampToValueAtTime() {} },
+            connect(node) { return node; }, start() {}, stop() {},
+            addEventListener(_event, callback) { queueMicrotask(callback); }
+          };
+        }
+        createGain() {
+          return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect(node) { return node; } };
+        }
+        close() { return Promise.resolve(); }
+      }
+      Object.defineProperty(window, 'Notification', { configurable: true, value: MockNotification });
+      Object.defineProperty(window, 'AudioContext', { configurable: true, value: MockAudioContext });
+    });
+    await page.goto('/#/settings');
+    await page.locator('[data-setting="sound"]').check();
+    await page.locator('[data-test-notification]').click();
+
+    expect(await page.evaluate(() => window.__testNotification?.title)).toContain('PARADOX AI');
+    expect(await page.evaluate(() => window.__testNotification?.options?.tag)).toBe('paradox-notification-test');
+    expect(await page.evaluate(() => window.__testSoundPlayed)).toBe(true);
+    await expect(page.locator('#toast')).toContainText('Đã gửi thông báo thử');
+  });
+
+  test('website support AI uses the configured proxy and keeps its scope', async ({ page }) => {
+    let requestBody;
+    await seedSession(page);
+    await page.addInitScript(() => {
+      window.PARADOX_SUPPORT_AI_CONFIG = { proxyUrl: '/api/support-test' };
+    });
+    await page.route('**/api/support-test', async route => {
+      requestBody = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ text: 'Bạn mở Lịch sử ở thanh điều hướng bên trái.' }),
+      });
+    });
+    await page.goto('/#/dashboard');
+    await page.locator('[data-support-toggle]').click();
+    await expect(page.locator('#support-panel')).toBeVisible();
+    await page.fill('#support-input', 'Tôi xem lịch sử ở đâu?');
+    await page.locator('#support-form button[type="submit"]').click();
+
+    await expect(page.locator('.support-message.user')).toContainText('Tôi xem lịch sử ở đâu?');
+    await expect(page.locator('.support-message.assistant').last()).toContainText('thanh điều hướng bên trái');
+    expect(requestBody.currentView).toBe('dashboard');
+    expect(requestBody.language).toBe('vi');
+    expect(requestBody.system).toBeUndefined();
+  });
+
   test('all main views pass axe (serious and critical)', async ({ page }) => {
     await seedSession(page);
     test.setTimeout(60000);

@@ -86,6 +86,43 @@ Font đã được self-host để trang không phụ thuộc Google Fonts khi c
 npm run fonts:vendor
 ```
 
+## AI hỗ trợ sử dụng website
+
+Widget trợ lý nổi chỉ hướng dẫn cách sử dụng PARADOX; system prompt không cho phép giải bài hoặc trả lời câu hỏi học thuật. Frontend gọi endpoint cùng domain `/api/support`; key không được gửi xuống trình duyệt.
+
+Backend/serverless function tại `api/support.js` gọi AnyRouter Chat Completions:
+
+- Endpoint: `https://anyrouter.dev/api/v1/chat/completions`
+- Model mặc định: `anyrouter/free`
+- Key: biến môi trường `ANYROUTER_API_KEY`
+- Model tùy chọn: biến môi trường `ANYROUTER_MODEL`
+
+Tạo file `.env` từ `.env.example` để ghi nhớ tên biến (file `.env` đã được gitignore). Key inference AnyRouter hiện tại phải bắt đầu bằng `sk-ar-v1-` và được tạo tại [AnyRouter Dashboard](https://anyrouter.dev/dashboard/keys). Không dùng key quản trị hoặc ghi key vào `support-ai-config.js`.
+
+Khi chạy local, sao chép `.env.example` thành `.env`, thay key rồi chạy:
+
+```bash
+npm run serve
+```
+
+Static server dành cho local tự đọc `.env`; biến môi trường hệ thống vẫn được ưu tiên nếu đã đặt.
+
+Khi deploy Vercel, thêm `ANYROUTER_API_KEY` trong Project Settings → Environment Variables; `api/support.js` sẽ được nhận diện là serverless function. GitHub Pages thuần tĩnh không chạy được endpoint này, nên cần deploy frontend/backend lên Vercel hoặc trỏ `proxyUrl` đến một backend riêng.
+
+Frontend gửi:
+
+```json
+{ "messages": [], "language": "vi", "currentView": "dashboard" }
+```
+
+Backend trả về:
+
+```json
+{ "text": "Nội dung hướng dẫn" }
+```
+
+System prompt được áp đặt lại ở backend; trường `system` từ client bị bỏ qua để người dùng không thể thay đổi phạm vi trợ lý. Nếu proxy nằm ở domain khác, cần đổi `proxyUrl` trong `support-ai-config.js` và thêm domain đó vào `connect-src` trong CSP của `index.html`.
+
 ### Điều hướng nhanh
 
 | Hash | Màn hình |
