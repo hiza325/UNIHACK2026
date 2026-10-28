@@ -250,10 +250,14 @@ Frontend gửi:
 Backend trả về:
 
 ```json
-{ "text": "Nội dung hướng dẫn" }
+{ "text": "Nội dung hướng dẫn", "grounded": true, "sources": [{ "id": "A17", "question": "17. Tôi xem lại các phiên cũ ở đâu?" }] }
 ```
 
-System prompt được áp đặt lại ở backend; trường `system` từ client bị bỏ qua để người dùng không thể thay đổi phạm vi trợ lý. Nếu proxy nằm ở domain khác, cần đổi `proxyUrl` trong `support-ai-config.js` và thêm domain đó vào `connect-src` trong CSP của `index.html`.
+Endpoint truy xuất các mục FAQ liên quan từ knowledge base sinh ra `api/_support-faq.js` (trích từ `PARADOX-AI-FAQ-Support-keywords-4.docx`) và chỉ gửi các mục đó cho mô hình. Người dùng không cần nhập đúng câu hỏi gốc: bộ truy xuất chuẩn hoá tiếng Việt (bỏ dấu, không phân biệt hoa thường), ưu tiên từ khoá và mở rộng các cách diễn đạt/tiếng Anh phổ biến (ví dụ `màu nền`, `tiếng nhật`, `logout`, `pdf`). Khi không có mục FAQ nào khớp, backend trả lời thông báo "chưa có hướng dẫn" theo ngôn ngữ giao diện thay vì để mô hình tự suy diễn. Khi thiếu `ANYROUTER_API_KEY` hoặc upstream lỗi/timeout, backend trả về nội dung FAQ liên quan nhất kèm `degraded: true`.
+
+System prompt được áp đặt lại ở backend; trường `system` từ client bị bỏ qua để người dùng không thể thay đổi phạm vi trợ lý. Input giới hạn 10 lượt hội thoại, 1.200 ký tự mỗi lượt; upstream có timeout 20 giây; endpoint giới hạn 12 request/phút/IP, kiểm tra `Origin` cùng domain (có thể mở rộng bằng biến môi trường `SUPPORT_ALLOWED_ORIGINS`, phân tách bằng dấu phẩy) và không trả về API key. Nếu proxy nằm ở domain khác, cần đổi `proxyUrl` trong `support-ai-config.js` và thêm domain đó vào `connect-src` trong CSP của `index.html`.
+
+Câu trả lời được render an toàn ở frontend: nội dung được escape trước, sau đó chỉ khôi phục in đậm, in nghiêng, mã inline và xuống dòng; HTML/JavaScript từ mô hình luôn hiển thị dưới dạng văn bản. Backend giữ `**bold**`, loại bỏ heading/code fence/backtick không được hỗ trợ và cắt câu trả lời quá dài tại ranh giới câu thay vì cắt giữa từ.
 
 ## AI Debate Engine
 
