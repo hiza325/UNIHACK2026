@@ -74,7 +74,8 @@ export const actionMethods = {
   },
   async authenticate(event, text) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const error = this.querySelector('#auth-error');
     error.textContent = '';
     if (this.authMode === 'forgot') {
@@ -89,7 +90,7 @@ export const actionMethods = {
         this.authDemoCode = result.developmentCode || '';
         this.authMode = 'reset';
         this.updateAuthText(text);
-        event.currentTarget.reset();
+        form.reset();
         this.querySelector('input[name="otp"]')?.focus();
       } catch (requestError) {
         error.textContent = requestError.message || this.t('authOtpError');
