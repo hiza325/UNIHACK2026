@@ -81,7 +81,7 @@ export const actionMethods = {
       this.setAuthLoading(true);
       try {
         const email = this.normalizeEmail(data.get('email'));
-        const result = await this.requestServerAuth('password-reset', { action: 'request', email, language: this.lang });
+        const result = await this.requestServerAuth('otp', { action: 'password-reset-request', email, language: this.lang });
         if (!result) throw new Error(this.t('authServiceError'));
         this.authProvider = 'remote';
         this.pendingPasswordReset = { email };
@@ -106,8 +106,8 @@ export const actionMethods = {
       }
       this.setAuthLoading(true);
       try {
-        const result = await this.requestServerAuth('password-reset', {
-          action: 'confirm', email: this.pendingPasswordReset?.email, code: data.get('otp'),
+        const result = await this.requestServerAuth('otp', {
+          action: 'password-reset-confirm', email: this.pendingPasswordReset?.email, code: data.get('otp'),
           password, challenge: this.authOtpChallenge,
         });
         if (!result?.reset) throw new Error(this.t('authOtpInvalid'));
@@ -190,7 +190,7 @@ export const actionMethods = {
     this.setAuthLoading(true);
     try {
       const result = resetting
-        ? await this.requestServerAuth('password-reset', { action: 'request', email: pending.email, language: this.lang })
+        ? await this.requestServerAuth('otp', { action: 'password-reset-request', email: pending.email, language: this.lang })
         : this.authProvider === 'remote'
           ? await this.requestServerAuth('resend', { email: pending.email, language: this.lang })
           : await this.requestOtp({ action: 'send', email: pending.email, language: this.lang });

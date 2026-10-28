@@ -1,6 +1,7 @@
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import { emailProvider, formatSender } from './_mail.js';
 import { guardOtpSend, guardOtpVerify } from './_rate-limit.js';
+import { processPasswordReset } from './_password-reset.js';
 
 const OTP_LIFETIME_MS = 10 * 60 * 1000;
 const RESEND_URL = 'https://api.resend.com/emails';
@@ -153,6 +154,16 @@ export default async function handler(req, res) {
   try {
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const email = String(payload?.email || '').trim().toLowerCase();
+    if (payload?.action === 'password-reset-request') {
+      guardOtpSend(req, email);
+      const result = await processPasswordReset({ ...payload, action: 'request' });
+      return res.status(200).json({ sent: true, challenge: result.challenge });
+    }
+    if (payload?.action === 'password-reset-confirm') {
+      guardOtpVerify(req, email);
+      await processPasswordReset({ ...payload, action: 'confirm' });
+      return res.status(200).json({ reset: true });
+    }
     if (payload?.action === 'send') guardOtpSend(req, email);
     else if (payload?.action === 'verify') guardOtpVerify(req, email);
     return res.status(200).json(await processOtpRequest(payload));

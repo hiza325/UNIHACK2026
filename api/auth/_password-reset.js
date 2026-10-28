@@ -1,8 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { emailOtpConfigured } from './_mail.js';
-import { guardOtpSend, guardOtpVerify } from './_rate-limit.js';
 import { createChallenge, processOtpRequest } from './otp.js';
-import { parseBody, sendError, supabaseRequest } from './_supabase.js';
+import { supabaseRequest } from './_supabase.js';
 
 function normalizeEmail(value) {
   const email = String(value || '').trim().toLowerCase();
@@ -35,8 +34,8 @@ export async function processPasswordReset(payload, options = {}) {
   if (action === 'request') {
     if (!emailOtpConfigured(env)) throw Object.assign(new Error('Email service is not configured'), { status: 503 });
     const user = await findConfirmedUser(email, request, env);
-    // Always return the same public shape so this endpoint cannot be used to
-    // discover which email addresses have accounts.
+    // Return an indistinguishable signed challenge for unknown accounts to
+    // avoid exposing which email addresses are registered.
     if (!user) {
       const code = String(randomInt(0, 1000000)).padStart(6, '0');
       return { sent: true, challenge: createChallenge(email, code, env.OTP_SECRET, 'password-reset', Date.now(), new Date().toISOString()) };
@@ -66,23 +65,4 @@ export async function processPasswordReset(payload, options = {}) {
   }
 
   throw Object.assign(new Error('Unknown password reset action'), { status: 400 });
-}
-
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-  try {
-    const body = parseBody(req);
-    const email = String(body.email || '').trim().toLowerCase();
-    if (body.action === 'request') guardOtpSend(req, email);
-    else if (body.action === 'confirm') guardOtpVerify(req, email);
-    const result = await processPasswordReset(body);
-    return res.status(200).json({
-      ...(body.action === 'request' ? { sent: true, challenge: result.challenge } : { reset: true }),
-    });
-  } catch (error) {
-    return sendError(res, error);
-  }
 }

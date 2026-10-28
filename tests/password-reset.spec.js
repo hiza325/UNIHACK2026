@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { processPasswordReset } from '../api/auth/password-reset.js';
+import { processPasswordReset } from '../api/auth/_password-reset.js';
 
 const env = {
   VERCEL: '1',
@@ -91,13 +91,13 @@ test('a signup OTP cannot be reused to reset a password', async () => {
 
 test('forgot-password UI requests an OTP and submits the new password', async ({ page }) => {
   const calls = [];
-  await page.route('**/api/auth/password-reset', async route => {
+  await page.route('**/api/auth/otp', async route => {
     const body = route.request().postDataJSON();
     calls.push(body);
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(body.action === 'request' ? { sent: true, challenge: 'reset-challenge' } : { reset: true }),
+      body: JSON.stringify(body.action === 'password-reset-request' ? { sent: true, challenge: 'reset-challenge' } : { reset: true }),
     });
   });
 
@@ -117,7 +117,7 @@ test('forgot-password UI requests an OTP and submits the new password', async ({
   await expect(page.locator('#auth-title')).toHaveText('Chào mừng trở lại');
   await expect(page.locator('input[name="email"]')).toHaveValue('learner@example.com');
   expect(calls).toEqual([
-    { action: 'request', email: 'learner@example.com', language: 'vi' },
-    { action: 'confirm', email: 'learner@example.com', code: '123456', password: 'NewPassword123!', challenge: 'reset-challenge' },
+    { action: 'password-reset-request', email: 'learner@example.com', language: 'vi' },
+    { action: 'password-reset-confirm', email: 'learner@example.com', code: '123456', password: 'NewPassword123!', challenge: 'reset-challenge' },
   ]);
 });
