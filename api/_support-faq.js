@@ -36,7 +36,7 @@ export const SUPPORT_FAQ = [
       "khách",
       "tài khoản"
     ],
-    "answer": "Không. Chế độ khách dùng được ngay; đăng nhập để đồng bộ tiến độ và mở khoá thành tựu.",
+    "answer": "Bạn không cần tài khoản vẫn dùng được ngay ở chế độ khách. Khi đăng nhập, tiến độ sẽ được đồng bộ và bạn có thể mở khoá thành tựu.",
     "source": {
       "paragraph": 9
     }
@@ -51,7 +51,7 @@ export const SUPPORT_FAQ = [
       "OTP",
       "email"
     ],
-    "answer": "Nhập tên, email, mật khẩu, sau đó xác minh bằng mã OTP 6 số gửi qua email.",
+    "answer": "Bạn nhập tên, email và mật khẩu, sau đó xác minh bằng mã OTP 6 số gửi tới email vừa đăng ký.",
     "source": {
       "paragraph": 12
     }
@@ -66,7 +66,7 @@ export const SUPPORT_FAQ = [
       "không nhận mail",
       "gửi lại"
     ],
-    "answer": "Kiểm tra thư rác, bấm gửi lại (có giới hạn tần suất), hoặc thử địa chỉ email khác.",
+    "answer": "Đừng lo, bạn thử kiểm tra thư rác trước nhé. Nếu vẫn chưa thấy, hãy bấm gửi lại (hệ thống có giới hạn tần suất) hoặc thử một địa chỉ email khác.",
     "source": {
       "paragraph": 15
     }
@@ -81,7 +81,7 @@ export const SUPPORT_FAQ = [
       "đặt lại",
       "OTP"
     ],
-    "answer": "Chọn \"Quên mật khẩu\" ở trang đăng nhập, nhận OTP qua email rồi đặt mật khẩu mới.",
+    "answer": "Bạn chọn \"Quên mật khẩu\" ở trang đăng nhập, nhận OTP qua email rồi đặt mật khẩu mới.",
     "source": {
       "paragraph": 18
     }
@@ -96,7 +96,7 @@ export const SUPPORT_FAQ = [
       "trình duyệt",
       "mobile"
     ],
-    "answer": "Trình duyệt hiện đại trên máy tính và điện thoại; giao diện co giãn từ màn hình 390px.",
+    "answer": "PARADOX chạy trên trình duyệt hiện đại ở cả máy tính và điện thoại. Giao diện co giãn tốt từ màn hình 390px.",
     "source": {
       "paragraph": 21
     }
@@ -111,7 +111,7 @@ export const SUPPORT_FAQ = [
       "7 bước",
       "phiên học"
     ],
-    "answer": "Bảy bước: tải bài, nhận xét, tự rà soát, gợi ý, tự sửa, xem lời giải, luyện tập.",
+    "answer": "Một phiên học gồm 7 bước: tải bài, nhận xét, tự rà soát, gợi ý, tự sửa, xem lời giải và luyện tập.",
     "source": {
       "paragraph": 24
     }
@@ -125,7 +125,7 @@ export const SUPPORT_FAQ = [
       "bỏ dở",
       "phiên dở dang"
     ],
-    "answer": "Được. Phiên bỏ dở được đánh dấu riêng và không tính vào chuỗi ngày học hay thành tựu.",
+    "answer": "Được nhé. Phiên bỏ dở sẽ được đánh dấu riêng và không tính vào chuỗi ngày học hay thành tựu.",
     "source": {
       "paragraph": 27
     }
@@ -139,7 +139,7 @@ export const SUPPORT_FAQ = [
       "cài đặt",
       "web app"
     ],
-    "answer": "Không. Đây là web app, chỉ cần trình duyệt và kết nối mạng cho các tính năng dùng máy chủ.",
+    "answer": "Không cần cài đặt gì cả. Đây là web app, bạn chỉ cần trình duyệt và kết nối mạng cho những tính năng dùng máy chủ.",
     "source": {
       "paragraph": 30
     }
@@ -154,7 +154,7 @@ export const SUPPORT_FAQ = [
       "PDF",
       "10MB"
     ],
-    "answer": "Ảnh jpg/jpeg/png/gif/webp, PDF, DOC/DOCX, TXT, JS và PY; mỗi tệp tối đa 10MB.",
+    "answer": "Bạn tải lên được ảnh jpg/jpeg/png/gif/webp, PDF, DOC/DOCX, TXT, JS và PY, mỗi tệp tối đa 10MB.",
     "source": {
       "paragraph": 34
     }
@@ -169,7 +169,7 @@ export const SUPPORT_FAQ = [
       "văn bản",
       "code"
     ],
-    "answer": "Có. Dán lời giải hoặc đoạn code vào ô nội dung bài làm.",
+    "answer": "Được. Bạn có thể dán lời giải hoặc đoạn code vào ô nội dung bài làm thay vì tải tệp.",
     "source": {
       "paragraph": 37
     }
@@ -184,7 +184,7 @@ export const SUPPORT_FAQ = [
       "lập luận",
       "AI"
     ],
-    "answer": "Dựa trên lập luận trong bài: kiểm tra từng bước, kết luận đúng/sai và cho điểm 0–100 khi đủ căn cứ.",
+    "answer": "PARADOX chấm dựa trên lập luận trong bài: kiểm tra từng bước, kết luận đúng/sai và cho điểm 0–100 khi đã đủ căn cứ.",
     "source": {
       "paragraph": 40
     }
@@ -198,7 +198,7 @@ export const SUPPORT_FAQ = [
       "điểm 90",
       "Master of Reasoning"
     ],
-    "answer": "Bài được coi là đạt với lập luận chắc chắn; đây cũng là điều kiện của thành tựu Master of Reasoning.",
+    "answer": "Điểm từ 90 trở lên nghĩa là bài đạt với lập luận chắc chắn. Đây cũng là điều kiện để mở khoá thành tựu Master of Reasoning.",
     "source": {
       "paragraph": 43
     }
@@ -212,7 +212,7 @@ export const SUPPORT_FAQ = [
       "bài sai",
       "gợi ý"
     ],
-    "answer": "Hệ thống chỉ ra bước sai và mở gợi ý theo từng mức, không đưa đáp án ngay.",
+    "answer": "Nếu bài sai, hệ thống chỉ ra bước sai và mở gợi ý theo từng mức, chứ không đưa đáp án ngay để bạn tự sửa trước.",
     "source": {
       "paragraph": 46
     }
@@ -226,7 +226,7 @@ export const SUPPORT_FAQ = [
       "nộp lại",
       "sửa bài"
     ],
-    "answer": "Không giới hạn trong một phiên; mỗi lần gửi được lưu thành một lần nộp riêng.",
+    "answer": "Bạn sửa và gửi lại bao nhiêu lần trong một phiên cũng được. Mỗi lần gửi sẽ được lưu thành một lần nộp riêng.",
     "source": {
       "paragraph": 49
     }
@@ -241,7 +241,7 @@ export const SUPPORT_FAQ = [
       "đạt",
       "pass"
     ],
-    "answer": "Khi bài đã được nộp và có đánh giá cuối cùng ở trạng thái đạt.",
+    "answer": "Một phiên được tính là hoàn thành khi bài đã nộp và có đánh giá cuối cùng ở trạng thái đạt.",
     "source": {
       "paragraph": 52
     }
@@ -255,7 +255,7 @@ export const SUPPORT_FAQ = [
       "lưu tệp",
       "quyền riêng tư"
     ],
-    "answer": "Nội dung được dùng trong phiên; dữ liệu phiên gắn với tài khoản của bạn.",
+    "answer": "Nội dung bạn tải lên được dùng trong phiên học và dữ liệu phiên gắn với tài khoản của bạn.",
     "source": {
       "paragraph": 55
     }
@@ -269,7 +269,7 @@ export const SUPPORT_FAQ = [
       "lịch sử",
       "History"
     ],
-    "answer": "Trong mục Learning History, nơi liệt kê phiên, điểm và trạng thái.",
+    "answer": "Bạn vào mục Learning History để xem lại danh sách phiên, điểm và trạng thái của từng phiên.",
     "source": {
       "paragraph": 58
     }
@@ -298,7 +298,7 @@ export const SUPPORT_FAQ = [
       "3 mức",
       "hint"
     ],
-    "answer": "Ba mức: gợi mở hướng đi, chỉ ra bước cần xem lại, và đưa ví dụ mẫu.",
+    "answer": "Có 3 mức gợi ý: gợi mở hướng đi, chỉ ra bước cần xem lại và đưa ví dụ mẫu.",
     "source": {
       "paragraph": 65
     }
@@ -312,7 +312,7 @@ export const SUPPORT_FAQ = [
       "lời giải",
       "Rescue"
     ],
-    "answer": "Sau khi đã tự rà soát và dùng gợi ý, ở bước Rescue.",
+    "answer": "Bạn xem lời giải tham khảo ở bước Rescue, sau khi đã tự rà soát và dùng gợi ý.",
     "source": {
       "paragraph": 68
     }
@@ -327,7 +327,7 @@ export const SUPPORT_FAQ = [
       "gợi ý",
       "tính điểm"
     ],
-    "answer": "Không trừ điểm, nhưng gợi ý mức 2–3 khiến phiên không còn được tính là \"tự sửa lỗi\".",
+    "answer": "Dùng gợi ý không bị trừ điểm. Tuy nhiên, gợi ý mức 2–3 sẽ khiến phiên không còn được tính là \"tự sửa lỗi\".",
     "source": {
       "paragraph": 71
     }
@@ -341,7 +341,7 @@ export const SUPPORT_FAQ = [
       "nguồn",
       "trích dẫn"
     ],
-    "answer": "Có. Mỗi kết luận đi kèm công thức hoặc tài liệu tham khảo để bạn kiểm chứng.",
+    "answer": "Có. Mỗi kết luận đều đi kèm công thức hoặc tài liệu tham khảo để bạn kiểm chứng lại.",
     "source": {
       "paragraph": 74
     }
@@ -355,7 +355,7 @@ export const SUPPORT_FAQ = [
       "giải thích",
       "lỗi sai"
     ],
-    "answer": "Có, giải thích theo từng bước thay vì chỉ đưa đáp án cuối.",
+    "answer": "Có, hệ thống giải thích theo từng bước vì sao bài sai, thay vì chỉ đưa đáp án cuối.",
     "source": {
       "paragraph": 77
     }
@@ -369,7 +369,7 @@ export const SUPPORT_FAQ = [
       "hỏi lại",
       "trao đổi"
     ],
-    "answer": "Có. Bạn có thể trao đổi thêm trong phiên trước khi sang bước tiếp theo.",
+    "answer": "Được nhé. Bạn có thể trao đổi thêm trong phiên trước khi chuyển sang bước tiếp theo.",
     "source": {
       "paragraph": 80
     }
@@ -384,7 +384,7 @@ export const SUPPORT_FAQ = [
       "Audit",
       "khác biệt"
     ],
-    "answer": "Practice là bài ngắn để luyện phát hiện lỗi nhanh, không cần tải bài làm.",
+    "answer": "Practice là các bài ngắn giúp luyện phát hiện lỗi nhanh, không cần tải bài làm như Audit.",
     "source": {
       "paragraph": 84
     }
@@ -398,7 +398,7 @@ export const SUPPORT_FAQ = [
       "Dashboard",
       "tổng quan"
     ],
-    "answer": "Tiến độ tuần, độ chính xác, chuỗi ngày học, thử thách hôm nay và các phiên gần đây.",
+    "answer": "Dashboard hiển thị tiến độ tuần, độ chính xác, chuỗi ngày học, thử thách hôm nay và các phiên gần đây.",
     "source": {
       "paragraph": 87
     }
@@ -412,7 +412,7 @@ export const SUPPORT_FAQ = [
       "Analytics",
       "xu hướng"
     ],
-    "answer": "Xem xu hướng điểm, kỹ năng nổi bật và số phiên theo thời gian.",
+    "answer": "Analytics giúp bạn xem xu hướng điểm, kỹ năng nổi bật và số phiên theo thời gian.",
     "source": {
       "paragraph": 90
     }
@@ -426,7 +426,7 @@ export const SUPPORT_FAQ = [
       "chuỗi ngày",
       "streak"
     ],
-    "answer": "Số ngày liên tiếp có phiên hoạt động hoặc có đánh giá; phiên bỏ dở không được tính.",
+    "answer": "Chuỗi ngày học là số ngày liên tiếp bạn có phiên hoạt động hoặc có đánh giá. Phiên bỏ dở không được tính.",
     "source": {
       "paragraph": 93
     }
@@ -439,7 +439,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "điểm trung bình"
     ],
-    "answer": "Từ các đánh giá hợp lệ trong những phiên học của bạn.",
+    "answer": "Điểm trung bình được lấy từ các đánh giá hợp lệ trong những phiên học của bạn.",
     "source": {
       "paragraph": 96
     }
@@ -453,7 +453,7 @@ export const SUPPORT_FAQ = [
       "mục tiêu",
       "goals"
     ],
-    "answer": "Có. Mục tiêu tuần được hiển thị trong Profile kèm thanh tiến độ.",
+    "answer": "Được. Bạn đặt mục tiêu tuần trong Profile; tiến độ sẽ hiển thị kèm thanh theo dõi.",
     "source": {
       "paragraph": 99
     }
@@ -467,7 +467,7 @@ export const SUPPORT_FAQ = [
       "đồng bộ",
       "thiết bị"
     ],
-    "answer": "Không, nếu bạn đăng nhập cùng một tài khoản đã xác minh.",
+    "answer": "Không mất tiến độ, miễn là bạn đăng nhập cùng một tài khoản đã xác minh.",
     "source": {
       "paragraph": 102
     }
@@ -481,7 +481,7 @@ export const SUPPORT_FAQ = [
       "OTP",
       "xác minh email"
     ],
-    "answer": "Xác minh email khi đăng ký và xác thực khi đặt lại mật khẩu.",
+    "answer": "OTP dùng để xác minh email khi đăng ký và xác thực khi đặt lại mật khẩu.",
     "source": {
       "paragraph": 106
     }
@@ -495,7 +495,7 @@ export const SUPPORT_FAQ = [
       "OTP",
       "hết hạn"
     ],
-    "answer": "Chỉ trong thời gian ngắn và dùng một lần; hết hạn thì phải yêu cầu mã mới.",
+    "answer": "Mã OTP chỉ có hiệu lực trong thời gian ngắn và dùng một lần. Khi hết hạn, bạn cần yêu cầu mã mới.",
     "source": {
       "paragraph": 109
     }
@@ -509,7 +509,7 @@ export const SUPPORT_FAQ = [
       "rate limit",
       "spam OTP"
     ],
-    "answer": "Có. Hệ thống áp dụng rate limit để chống spam và lạm dụng email.",
+    "answer": "Có. Hệ thống áp dụng rate limit để chống spam và tránh lạm dụng email.",
     "source": {
       "paragraph": 112
     }
@@ -523,7 +523,7 @@ export const SUPPORT_FAQ = [
       "tạm khóa",
       "suspend"
     ],
-    "answer": "Quản trị viên có thể tạm khoá hoặc kích hoạt lại tài khoản trong Admin Portal.",
+    "answer": "Có thể. Quản trị viên có quyền tạm khoá hoặc kích hoạt lại tài khoản trong Admin Portal.",
     "source": {
       "paragraph": 115
     }
@@ -537,7 +537,7 @@ export const SUPPORT_FAQ = [
       "đổi mật khẩu",
       "8 ký tự"
     ],
-    "answer": "Qua luồng quên mật khẩu kèm OTP; mật khẩu mới phải dài tối thiểu 8 ký tự.",
+    "answer": "Bạn đổi mật khẩu qua luồng quên mật khẩu kèm OTP. Mật khẩu mới cần dài tối thiểu 8 ký tự.",
     "source": {
       "paragraph": 118
     }
@@ -551,7 +551,7 @@ export const SUPPORT_FAQ = [
       "RLS",
       "quyền đọc"
     ],
-    "answer": "Chỉ bạn. Chính sách RLS trên Supabase giới hạn quyền đọc theo đúng người dùng.",
+    "answer": "Chỉ bạn xem được dữ liệu học tập của mình. Chính sách RLS trên Supabase giới hạn quyền đọc theo đúng người dùng.",
     "source": {
       "paragraph": 121
     }
@@ -566,7 +566,7 @@ export const SUPPORT_FAQ = [
       "Supabase",
       "localStorage"
     ],
-    "answer": "Ở chế độ khách: trong trình duyệt. Khi đăng nhập: trên Supabase theo tài khoản.",
+    "answer": "Ở chế độ khách, dữ liệu nằm trong trình duyệt. Khi đăng nhập, dữ liệu được lưu trên Supabase theo tài khoản của bạn.",
     "source": {
       "paragraph": 125
     }
@@ -580,7 +580,7 @@ export const SUPPORT_FAQ = [
       "bán dữ liệu",
       "chia sẻ"
     ],
-    "answer": "Không. Dữ liệu chỉ dùng cho các tính năng học tập trong ứng dụng.",
+    "answer": "Không. PARADOX không bán hoặc chia sẻ dữ liệu; dữ liệu chỉ dùng cho các tính năng học tập trong ứng dụng.",
     "source": {
       "paragraph": 128
     }
@@ -594,7 +594,7 @@ export const SUPPORT_FAQ = [
       "offline",
       "mạng"
     ],
-    "answer": "Chế độ local vẫn luyện tập được; phần thành tựu và đồng bộ cần máy chủ.",
+    "answer": "Chế độ local vẫn luyện tập được. Riêng phần thành tựu và đồng bộ thì cần máy chủ.",
     "source": {
       "paragraph": 131
     }
@@ -608,7 +608,7 @@ export const SUPPORT_FAQ = [
       "xóa cache",
       "mất dữ liệu"
     ],
-    "answer": "Có với chế độ khách. Với tài khoản đã đăng nhập, dữ liệu vẫn còn trên máy chủ.",
+    "answer": "Với chế độ khách thì có, xoá dữ liệu trình duyệt sẽ mất tiến độ. Với tài khoản đã đăng nhập, dữ liệu vẫn còn trên máy chủ.",
     "source": {
       "paragraph": 134
     }
@@ -622,7 +622,7 @@ export const SUPPORT_FAQ = [
       "API key",
       "bảo mật"
     ],
-    "answer": "Không. Key chỉ nằm ở biến môi trường phía máy chủ, không gửi xuống client.",
+    "answer": "Không. API key chỉ nằm trong biến môi trường phía máy chủ và không được gửi xuống trình duyệt.",
     "source": {
       "paragraph": 137
     }
@@ -636,7 +636,7 @@ export const SUPPORT_FAQ = [
       "Learning Passport",
       "hồ sơ"
     ],
-    "answer": "Là hồ sơ học tập tổng hợp kỹ năng, điểm tổng, tiến độ và các chứng nhận của bạn.",
+    "answer": "Learning Passport là hồ sơ học tập tổng hợp kỹ năng, điểm tổng, tiến độ và các chứng nhận của bạn.",
     "source": {
       "paragraph": 141
     }
@@ -650,7 +650,7 @@ export const SUPPORT_FAQ = [
       "Verified Credential",
       "chứng nhận"
     ],
-    "answer": "Chứng nhận có mã định danh, kỹ năng, điểm đánh giá và mã băm bằng chứng để đối chiếu.",
+    "answer": "Verified Credential là chứng nhận có mã định danh, kỹ năng, điểm đánh giá và mã băm bằng chứng để đối chiếu.",
     "source": {
       "paragraph": 144
     }
@@ -665,7 +665,7 @@ export const SUPPORT_FAQ = [
       "blockchain",
       "xác minh"
     ],
-    "answer": "Chỉ hiển thị trạng thái on-chain khi có xác minh thực tế; dữ liệu thử nghiệm hoặc mô phỏng luôn được gắn nhãn.",
+    "answer": "Credential chỉ hiển thị trạng thái on-chain khi đã có xác minh thực tế. Dữ liệu thử nghiệm hoặc mô phỏng luôn được gắn nhãn rõ ràng.",
     "source": {
       "paragraph": 147
     }
@@ -679,7 +679,7 @@ export const SUPPORT_FAQ = [
       "xác minh",
       "mã credential"
     ],
-    "answer": "Mở mục Verify trong Passport và nhập mã chứng nhận cần kiểm tra.",
+    "answer": "Bạn mở mục Verify trong Passport rồi nhập mã chứng nhận cần kiểm tra.",
     "source": {
       "paragraph": 150
     }
@@ -694,7 +694,7 @@ export const SUPPORT_FAQ = [
       "achievement",
       "credential"
     ],
-    "answer": "Không. Thành tựu là cột mốc tiến độ; credential là chứng nhận có mã xác minh riêng.",
+    "answer": "Không. Thành tựu là cột mốc tiến độ, còn credential là chứng nhận có mã xác minh riêng.",
     "source": {
       "paragraph": 153
     }
@@ -708,7 +708,7 @@ export const SUPPORT_FAQ = [
       "7 thành tựu",
       "danh sách"
     ],
-    "answer": "Bảy thành tựu: First Step, Error Hunter, Critical Thinker, Independent Learner, Comeback Master, Consistency và Master of Reasoning.",
+    "answer": "Có 7 thành tựu: First Step, Error Hunter, Critical Thinker, Independent Learner, Comeback Master, Consistency và Master of Reasoning.",
     "source": {
       "paragraph": 157
     }
@@ -722,7 +722,7 @@ export const SUPPORT_FAQ = [
       "máy chủ",
       "tính thành tựu"
     ],
-    "answer": "Máy chủ tính lại từ lịch sử học tập; trình duyệt không được gửi tiến độ hay yêu cầu mở khoá.",
+    "answer": "Máy chủ tự tính lại tiến độ từ lịch sử học tập. Trình duyệt không được gửi tiến độ hay yêu cầu mở khoá.",
     "source": {
       "paragraph": 160
     }
@@ -736,7 +736,7 @@ export const SUPPORT_FAQ = [
       "mất thành tựu",
       "lưu vĩnh viễn"
     ],
-    "answer": "Không. Thành tựu được lưu theo tài khoản và giữ nguyên sau khi đăng xuất hoặc đổi thiết bị.",
+    "answer": "Không mất. Thành tựu được lưu theo tài khoản và giữ nguyên sau khi bạn đăng xuất hoặc đổi thiết bị.",
     "source": {
       "paragraph": 163
     }
@@ -751,7 +751,7 @@ export const SUPPORT_FAQ = [
       "email",
       "mật khẩu"
     ],
-    "answer": "Bằng email và mật khẩu đã đăng ký.",
+    "answer": "Bạn đăng nhập bằng email và mật khẩu đã đăng ký.",
     "source": {
       "paragraph": 168
     }
@@ -765,7 +765,7 @@ export const SUPPORT_FAQ = [
       "tên hiển thị",
       "Profile"
     ],
-    "answer": "Được, trong Profile. Email thì không đổi được vì là định danh tài khoản.",
+    "answer": "Bạn đổi được tên hiển thị trong Profile. Riêng email thì không đổi được vì đây là định danh tài khoản.",
     "source": {
       "paragraph": 171
     }
@@ -780,7 +780,7 @@ export const SUPPORT_FAQ = [
       "Facebook",
       "đăng nhập"
     ],
-    "answer": "Hiện chỉ hỗ trợ email và mật khẩu.",
+    "answer": "Hiện PARADOX chỉ hỗ trợ đăng nhập bằng email và mật khẩu.",
     "source": {
       "paragraph": 174
     }
@@ -794,7 +794,7 @@ export const SUPPORT_FAQ = [
       "đăng xuất",
       "menu"
     ],
-    "answer": "Trong menu tài khoản ở góc phải giao diện.",
+    "answer": "Bạn mở menu tài khoản ở góc phải giao diện và chọn Đăng xuất.",
     "source": {
       "paragraph": 177
     }
@@ -808,7 +808,7 @@ export const SUPPORT_FAQ = [
       "đăng xuất",
       "dữ liệu"
     ],
-    "answer": "Không, chỉ kết thúc phiên đăng nhập trên thiết bị đó.",
+    "answer": "Không. Đăng xuất chỉ kết thúc phiên đăng nhập trên thiết bị đó, dữ liệu học tập vẫn được giữ.",
     "source": {
       "paragraph": 180
     }
@@ -822,7 +822,7 @@ export const SUPPORT_FAQ = [
       "nhiều thiết bị",
       "đồng bộ"
     ],
-    "answer": "Được, các thiết bị dùng chung dữ liệu của một tài khoản.",
+    "answer": "Được. Các thiết bị đăng nhập cùng tài khoản sẽ dùng chung dữ liệu.",
     "source": {
       "paragraph": 183
     }
@@ -836,7 +836,7 @@ export const SUPPORT_FAQ = [
       "phiên đăng nhập",
       "hết hạn"
     ],
-    "answer": "Đến khi bạn đăng xuất hoặc phiên hết hạn theo cấu hình máy chủ.",
+    "answer": "Phiên đăng nhập kéo dài đến khi bạn đăng xuất hoặc đến khi hết hạn theo cấu hình máy chủ.",
     "source": {
       "paragraph": 186
     }
@@ -850,7 +850,7 @@ export const SUPPORT_FAQ = [
       "quên email",
       "khôi phục"
     ],
-    "answer": "Tìm lại email xác minh OTP; nếu vẫn không nhớ, liên hệ quản trị viên.",
+    "answer": "Bạn thử tìm lại email xác minh OTP đã nhận. Nếu vẫn không nhớ, hãy liên hệ quản trị viên để được hỗ trợ.",
     "source": {
       "paragraph": 189
     }
@@ -864,7 +864,7 @@ export const SUPPORT_FAQ = [
       "mật khẩu",
       "8 ký tự"
     ],
-    "answer": "Tối thiểu 8 ký tự.",
+    "answer": "Mật khẩu cần dài tối thiểu 8 ký tự.",
     "source": {
       "paragraph": 192
     }
@@ -892,7 +892,7 @@ export const SUPPORT_FAQ = [
       "tài khoản khóa",
       "đăng nhập"
     ],
-    "answer": "Không. Bạn cần liên hệ quản trị viên để được kích hoạt lại.",
+    "answer": "Không, tài khoản đang bị tạm khoá sẽ không đăng nhập được. Bạn cần liên hệ quản trị viên để được kích hoạt lại.",
     "source": {
       "paragraph": 198
     }
@@ -907,7 +907,7 @@ export const SUPPORT_FAQ = [
       "admin",
       "quyền"
     ],
-    "answer": "Danh sách tài khoản, trạng thái hoạt động và công cụ tạm khoá/kích hoạt; không xem được nội dung bài làm.",
+    "answer": "Quản trị viên chỉ thấy danh sách tài khoản, trạng thái hoạt động và công cụ tạm khoá/kích hoạt. Họ không xem được nội dung bài làm của bạn.",
     "source": {
       "paragraph": 201
     }
@@ -920,7 +920,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "xóa tài khoản"
     ],
-    "answer": "Hiện chưa có chức năng tự xoá; hãy liên hệ quản trị viên.",
+    "answer": "Hiện chưa có chức năng tự xoá tài khoản. Bạn cần liên hệ quản trị viên để được hỗ trợ.",
     "source": {
       "paragraph": 204
     }
@@ -933,7 +933,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "dùng chung tài khoản"
     ],
-    "answer": "Không nên, vì dữ liệu học tập và thành tựu sẽ bị gộp chung.",
+    "answer": "Bạn không nên dùng chung tài khoản với bạn bè, vì dữ liệu học tập và thành tựu sẽ bị gộp chung.",
     "source": {
       "paragraph": 207
     }
@@ -947,7 +947,7 @@ export const SUPPORT_FAQ = [
       "trùng email",
       "đăng ký"
     ],
-    "answer": "Không, mỗi email chỉ gắn với một tài khoản.",
+    "answer": "Không. Mỗi email chỉ gắn với một tài khoản.",
     "source": {
       "paragraph": 210
     }
@@ -960,7 +960,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "OTP 6 số"
     ],
-    "answer": "Sáu chữ số.",
+    "answer": "Mã OTP gồm 6 chữ số.",
     "source": {
       "paragraph": 214
     }
@@ -974,7 +974,7 @@ export const SUPPORT_FAQ = [
       "SMTP",
       "email gửi"
     ],
-    "answer": "Từ máy chủ qua cấu hình SMTP của hệ thống.",
+    "answer": "OTP được gửi từ máy chủ qua cấu hình SMTP của hệ thống.",
     "source": {
       "paragraph": 217
     }
@@ -988,7 +988,7 @@ export const SUPPORT_FAQ = [
       "không thấy OTP",
       "spam"
     ],
-    "answer": "Thư rác, thư quảng cáo, và chờ thêm vài phút.",
+    "answer": "Bạn kiểm tra thư rác và thư quảng cáo trước, sau đó chờ thêm vài phút vì email có thể đến chậm.",
     "source": {
       "paragraph": 220
     }
@@ -1002,7 +1002,7 @@ export const SUPPORT_FAQ = [
       "gửi lại OTP",
       "giới hạn"
     ],
-    "answer": "Có giới hạn tần suất; chờ hết thời gian chờ rồi thử lại.",
+    "answer": "Việc gửi lại có giới hạn tần suất. Bạn chờ hết thời gian chờ rồi thử lại nhé.",
     "source": {
       "paragraph": 223
     }
@@ -1015,7 +1015,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "OTP hết hạn"
     ],
-    "answer": "Yêu cầu mã mới từ màn hình xác minh.",
+    "answer": "Khi mã hết hạn, bạn yêu cầu mã mới ngay trên màn hình xác minh.",
     "source": {
       "paragraph": 226
     }
@@ -1029,7 +1029,7 @@ export const SUPPORT_FAQ = [
       "sai OTP",
       "giới hạn"
     ],
-    "answer": "Hệ thống giới hạn số lần thử để bảo vệ tài khoản.",
+    "answer": "Có. Hệ thống giới hạn số lần thử để bảo vệ tài khoản của bạn.",
     "source": {
       "paragraph": 229
     }
@@ -1042,7 +1042,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "OTP dùng một lần"
     ],
-    "answer": "Không, mỗi mã chỉ dùng một lần.",
+    "answer": "Không, mỗi mã OTP chỉ dùng được một lần.",
     "source": {
       "paragraph": 232
     }
@@ -1056,7 +1056,7 @@ export const SUPPORT_FAQ = [
       "đổi email",
       "đăng ký lại"
     ],
-    "answer": "Huỷ luồng hiện tại và đăng ký lại với email mới.",
+    "answer": "Bạn huỷ luồng xác minh hiện tại rồi đăng ký lại với email mới.",
     "source": {
       "paragraph": 235
     }
@@ -1070,7 +1070,7 @@ export const SUPPORT_FAQ = [
       "OTP hiện màn hình",
       "dev"
     ],
-    "answer": "Chỉ ở môi trường phát triển chưa cấu hình SMTP; bản chạy thật sẽ gửi qua email.",
+    "answer": "OTP chỉ hiện trên màn hình ở môi trường phát triển chưa cấu hình SMTP. Bản chạy thật sẽ gửi mã qua email.",
     "source": {
       "paragraph": 238
     }
@@ -1084,7 +1084,7 @@ export const SUPPORT_FAQ = [
       "email công ty",
       "OTP"
     ],
-    "answer": "Được, miễn là hộp thư nhận được email từ hệ thống.",
+    "answer": "Được, miễn là hộp thư công ty nhận được email từ hệ thống.",
     "source": {
       "paragraph": 241
     }
@@ -1097,7 +1097,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "Audit là gì"
     ],
-    "answer": "Là phiên phản biện, nơi hệ thống kiểm tra lập luận trong bài làm của bạn.",
+    "answer": "Audit là phiên phản biện, nơi hệ thống kiểm tra lập luận trong bài làm của bạn.",
     "source": {
       "paragraph": 245
     }
@@ -1111,7 +1111,7 @@ export const SUPPORT_FAQ = [
       "chuẩn bị bài",
       "đề bài"
     ],
-    "answer": "Đề bài và bài làm của bạn, dạng tệp hoặc văn bản dán trực tiếp.",
+    "answer": "Bạn chuẩn bị đề bài và bài làm, dưới dạng tệp hoặc văn bản dán trực tiếp.",
     "source": {
       "paragraph": 248
     }
@@ -1125,7 +1125,7 @@ export const SUPPORT_FAQ = [
       "ảnh chụp",
       "upload"
     ],
-    "answer": "Được, với jpg/jpeg/png/gif/webp.",
+    "answer": "Được, bạn tải ảnh chụp bài làm với định dạng jpg/jpeg/png/gif/webp.",
     "source": {
       "paragraph": 251
     }
@@ -1139,7 +1139,7 @@ export const SUPPORT_FAQ = [
       "PDF scan",
       "bài viết tay"
     ],
-    "answer": "Được, miễn nội dung đọc được rõ.",
+    "answer": "Được, miễn là nội dung trong bản scan đọc được rõ.",
     "source": {
       "paragraph": 254
     }
@@ -1153,7 +1153,7 @@ export const SUPPORT_FAQ = [
       "file lớn",
       "10MB"
     ],
-    "answer": "Nén lại, chụp lại với độ phân giải thấp hơn, hoặc dán nội dung dạng văn bản.",
+    "answer": "Nếu tệp lớn hơn 10MB, bạn nén lại, chụp lại với độ phân giải thấp hơn hoặc dán nội dung dạng văn bản.",
     "source": {
       "paragraph": 257
     }
@@ -1168,7 +1168,7 @@ export const SUPPORT_FAQ = [
       "RAR",
       "không hỗ trợ"
     ],
-    "answer": "Không, hãy giải nén và tải từng tệp.",
+    "answer": "Hiện chưa hỗ trợ ZIP hoặc RAR. Bạn giải nén rồi tải từng tệp lên nhé.",
     "source": {
       "paragraph": 260
     }
@@ -1182,7 +1182,7 @@ export const SUPPORT_FAQ = [
       "dán code",
       "lập trình"
     ],
-    "answer": "Có, hỗ trợ cả văn bản và code.",
+    "answer": "Được. Bạn có thể dán code thay vì tải tệp.",
     "source": {
       "paragraph": 263
     }
@@ -1196,7 +1196,7 @@ export const SUPPORT_FAQ = [
       "công thức toán",
       "nhập"
     ],
-    "answer": "Dán dạng văn bản hoặc tải ảnh chụp công thức.",
+    "answer": "Bạn dán công thức dạng văn bản hoặc tải ảnh chụp công thức.",
     "source": {
       "paragraph": 266
     }
@@ -1210,7 +1210,7 @@ export const SUPPORT_FAQ = [
       "bài rỗng",
       "validate"
     ],
-    "answer": "Không, hệ thống yêu cầu có nội dung bài làm.",
+    "answer": "Không. Hệ thống yêu cầu bài làm phải có nội dung.",
     "source": {
       "paragraph": 269
     }
@@ -1224,7 +1224,7 @@ export const SUPPORT_FAQ = [
       "sửa bài",
       "nộp lại"
     ],
-    "answer": "Được, bạn có thể sửa và nộp lại trong cùng phiên.",
+    "answer": "Được. Bạn có thể sửa và nộp lại trong cùng phiên.",
     "source": {
       "paragraph": 272
     }
@@ -1238,7 +1238,7 @@ export const SUPPORT_FAQ = [
       "nhiều bài",
       "phiên"
     ],
-    "answer": "Mỗi phiên tương ứng một bài; muốn bài khác thì tạo phiên mới.",
+    "answer": "Mỗi phiên tương ứng với một bài. Muốn làm bài khác, bạn tạo phiên mới.",
     "source": {
       "paragraph": 275
     }
@@ -1252,7 +1252,7 @@ export const SUPPORT_FAQ = [
       "tự lưu",
       "phiên"
     ],
-    "answer": "Có, khi bạn đã đăng nhập.",
+    "answer": "Có, phiên được tự lưu khi bạn đã đăng nhập.",
     "source": {
       "paragraph": 278
     }
@@ -1266,7 +1266,7 @@ export const SUPPORT_FAQ = [
       "đóng tab",
       "bỏ dở"
     ],
-    "answer": "Phiên có thể được ghi nhận là bỏ dở và không tính vào thành tựu.",
+    "answer": "Nếu đóng tab giữa chừng, phiên có thể được ghi nhận là bỏ dở và không tính vào thành tựu.",
     "source": {
       "paragraph": 281
     }
@@ -1281,7 +1281,7 @@ export const SUPPORT_FAQ = [
       "đúng sai",
       "điểm"
     ],
-    "answer": "Kết luận đúng/sai, điểm, loại lỗi và các bước gợi ý tiếp theo.",
+    "answer": "Kết quả một phiên gồm kết luận đúng/sai, điểm, loại lỗi và các bước gợi ý tiếp theo.",
     "source": {
       "paragraph": 284
     }
@@ -1295,7 +1295,7 @@ export const SUPPORT_FAQ = [
       "AI sai",
       "phản hồi"
     ],
-    "answer": "Đối chiếu phần lời giải và nguồn, sau đó gửi phản hồi cho đội hỗ trợ.",
+    "answer": "Bạn đối chiếu phần lời giải và nguồn trước. Nếu vẫn thấy nhận xét sai, hãy gửi phản hồi cho đội hỗ trợ.",
     "source": {
       "paragraph": 287
     }
@@ -1308,7 +1308,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "chấm từng bước"
     ],
-    "answer": "Có, dựa trên lập luận ở từng bước chứ không chỉ kết quả cuối.",
+    "answer": "Có. Hệ thống chấm dựa trên lập luận ở từng bước, không chỉ kết quả cuối.",
     "source": {
       "paragraph": 290
     }
@@ -1322,7 +1322,7 @@ export const SUPPORT_FAQ = [
       "giới hạn lượt",
       "gói"
     ],
-    "answer": "Gói sinh viên hiển thị số lượt phản biện còn lại trong giao diện.",
+    "answer": "Gói sinh viên hiển thị số lượt phản biện còn lại ngay trong giao diện.",
     "source": {
       "paragraph": 293
     }
@@ -1335,7 +1335,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "gợi ý tự mở"
     ],
-    "answer": "Không, bạn chủ động mở khi cần.",
+    "answer": "Không, gợi ý không tự mở. Bạn chủ động mở khi cần.",
     "source": {
       "paragraph": 297
     }
@@ -1348,7 +1348,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "gợi ý mức 1"
     ],
-    "answer": "Câu hỏi gợi mở để bạn tự tìm hướng đi.",
+    "answer": "Gợi ý mức 1 là câu hỏi gợi mở để bạn tự tìm hướng đi.",
     "source": {
       "paragraph": 300
     }
@@ -1361,7 +1361,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "gợi ý mức 2"
     ],
-    "answer": "Chỉ ra bước hoặc quy tắc cần xem lại.",
+    "answer": "Gợi ý mức 2 chỉ ra bước hoặc quy tắc bạn cần xem lại.",
     "source": {
       "paragraph": 303
     }
@@ -1374,7 +1374,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "gợi ý mức 3"
     ],
-    "answer": "Ví dụ mẫu tương tự để bạn đối chiếu cách làm.",
+    "answer": "Gợi ý mức 3 đưa ra ví dụ mẫu tương tự để bạn đối chiếu cách làm.",
     "source": {
       "paragraph": 306
     }
@@ -1387,7 +1387,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "xem lời giải trước"
     ],
-    "answer": "Không, lời giải chỉ mở ở bước Rescue sau khi bạn đã rà soát.",
+    "answer": "Không. Lời giải chỉ mở ở bước Rescue, sau khi bạn đã tự rà soát.",
     "source": {
       "paragraph": 309
     }
@@ -1401,7 +1401,7 @@ export const SUPPORT_FAQ = [
       "đáp án chuẩn",
       "tham khảo"
     ],
-    "answer": "Đó là lời giải tham khảo có nguồn, bạn nên kiểm chứng lại.",
+    "answer": "Đó là lời giải tham khảo có nguồn, không phải đáp án chuẩn tuyệt đối. Bạn nên kiểm chứng lại.",
     "source": {
       "paragraph": 312
     }
@@ -1415,7 +1415,7 @@ export const SUPPORT_FAQ = [
       "gợi ý",
       "Error Hunter"
     ],
-    "answer": "Có, thành tựu Error Hunter yêu cầu không dùng gợi ý mức 2 trở lên.",
+    "answer": "Có. Thành tựu Error Hunter yêu cầu bạn không dùng gợi ý mức 2 trở lên.",
     "source": {
       "paragraph": 315
     }
@@ -1443,7 +1443,7 @@ export const SUPPORT_FAQ = [
       "Practice",
       "trắc nghiệm"
     ],
-    "answer": "Theo câu trả lời trắc nghiệm và phản hồi giải thích ngay sau đó.",
+    "answer": "Practice được chấm theo câu trả lời trắc nghiệm và phần phản hồi giải thích ngay sau đó.",
     "source": {
       "paragraph": 322
     }
@@ -1457,7 +1457,7 @@ export const SUPPORT_FAQ = [
       "Practice",
       "lưu tiến độ"
     ],
-    "answer": "Trong trình duyệt với chế độ khách, và theo tài khoản khi đã đăng nhập.",
+    "answer": "Tiến độ Practice lưu trong trình duyệt ở chế độ khách, và lưu theo tài khoản khi bạn đã đăng nhập.",
     "source": {
       "paragraph": 325
     }
@@ -1470,7 +1470,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "làm lại Practice"
     ],
-    "answer": "Được, trạng thái đã giải vẫn được ghi nhận.",
+    "answer": "Được. Bạn làm lại bài đã giải được, trạng thái đã giải vẫn được ghi nhận.",
     "source": {
       "paragraph": 328
     }
@@ -1484,7 +1484,7 @@ export const SUPPORT_FAQ = [
       "History",
       "bộ lọc"
     ],
-    "answer": "Lọc theo trạng thái phiên và tìm kiếm nội dung.",
+    "answer": "History có bộ lọc theo trạng thái phiên và ô tìm kiếm nội dung.",
     "source": {
       "paragraph": 331
     }
@@ -1498,7 +1498,7 @@ export const SUPPORT_FAQ = [
       "xóa phiên",
       "History"
     ],
-    "answer": "Hiện chỉ xem lại, chưa có chức năng xoá từng phiên.",
+    "answer": "Hiện History chỉ cho xem lại, chưa có chức năng xoá từng phiên.",
     "source": {
       "paragraph": 334
     }
@@ -1512,7 +1512,7 @@ export const SUPPORT_FAQ = [
       "Analytics",
       "7/30/90 ngày"
     ],
-    "answer": "Các mốc 7, 30 và 90 ngày.",
+    "answer": "Analytics xem được các mốc 7, 30 và 90 ngày.",
     "source": {
       "paragraph": 337
     }
@@ -1526,7 +1526,7 @@ export const SUPPORT_FAQ = [
       "self-found errors",
       "lỗi tự phát hiện"
     ],
-    "answer": "Số lỗi bạn tự phát hiện trước khi dùng gợi ý.",
+    "answer": "\"Self-found errors\" là số lỗi bạn tự phát hiện trước khi dùng gợi ý.",
     "source": {
       "paragraph": 340
     }
@@ -1540,7 +1540,7 @@ export const SUPPORT_FAQ = [
       "streak",
       "đặt lại"
     ],
-    "answer": "Khi có một ngày không phát sinh hoạt động học tập.",
+    "answer": "Chuỗi ngày học bị đặt lại khi có một ngày không phát sinh hoạt động học tập.",
     "source": {
       "paragraph": 343
     }
@@ -1554,7 +1554,7 @@ export const SUPPORT_FAQ = [
       "Dashboard",
       "cập nhật"
     ],
-    "answer": "Dữ liệu làm mới khi bạn hoàn thành phiên hoặc tải lại trang.",
+    "answer": "Dashboard làm mới dữ liệu khi bạn hoàn thành phiên hoặc tải lại trang.",
     "source": {
       "paragraph": 346
     }
@@ -1568,7 +1568,7 @@ export const SUPPORT_FAQ = [
       "xuất JSON",
       "dữ liệu"
     ],
-    "answer": "Có, Settings cho phép xuất dữ liệu demo dạng JSON.",
+    "answer": "Có. Trong Settings, bạn xuất được dữ liệu demo dạng JSON.",
     "source": {
       "paragraph": 349
     }
@@ -1581,7 +1581,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "reset tiến độ"
     ],
-    "answer": "Trong Settings, mục đặt lại tiến độ.",
+    "answer": "Bạn đặt lại tiến độ luyện tập trong Settings, ở mục đặt lại tiến độ.",
     "source": {
       "paragraph": 352
     }
@@ -1595,7 +1595,7 @@ export const SUPPORT_FAQ = [
       "JSON",
       "nội dung xuất"
     ],
-    "answer": "Tiến độ luyện tập và các tuỳ chọn cài đặt của bạn.",
+    "answer": "Tệp JSON xuất ra chứa tiến độ luyện tập và các tuỳ chọn cài đặt của bạn.",
     "source": {
       "paragraph": 355
     }
@@ -1609,7 +1609,7 @@ export const SUPPORT_FAQ = [
       "First Step",
       "phiên đầu"
     ],
-    "answer": "Hoàn thành phiên học đầu tiên.",
+    "answer": "Bạn hoàn thành phiên học đầu tiên là mở khoá được First Step.",
     "source": {
       "paragraph": 359
     }
@@ -1623,7 +1623,7 @@ export const SUPPORT_FAQ = [
       "Error Hunter",
       "tự sửa lỗi"
     ],
-    "answer": "Tự sửa lỗi thành công trong 5 phiên khác nhau mà không dùng gợi ý mức 2 trở lên.",
+    "answer": "Bạn cần tự sửa lỗi thành công trong 5 phiên khác nhau mà không dùng gợi ý mức 2 trở lên.",
     "source": {
       "paragraph": 362
     }
@@ -1637,7 +1637,7 @@ export const SUPPORT_FAQ = [
       "Critical Thinker",
       "10 phiên"
     ],
-    "answer": "Hoàn thành 10 phiên học.",
+    "answer": "Bạn hoàn thành 10 phiên học để mở khoá Critical Thinker.",
     "source": {
       "paragraph": 365
     }
@@ -1651,7 +1651,7 @@ export const SUPPORT_FAQ = [
       "Independent Learner",
       "không gợi ý"
     ],
-    "answer": "Hoàn thành 5 phiên không dùng bất kỳ gợi ý nào.",
+    "answer": "Bạn hoàn thành 5 phiên không dùng bất kỳ gợi ý nào để mở khoá Independent Learner.",
     "source": {
       "paragraph": 368
     }
@@ -1665,7 +1665,7 @@ export const SUPPORT_FAQ = [
       "Comeback Master",
       "tăng điểm"
     ],
-    "answer": "Cải thiện điểm số ít nhất 5 điểm sau khi nộp lại trong cùng một phiên.",
+    "answer": "Bạn cần cải thiện điểm ít nhất 5 điểm sau khi nộp lại trong cùng một phiên.",
     "source": {
       "paragraph": 371
     }
@@ -1679,7 +1679,7 @@ export const SUPPORT_FAQ = [
       "Consistency",
       "7 ngày"
     ],
-    "answer": "Duy trì chuỗi 7 ngày học liên tiếp.",
+    "answer": "Bạn duy trì chuỗi 7 ngày học liên tiếp để mở khoá Consistency.",
     "source": {
       "paragraph": 374
     }
@@ -1693,7 +1693,7 @@ export const SUPPORT_FAQ = [
       "Master of Reasoning",
       "90 điểm"
     ],
-    "answer": "Đạt 5 đánh giá từ 90 điểm trở lên.",
+    "answer": "Bạn cần đạt 5 đánh giá từ 90 điểm trở lên để mở khoá Master of Reasoning.",
     "source": {
       "paragraph": 377
     }
@@ -1707,7 +1707,7 @@ export const SUPPORT_FAQ = [
       "tiến độ thành tựu",
       "bộ lọc"
     ],
-    "answer": "Trong Profile, có bộ lọc tất cả / đã mở / đang tiến hành / còn khoá.",
+    "answer": "Bạn xem tiến độ thành tựu trong Profile, với bộ lọc tất cả / đã mở / đang tiến hành / còn khoá.",
     "source": {
       "paragraph": 380
     }
@@ -1721,7 +1721,7 @@ export const SUPPORT_FAQ = [
       "Passport",
       "nguồn dữ liệu"
     ],
-    "answer": "Từ các phiên học, đánh giá và chứng nhận gắn với tài khoản của bạn.",
+    "answer": "Learning Passport lấy dữ liệu từ các phiên học, đánh giá và chứng nhận gắn với tài khoản của bạn.",
     "source": {
       "paragraph": 384
     }
@@ -1735,7 +1735,7 @@ export const SUPPORT_FAQ = [
       "cấp credential",
       "điều kiện"
     ],
-    "answer": "Khi bài học đạt điều kiện đánh giá theo tiêu chí của chứng nhận đó.",
+    "answer": "Credential được cấp khi bài học đạt điều kiện đánh giá theo tiêu chí của chứng nhận đó.",
     "source": {
       "paragraph": 387
     }
@@ -1748,7 +1748,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "mã credential"
     ],
-    "answer": "Để người khác đối chiếu và xác minh chứng nhận.",
+    "answer": "Mã credential dùng để người khác đối chiếu và xác minh chứng nhận của bạn.",
     "source": {
       "paragraph": 390
     }
@@ -1762,7 +1762,7 @@ export const SUPPORT_FAQ = [
       "Verify",
       "xác minh"
     ],
-    "answer": "Trong Learning Passport, mục Verify.",
+    "answer": "Bạn xác minh credential trong Learning Passport, ở mục Verify.",
     "source": {
       "paragraph": 393
     }
@@ -1775,7 +1775,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "không tìm thấy mã"
     ],
-    "answer": "Kiểm tra lại ký tự, khoảng trắng và xem credential có phải bản thử nghiệm.",
+    "answer": "Bạn kiểm tra lại ký tự, khoảng trắng và xem credential đó có phải bản thử nghiệm không.",
     "source": {
       "paragraph": 396
     }
@@ -1789,7 +1789,7 @@ export const SUPPORT_FAQ = [
       "Test badge",
       "thử nghiệm"
     ],
-    "answer": "Đó là dữ liệu thử nghiệm, không dùng để tuyên bố thành tích thật.",
+    "answer": "Nhãn \"Test\" nghĩa là dữ liệu thử nghiệm, không dùng để tuyên bố thành tích thật.",
     "source": {
       "paragraph": 399
     }
@@ -1803,7 +1803,7 @@ export const SUPPORT_FAQ = [
       "Mock badge",
       "mô phỏng"
     ],
-    "answer": "Dữ liệu mô phỏng, chưa có giao dịch xác minh thật.",
+    "answer": "Nhãn \"Mock\" nghĩa là dữ liệu mô phỏng, chưa có giao dịch xác minh thật.",
     "source": {
       "paragraph": 402
     }
@@ -1816,7 +1816,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "on-chain thật"
     ],
-    "answer": "Khi có giao dịch và bằng chứng xác minh thực tế trên mạng.",
+    "answer": "Credential chỉ được coi là on-chain thật khi có giao dịch và bằng chứng xác minh thực tế trên mạng.",
     "source": {
       "paragraph": 405
     }
@@ -1829,7 +1829,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "chia sẻ credential"
     ],
-    "answer": "Gửi mã chứng nhận để họ kiểm tra trong mục Verify.",
+    "answer": "Bạn gửi mã chứng nhận cho nhà tuyển dụng để họ kiểm tra trong mục Verify.",
     "source": {
       "paragraph": 408
     }
@@ -1842,7 +1842,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "achievement trong Passport"
     ],
-    "answer": "Có, nhưng hiển thị ở mục riêng và không được coi là chứng chỉ.",
+    "answer": "Có, thành tựu nằm trong Passport nhưng hiển thị ở mục riêng và không được coi là chứng chỉ.",
     "source": {
       "paragraph": 411
     }
@@ -1856,7 +1856,7 @@ export const SUPPORT_FAQ = [
       "local",
       "localStorage"
     ],
-    "answer": "Trong localStorage của trình duyệt.",
+    "answer": "Ở chế độ khách, dữ liệu được lưu trong localStorage của trình duyệt.",
     "source": {
       "paragraph": 415
     }
@@ -1870,7 +1870,7 @@ export const SUPPORT_FAQ = [
       "server",
       "dữ liệu lưu"
     ],
-    "answer": "Phiên học, bài nộp, đánh giá, gợi ý và thành tựu của tài khoản.",
+    "answer": "Máy chủ lưu phiên học, bài nộp, đánh giá, gợi ý và thành tựu của tài khoản.",
     "source": {
       "paragraph": 418
     }
@@ -1884,7 +1884,7 @@ export const SUPPORT_FAQ = [
       "RLS",
       "ai đọc"
     ],
-    "answer": "Chính bạn, thông qua chính sách RLS chỉ cho đọc bản ghi của mình.",
+    "answer": "Chỉ bạn đọc được dữ liệu trên máy chủ, nhờ chính sách RLS chỉ cho đọc bản ghi của mình.",
     "source": {
       "paragraph": 421
     }
@@ -1898,7 +1898,7 @@ export const SUPPORT_FAQ = [
       "HTTPS",
       "bảo mật"
     ],
-    "answer": "Bản triển khai dùng HTTPS; không nên chạy bản thật trên HTTP.",
+    "answer": "Bản triển khai dùng HTTPS. Bạn không nên chạy bản thật trên HTTP.",
     "source": {
       "paragraph": 424
     }
@@ -1912,7 +1912,7 @@ export const SUPPORT_FAQ = [
       "API key",
       "máy chủ"
     ],
-    "answer": "Trong biến môi trường máy chủ, không có trong mã trình duyệt.",
+    "answer": "API key của AI nằm trong biến môi trường máy chủ, không có trong mã trình duyệt.",
     "source": {
       "paragraph": 427
     }
@@ -1925,7 +1925,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "xóa localStorage"
     ],
-    "answer": "Có với chế độ khách; dữ liệu tài khoản trên máy chủ vẫn còn.",
+    "answer": "Với chế độ khách thì xoá localStorage sẽ mất dữ liệu. Dữ liệu tài khoản trên máy chủ vẫn còn.",
     "source": {
       "paragraph": 430
     }
@@ -1951,7 +1951,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "dưới 18 tuổi"
     ],
-    "answer": "Được, nhưng nên có sự đồng ý và hướng dẫn của phụ huynh.",
+    "answer": "Được, nhưng bạn nên có sự đồng ý và hướng dẫn của phụ huynh.",
     "source": {
       "paragraph": 436
     }
@@ -1965,7 +1965,7 @@ export const SUPPORT_FAQ = [
       "ngôn ngữ",
       "vi/en/jp"
     ],
-    "answer": "Tiếng Việt, tiếng Anh và tiếng Nhật.",
+    "answer": "PARADOX hỗ trợ tiếng Việt, tiếng Anh và tiếng Nhật.",
     "source": {
       "paragraph": 440
     }
@@ -1978,7 +1978,7 @@ export const SUPPORT_FAQ = [
     "keywords": [
       "đổi ngôn ngữ"
     ],
-    "answer": "Trên landing page hoặc trong Settings.",
+    "answer": "Bạn đổi ngôn ngữ trên landing page hoặc trong Settings.",
     "source": {
       "paragraph": 443
     }
@@ -1992,7 +1992,7 @@ export const SUPPORT_FAQ = [
       "dark mode",
       "giao diện tối"
     ],
-    "answer": "Có, bật/tắt ở landing hoặc thanh trên cùng của ứng dụng.",
+    "answer": "Có. Bạn bật/tắt chế độ tối ở landing hoặc trên thanh trên cùng của ứng dụng.",
     "source": {
       "paragraph": 446
     }
@@ -2006,7 +2006,7 @@ export const SUPPORT_FAQ = [
       "mobile",
       "responsive"
     ],
-    "answer": "Có, bố cục responsive và đã kiểm tra ở chiều rộng 390px.",
+    "answer": "Có, giao diện dùng bố cục responsive và đã được kiểm tra ở chiều rộng 390px.",
     "source": {
       "paragraph": 449
     }
@@ -2033,7 +2033,7 @@ export const SUPPORT_FAQ = [
       "sitemap",
       "#/sitemap"
     ],
-    "answer": "Truy cập đường dẫn #/sitemap.",
+    "answer": "Bạn truy cập đường dẫn #/sitemap để xem sitemap.",
     "source": {
       "paragraph": 455
     }
@@ -2047,7 +2047,7 @@ export const SUPPORT_FAQ = [
       "back to top",
       "lên đầu trang"
     ],
-    "answer": "Hiện ở góc phải dưới khi bạn cuộn đủ xa.",
+    "answer": "Nút lên đầu trang hiện ở góc phải dưới khi bạn cuộn đủ xa.",
     "source": {
       "paragraph": 458
     }
@@ -2061,7 +2061,7 @@ export const SUPPORT_FAQ = [
       "trang trắng",
       "cache"
     ],
-    "answer": "Tải lại cứng (Ctrl+F5), xoá cache, rồi mở lại.",
+    "answer": "Bạn tải lại cứng bằng Ctrl+F5, xoá cache rồi mở lại trang.",
     "source": {
       "paragraph": 462
     }
@@ -2076,7 +2076,7 @@ export const SUPPORT_FAQ = [
       "ANYROUTER_API_KEY",
       "503"
     ],
-    "answer": "Máy chủ cần ANYROUTER_API_KEY; thiếu key sẽ trả lỗi 503.",
+    "answer": "Chatbot cần máy chủ có ANYROUTER_API_KEY. Nếu thiếu key, hệ thống sẽ trả lỗi 503.",
     "source": {
       "paragraph": 465
     }
@@ -2090,7 +2090,7 @@ export const SUPPORT_FAQ = [
       "không tải dữ liệu",
       "phiên hết hạn"
     ],
-    "answer": "Phiên đăng nhập có thể đã hết hạn; đăng nhập lại rồi tải lại trang.",
+    "answer": "Có thể phiên đăng nhập đã hết hạn. Bạn đăng nhập lại rồi tải lại trang nhé.",
     "source": {
       "paragraph": 468
     }
@@ -2104,7 +2104,7 @@ export const SUPPORT_FAQ = [
       "chậm",
       "hiệu năng"
     ],
-    "answer": "Thường do mạng yếu hoặc quá nhiều dữ liệu trong trình duyệt; thử xoá bớt và tải lại.",
+    "answer": "Tình trạng chậm thường do mạng yếu hoặc quá nhiều dữ liệu trong trình duyệt. Bạn thử xoá bớt rồi tải lại.",
     "source": {
       "paragraph": 471
     }
@@ -2118,7 +2118,7 @@ export const SUPPORT_FAQ = [
       "báo lỗi",
       "góp ý"
     ],
-    "answer": "Gửi qua chatbot hỗ trợ hoặc email quản trị viên kèm mô tả và ảnh chụp màn hình.",
+    "answer": "Bạn gửi qua chatbot hỗ trợ hoặc email quản trị viên, kèm mô tả và ảnh chụp màn hình để đội hỗ trợ dễ kiểm tra.",
     "source": {
       "paragraph": 474
     }
