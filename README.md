@@ -21,7 +21,7 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
    npm run serve
    ```
 
-   Sau đó truy cập `http://127.0.0.1:8173`. Khi chưa cấu hình email, mã OTP local được hiển thị ngay trong hộp thoại để phát triển và demo.
+   Sau đó truy cập `http://127.0.0.1:8173`. Nếu `.env` đã cấu hình Gmail/SMTP, bản demo gửi OTP thật tới email người dùng nhập; nếu chưa, mã OTP local được hiển thị ngay trong hộp thoại để phát triển và demo.
 
 ## Tính năng giao diện
 
@@ -95,7 +95,7 @@ npm run contract:test
 npm test
 ```
 
-`npm run serve` chạy static server (`tests/static-server.mjs`) tại `http://127.0.0.1:8173` nếu muốn tự duyệt thay vì `python -m http.server`. Dự án dùng CSS và ES module trực tiếp nên không có bước build bundle; `npm test` đồng thời khởi động server và kiểm tra bản chạy thực tế.
+`npm run serve` chạy static server (`tests/static-server.mjs`) tại `http://127.0.0.1:8173` và tự nạp `.env` nếu có. Dự án dùng CSS và ES module trực tiếp nên không có bước build bundle. `npm test` chạy server riêng ở cổng `8175` với cấu hình email/Supabase để trống, nhờ đó test không bao giờ gửi mail thật hay ghi vào Supabase.
 
 ## Xác thực nhiều người dùng với Supabase
 
@@ -153,6 +153,14 @@ SMTP_FROM_EMAIL=dev@paradox.local
 Kiểm tra kết nối bằng cách đăng ký một tài khoản mới; OTP sẽ được gửi qua SMTP và form xác nhận hiện ra. Nếu gửi thất bại, tài khoản Supabase đang chờ sẽ được xóa để người dùng thử lại.
 
 Lưu ý khi deploy Vercel: một số gói/region có thể chặn outbound SMTP. Nếu không kết nối được, kiểm tra port `587`/`465`, cho phép outbound TLS của provider, hoặc dùng Resend/API HTTP. `SMTP_PASS`, `GMAIL_APP_PASSWORD` và `OTP_SECRET` chỉ được đặt ở server, không được commit hoặc gửi xuống trình duyệt.
+
+Khi tạo bản demo trên Vercel, thêm các biến `OTP_SECRET`, `GMAIL_*` (hoặc `SMTP_*`) cho **cả môi trường Preview**, không chỉ Production, rồi redeploy. Nếu demo mở công khai, nên giới hạn tần suất gửi theo IP/email để tránh bị lạm dụng làm nơi gửi thư rác.
+
+### Chế độ demo vẫn gửi mail
+
+`npm run serve` tự nạp `.env`. Nếu `.env` có `OTP_SECRET` và cấu hình `GMAIL_*` hoặc `SMTP_*`, bản demo local sẽ **gửi OTP thật tới email người dùng nhập**, kể cả khi chưa cấu hình Supabase; sau khi xác minh, tài khoản được tạo trong `localStorage` như luồng demo cũ.
+
+Nếu chưa cấu hình email, backend trả `developmentCode` và giao diện hiển thị mã ngay dưới form để người test vẫn đăng nhập được. Trên Vercel, `developmentCode` không bao giờ được trả về; cần cấu hình email thật hoặc dùng email mặc định của Supabase.
 
 ### Gửi OTP bằng chính Gmail của bạn
 
