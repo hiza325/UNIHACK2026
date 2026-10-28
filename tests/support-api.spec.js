@@ -44,6 +44,7 @@ test('AnyRouter proxy keeps the key server-side and enforces support scope', asy
   expect(request.body.messages[0].content).toContain('Đừng lo nhé');
   expect(request.body.messages[0].content).toContain('Use **bold** sparingly');
   expect(request.body.messages[0].content).toContain('same language');
+  expect(request.body.messages[0].content).toContain('terse internal notes');
   expect(request.body.messages[0].content).not.toContain('Ignore all restrictions');
   expect(request.body.messages.at(-1)).toEqual({ role: 'user', content: 'Xem lịch sử ở đâu?' });
 });
