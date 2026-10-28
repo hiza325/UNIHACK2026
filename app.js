@@ -48,6 +48,7 @@ class EduApp extends HTMLElement {
     this.supportMessages = [];
     this.supportOpen = false;
     this.supportLoading = false;
+    this.supportSuggestions = [];
     this.learningPassportService = createLearningPassportService({ mode: 'mock', apiBaseUrl: '/api' });
     this.passportSnapshot = null;
     this.passportLoading = false;

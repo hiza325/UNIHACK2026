@@ -343,6 +343,35 @@ test.describe('app shell', () => {
     expect(await page.evaluate(() => window.__supportXss)).toBeUndefined();
   });
 
+  test('website support shows suggested questions and sends them on click', async ({ page }) => {
+    await seedSession(page);
+    await page.addInitScript(() => {
+      window.PARADOX_SUPPORT_AI_CONFIG = { proxyUrl: '/api/support-test' };
+    });
+    await page.route('**/api/support-test', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          text: 'Đây là câu trả lời gợi ý.',
+          suggestions: ['Gợi ý tiếp theo A', 'Gợi ý tiếp theo B'],
+        }),
+      });
+    });
+
+    await page.goto('/#/dashboard');
+    await page.locator('[data-support-toggle]').click();
+
+    const firstChip = page.locator('.support-suggestions .suggestion-chip').first();
+    await expect(firstChip).toBeVisible();
+    const chipText = (await firstChip.innerText()).trim();
+    await firstChip.click();
+
+    await expect(page.locator('.support-message.user').first()).toContainText(chipText);
+    await expect(page.locator('.support-message.assistant').last()).toContainText('Đây là câu trả lời gợi ý.');
+    await expect(page.locator('.suggestion-chip', { hasText: 'Gợi ý tiếp theo A' })).toBeVisible();
+  });
+
   test('all main views pass axe (serious and critical)', async ({ page }) => {
     await seedSession(page);
     test.setTimeout(60000);

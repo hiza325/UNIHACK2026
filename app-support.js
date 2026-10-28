@@ -1,6 +1,46 @@
 import { requestSupportReply } from './support-ai.js';
 
 export const supportMethods = {
+  supportStarterSuggestions() {
+    return ({
+      vi: [
+        'Tôi không nhận được mã OTP thì sao?',
+        'Quên mật khẩu thì làm gì?',
+        'Dữ liệu học tập của tôi được lưu ở đâu?',
+        'Làm sao xác minh một credential?',
+        'PARADOX có đưa đáp án ngay không?',
+        'Một phiên học gồm mấy bước?',
+      ],
+      en: [
+        'What if I do not receive my OTP code?',
+        'What do I do if I forgot my password?',
+        'Where is my learning data stored?',
+        'How do I verify a credential?',
+        'Does PARADOX give the answer right away?',
+        'How many steps are in a study session?',
+      ],
+      jp: [
+        'OTPコードが届かない場合は？',
+        'パスワードを忘れた場合は？',
+        '学習データはどこに保存されますか？',
+        '資格情報を確認するには？',
+        'PARADOXはすぐに答えを教えますか？',
+        '学習セッションは何ステップありますか？',
+      ],
+    })[this.lang] || [];
+  },
+  activeSupportSuggestions() {
+    if (this.supportMessages.length === 0) return this.supportStarterSuggestions();
+    return Array.isArray(this.supportSuggestions) ? this.supportSuggestions.slice(0, 4) : [];
+  },
+  supportSuggestionsMarkup() {
+    const suggestions = this.activeSupportSuggestions();
+    if (!suggestions.length) return '<div class="support-suggestions" id="support-suggestions" hidden></div>';
+    const chips = suggestions
+      .map((item, index) => `<button type="button" class="suggestion-chip" data-support-suggestion="${index}">${this.escape(item)}</button>`)
+      .join('');
+    return `<div class="support-suggestions" id="support-suggestions"><span class="support-suggestions-label">${this.t('supportSuggestions')}</span>${chips}</div>`;
+  },
   supportWidgetMarkup() {
     const messages = this.supportMessages.length
       ? this.supportMessages
@@ -11,6 +51,7 @@ export const supportMethods = {
       <section class="support-panel" id="support-panel" role="dialog" aria-modal="false" aria-labelledby="support-title" ${this.supportOpen ? '' : 'hidden'}>
         <header class="support-head"><div><span class="support-kicker">PARADOX AI</span><h2 id="support-title">${this.t('supportTitle')}</h2></div><button type="button" data-support-close aria-label="${this.t('close')}"><span aria-hidden="true">×</span></button></header>
         <div class="support-messages" id="support-messages" aria-live="polite">${messages.map(item => this.supportMessageMarkup(item)).join('')}${this.supportLoading ? this.supportTypingMarkup() : ''}</div>
+        ${this.supportSuggestionsMarkup()}
         <form class="support-form" id="support-form"><label class="sr-only" for="support-input">${this.t('supportPlaceholder')}</label><input id="support-input" name="message" maxlength="600" autocomplete="off" placeholder="${this.t('supportPlaceholder')}" ${this.supportLoading ? 'disabled' : ''}><button type="submit" aria-label="${this.t('send')}" ${this.supportLoading ? 'disabled' : ''}><span aria-hidden="true">↑</span></button></form>
         <p class="support-note">${this.t('supportScope')}</p>
       </section>
@@ -67,6 +108,8 @@ export const supportMethods = {
       : [{ role: 'assistant', text: this.t('supportWelcome') }];
     root.innerHTML = messages.map(item => this.supportMessageMarkup(item)).join('') + (this.supportLoading ? this.supportTypingMarkup() : '');
     root.scrollTop = root.scrollHeight;
+    const suggestionsRoot = this.querySelector('#support-suggestions');
+    if (suggestionsRoot) suggestionsRoot.outerHTML = this.supportSuggestionsMarkup();
     const input = this.querySelector('#support-input');
     const submit = this.querySelector('#support-form button[type="submit"]');
     if (input) input.disabled = this.supportLoading;
@@ -78,10 +121,13 @@ export const supportMethods = {
     this.supportMessages.push({ role: 'user', text: value });
     this.supportMessages = this.supportMessages.slice(-20);
     this.supportLoading = true;
+    this.supportSuggestions = [];
     this.renderSupportConversation();
     try {
       const reply = await requestSupportReply(this.supportMessages, this.lang, this.view || 'landing');
-      this.supportMessages.push({ role: 'assistant', text: reply });
+      const resolved = typeof reply === 'string' ? { text: reply, suggestions: [] } : reply;
+      this.supportMessages.push({ role: 'assistant', text: resolved.text });
+      this.supportSuggestions = Array.isArray(resolved.suggestions) ? resolved.suggestions.slice(0, 4) : [];
     } catch (error) {
       this.supportMessages.push({ role: 'assistant', text: this.supportErrorText(error) });
     } finally {

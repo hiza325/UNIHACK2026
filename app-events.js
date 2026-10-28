@@ -7,6 +7,13 @@ export const eventMethods = {
     }
     if (event.target.closest?.('[data-support-toggle]')) { this.toggleSupport(); return; }
     if (event.target.closest?.('[data-support-close]')) { this.toggleSupport(false); return; }
+    const suggestion = event.target.closest?.('[data-support-suggestion]');
+    if (suggestion) {
+      const list = this.activeSupportSuggestions();
+      const text = list[Number(suggestion.dataset.supportSuggestion)];
+      if (text) this.sendSupportMessage(text);
+      return;
+    }
     if (event.target.closest?.('[data-theme-toggle]')) { this.toggleTheme(); return; }
     const more = event.target.closest?.('[data-mobile-more]');
     if (more) { const menu = this.querySelector('#mobile-more-menu'); const open = menu?.hidden; if (menu) menu.hidden = !open; more.setAttribute('aria-expanded', String(open)); return; }

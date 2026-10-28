@@ -39,7 +39,7 @@ async function requestProxy(messages, language, currentView) {
     }
     const text = data.text || data.reply || data.message;
     if (!text) throw supportError('Support proxy returned no text', 'EMPTY_RESPONSE');
-    return String(text);
+    return { text: String(text), suggestions: Array.isArray(data.suggestions) ? data.suggestions : [] };
   } catch (error) {
     if (error?.name === 'AbortError') throw supportError('Support proxy timed out', 'TIMEOUT');
     if (error?.code) throw error;

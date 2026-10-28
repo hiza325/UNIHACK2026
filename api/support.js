@@ -27,6 +27,39 @@ const FALLBACK_TEXT = {
   },
 };
 
+// Quick starter questions shown in the chat window and used as follow-up
+// suggestions when no related documented question is available.
+const STARTER_SUGGESTIONS = {
+  vi: [
+    'Tôi không nhận được mã OTP thì sao?',
+    'Quên mật khẩu thì làm gì?',
+    'Dữ liệu học tập của tôi được lưu ở đâu?',
+    'Làm sao xác minh một credential?',
+  ],
+  en: [
+    'What if I do not receive my OTP code?',
+    'What do I do if I forgot my password?',
+    'Where is my learning data stored?',
+    'How do I verify a credential?',
+  ],
+  jp: [
+    'OTPコードが届かない場合は？',
+    'パスワードを忘れた場合は？',
+    '学習データはどこに保存されますか？',
+    '資格情報を確認するには？',
+  ],
+};
+
+function stripNumbering(question) {
+  return String(question || '').replace(/^\s*\d+\.\s*/, '').trim();
+}
+
+function suggestionsFor(language, matches) {
+  const followUps = matches.slice(1).map(match => stripNumbering(match.question)).filter(Boolean).slice(0, 3);
+  const starters = (STARTER_SUGGESTIONS[language] || STARTER_SUGGESTIONS.vi);
+  return followUps.length ? followUps : starters.slice();
+}
+
 const requestWindows = new Map();
 
 function inputError(message) {
@@ -241,6 +274,7 @@ export async function generateSupportReply(payload, options = {}) {
       grounded: false,
       sources: [],
       tier: retrieval.tier,
+      suggestions: (STARTER_SUGGESTIONS[language] || STARTER_SUGGESTIONS.vi).slice(),
     };
   }
 
@@ -253,6 +287,7 @@ export async function generateSupportReply(payload, options = {}) {
     tier: retrieval.tier,
     degraded: true,
     code,
+    suggestions: suggestionsFor(language, matches),
   });
 
   const apiKey = options.apiKey !== undefined ? options.apiKey : process.env.ANYROUTER_API_KEY;
@@ -269,7 +304,7 @@ export async function generateSupportReply(payload, options = {}) {
       fetcher: options.fetcher || fetch,
       timeoutMs: Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : UPSTREAM_TIMEOUT_MS,
     });
-    return { text, grounded: true, sources, tier: retrieval.tier };
+    return { text, grounded: true, sources, tier: retrieval.tier, suggestions: suggestionsFor(language, matches) };
   } catch (error) {
     return degradedReply(error?.code || 'UPSTREAM_ERROR');
   }

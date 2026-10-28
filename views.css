@@ -917,7 +917,7 @@ body.dark .passport-skill-icon, body.dark .credential-mark, body.dark .passport-
 .support-launcher { display: grid; place-items: center; width: 60px; height: 60px; padding: 2px; margin-left: auto; overflow: hidden; border: 1px solid #5141bc; border-radius: 50%; background: radial-gradient(circle at 65% 25%, #394be4, #111743 72%); box-shadow: 0 12px 32px rgba(37, 35, 112, .3); cursor: pointer; }
 .support-launcher img { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 3px 5px rgba(5, 8, 36, .35)); }
 .support-launcher:hover { border-color: #58d7ff; transform: translateY(-2px) scale(1.03); box-shadow: 0 15px 38px rgba(61, 57, 185, .38); }
-.support-panel { position: absolute; right: 0; bottom: 72px; display: grid; grid-template-rows: auto minmax(180px, 1fr) auto auto; width: min(370px, calc(100vw - 32px)); height: min(510px, calc(100vh - 120px)); overflow: hidden; border: 1px solid #d9ddd4; border-radius: 16px; background: #fffdf7; box-shadow: 0 24px 70px rgba(26, 39, 31, .24); }
+.support-panel { position: absolute; right: 0; bottom: 72px; display: grid; grid-template-rows: auto minmax(180px, 1fr) auto auto auto; width: min(370px, calc(100vw - 32px)); height: min(510px, calc(100vh - 120px)); overflow: hidden; border: 1px solid #d9ddd4; border-radius: 16px; background: #fffdf7; box-shadow: 0 24px 70px rgba(26, 39, 31, .24); }
 .support-panel[hidden] { display: none; }
 .support-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 17px 14px; border-bottom: 1px solid #e2e5dc; background: #f5f2e9; }
 .support-kicker { display: block; color: #59645c; font: 9px 'DM Mono', monospace; letter-spacing: .11em; }
@@ -925,6 +925,12 @@ body.dark .passport-skill-icon, body.dark .credential-mark, body.dark .passport-
 .support-head button { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: #59645c; font-size: 22px; cursor: pointer; }
 .support-head button:hover { background: #e7e9df; }
 .support-messages { min-height: 0; padding: 16px; overflow-y: auto; background: #fffdf7; }
+.support-suggestions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 12px; background: #fff; }
+.support-suggestions[hidden] { display: none; }
+.support-suggestions-label { width: 100%; margin-bottom: 2px; color: #59645c; font-size: 9px; line-height: 1.4; }
+.suggestion-chip { max-width: 100%; padding: 7px 11px; border: 1px solid #d6dbd2; border-radius: 999px; background: #fbfcf8; color: #24382c; font: 400 10px/1.35 'Manrope', sans-serif; text-align: left; cursor: pointer; }
+.suggestion-chip:hover { border-color: #5141bc; background: #f1effb; }
+.suggestion-chip:focus-visible { outline: 2px solid #5141bc; outline-offset: 1px; }
 .support-message { display: flex; margin-bottom: 10px; }
 .support-message span { max-width: 88%; padding: 10px 12px; border: 1px solid #e0e5dc; border-radius: 4px 12px 12px; background: #fff; color: #465248; font-size: 11px; line-height: 1.65; }
 .support-message span strong { color: #24382c; font-weight: 700; }
@@ -952,6 +958,10 @@ body.dark .support-message span strong { color: #f1f5f2; }
 body.dark .support-message span code { background: #2c3932; }
 body.dark .support-message.user span { border-color: #465b48; background: #2b3b2d; color: #edf5e8; }
 body.dark .support-form, body.dark .support-note { border-color: #354139; background: #202b25; }
+body.dark .support-suggestions { background: #202b25; }
+body.dark .support-suggestions-label { color: #bdc9c1; }
+body.dark .suggestion-chip { border-color: #405047; background: #18211c; color: #edf3ef; }
+body.dark .suggestion-chip:hover { border-color: #70dcff; background: #2c3932; }
 body.dark .support-form input { border-color: #405047; background: #18211c; color: #edf3ef; }
 body.dark .support-form button { background: #c6f277; color: #17221f; }
 body.dark .support-note { color: #bdc9c1; }

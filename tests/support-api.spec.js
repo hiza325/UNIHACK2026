@@ -183,6 +183,36 @@ test('Support API aborts slow upstream calls and never echoes the API key', asyn
   expect(redacted.text).toContain('[redacted]');
 });
 
+test('Support API returns starter suggestions when no FAQ matches', async () => {
+  const reply = await generateSupportReply({
+    language: 'vi',
+    messages: [{ role: 'user', text: 'thời tiết hôm nay thế nào' }],
+  }, { apiKey: '', fetcher: async () => { throw new Error('should not be called'); } });
+
+  expect(reply.grounded).toBe(false);
+  expect(reply.suggestions).toBeInstanceOf(Array);
+  expect(reply.suggestions.length).toBeGreaterThan(0);
+  for (const suggestion of reply.suggestions) {
+    expect(typeof suggestion).toBe('string');
+    expect(suggestion.length).toBeGreaterThan(0);
+  }
+});
+
+test('Support API attaches follow-up suggestions to grounded replies', async () => {
+  const reply = await generateSupportReply({
+    language: 'vi',
+    messages: [{ role: 'user', text: 'Dữ liệu học tập của tôi được lưu ở đâu?' }],
+  }, { apiKey: '' });
+
+  expect(reply.grounded).toBe(true);
+  expect(reply.suggestions).toBeInstanceOf(Array);
+  expect(reply.suggestions.length).toBeGreaterThan(0);
+  for (const suggestion of reply.suggestions) {
+    expect(typeof suggestion).toBe('string');
+    expect(suggestion).not.toMatch(/^\s*\d+\.\s/);
+  }
+});
+
 test('Support handler rejects wrong methods, cross-site origins and malformed bodies', async () => {
   const methodResponse = createResponseRecorder();
   await supportHandler({ method: 'GET', headers: {} }, methodResponse);
