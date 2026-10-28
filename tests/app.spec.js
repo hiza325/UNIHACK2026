@@ -273,6 +273,76 @@ test.describe('app shell', () => {
     expect(requestBody.system).toBeUndefined();
   });
 
+  test('website support AI shows a localized error, escapes output and recovers on retry', async ({ page }) => {
+    await seedSession(page);
+    await page.addInitScript(() => {
+      window.PARADOX_SUPPORT_AI_CONFIG = { proxyUrl: '/api/support-test' };
+    });
+    let attempt = 0;
+    await page.route('**/api/support-test', async route => {
+      attempt += 1;
+      if (attempt === 1) {
+        await route.fulfill({
+          status: 429,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Too many requests', code: 'RATE_LIMITED' }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ text: '<img src=x onerror="window.__supportXss=1"> Đã kết nối lại.' }),
+      });
+    });
+
+    await page.goto('/#/dashboard');
+    await page.locator('[data-support-toggle]').click();
+    await page.fill('#support-input', 'Tôi xem lịch sử ở đâu?');
+    await page.locator('#support-form button[type="submit"]').click();
+
+    await expect(page.locator('.support-message.assistant').last()).toContainText('hơi nhiều câu hỏi');
+
+    await page.fill('#support-input', 'Thử lại giúp mình');
+    await page.locator('#support-form button[type="submit"]').click();
+
+    const lastMessage = page.locator('.support-message.assistant').last();
+    await expect(lastMessage).toContainText('Đã kết nối lại.');
+    await expect(lastMessage.locator('img')).toHaveCount(0);
+    expect(await page.evaluate(() => window.__supportXss)).toBeUndefined();
+    await expect(page.locator('#support-input')).toBeEnabled();
+  });
+
+  test('website support AI renders bold safely without allowing markup injection', async ({ page }) => {
+    await seedSession(page);
+    await page.addInitScript(() => {
+      window.PARADOX_SUPPORT_AI_CONFIG = { proxyUrl: '/api/support-test' };
+    });
+    await page.route('**/api/support-test', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          text: '**Bước 1:** Kiểm tra thư rác.\n<script>window.__supportXss=2</script>\n<img src=x onerror="window.__supportXss=3">\n*Lưu ý* quan trọng.',
+        }),
+      });
+    });
+
+    await page.goto('/#/dashboard');
+    await page.locator('[data-support-toggle]').click();
+    await page.fill('#support-input', 'Tôi không nhận được mã OTP thì sao?');
+    await page.locator('#support-form button[type="submit"]').click();
+
+    const lastMessage = page.locator('.support-message.assistant').last();
+    await expect(lastMessage.locator('strong')).toHaveText('Bước 1:');
+    await expect(lastMessage.locator('em')).toHaveText('Lưu ý');
+    await expect(lastMessage).not.toContainText('**');
+    await expect(lastMessage).toContainText('<script>');
+    await expect(lastMessage.locator('img')).toHaveCount(0);
+    await expect(lastMessage.locator('script')).toHaveCount(0);
+    expect(await page.evaluate(() => window.__supportXss)).toBeUndefined();
+  });
+
   test('all main views pass axe (serious and critical)', async ({ page }) => {
     await seedSession(page);
     test.setTimeout(60000);

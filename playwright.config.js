@@ -37,6 +37,8 @@ export default defineConfig({
       SUPABASE_URL: '',
       SUPABASE_ANON_KEY: '',
       SUPABASE_SERVICE_ROLE_KEY: '',
+      RESEND_API_KEY: '',
+      OTP_FROM_EMAIL: '',
       ADMIN_EMAILS: '',
       OTP_SEND_COOLDOWN_SECONDS: '0',
       OTP_SEND_EMAIL_LIMIT: '3',

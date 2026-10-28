@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createAnyRouterSupportReply } from '../api/support.js';
+import supportHandler from '../api/support.js';
 import otpHandler from '../api/auth/otp.js';
 import signupHandler from '../api/auth/signup.js';
 import verifyHandler from '../api/auth/verify.js';
@@ -56,6 +56,7 @@ const API_HANDLERS = new Map([
   ['/api/auth/session', sessionHandler], ['/api/auth/logout', logoutHandler],
   ['/api/admin/users', adminUsersHandler],
   ['/api/debate', debateHandler],
+  ['/api/support', supportHandler],
   ['/api/credentials', credentialsHandler],
   ['/api/learning-records', learningRecordsHandler],
 ]);
@@ -85,22 +86,6 @@ export function createStaticServer() {
       const url = new URL(req.url, `http://${req.headers.host}`);
       if (API_HANDLERS.has(url.pathname)) {
         await runApiHandler(API_HANDLERS.get(url.pathname), req, res);
-        return;
-      }
-      if (url.pathname === '/api/support') {
-        if (req.method !== 'POST') {
-          res.writeHead(405, { 'Content-Type': 'application/json', 'Allow': 'POST' });
-          res.end(JSON.stringify({ error: 'Method not allowed' }));
-          return;
-        }
-        let rawBody = '';
-        for await (const chunk of req) {
-          rawBody += chunk;
-          if (rawBody.length > 65536) throw Object.assign(new Error('Request too large'), { status: 413 });
-        }
-        const text = await createAnyRouterSupportReply(JSON.parse(rawBody));
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ text }));
         return;
       }
       let pathname = decodeURIComponent(url.pathname);
