@@ -53,6 +53,7 @@ export const routerMethods = {
     document.body.style.overflow = '';
     history.replaceState(null, '', location.pathname + location.search);
     window.scrollTo(0, 0);
-    this.transitionPage(() => this.renderLanding());
+    const transition = this.transitionPage(() => this.renderLanding());
+    if (transition?.updateCallbackDone) await transition.updateCallbackDone;
   },
 };

@@ -67,6 +67,8 @@ class EduApp extends HTMLElement {
     this.onHashChange = this.onHashChange.bind(this);
     this.onKeydown = this.onKeydown.bind(this);
     this.updateBackToTop = this.updateBackToTop.bind(this);
+    this.onSessionVisibilityChange = () => { if (document.visibilityState === 'visible') this.checkRemoteSession(); };
+    this.onSessionWindowFocus = () => this.checkRemoteSession();
   }
   connectedCallback() {
     this.addEventListener('click', this.onClick);
@@ -76,6 +78,9 @@ class EduApp extends HTMLElement {
     window.addEventListener('keydown', this.onKeydown);
     window.addEventListener('hashchange', this.onHashChange);
     window.addEventListener('scroll', this.updateBackToTop, { passive: true });
+    document.addEventListener('visibilitychange', this.onSessionVisibilityChange);
+    window.addEventListener('focus', this.onSessionWindowFocus);
+    this.authSessionTimer = window.setInterval(() => this.checkRemoteSession(), 15000);
     this.restoreAuthentication().finally(() => {
       this.configureLearningPassportService();
       this.configureLearningRecordsService();
@@ -94,6 +99,9 @@ class EduApp extends HTMLElement {
     window.removeEventListener('keydown', this.onKeydown);
     window.removeEventListener('hashchange', this.onHashChange);
     window.removeEventListener('scroll', this.updateBackToTop);
+    document.removeEventListener('visibilitychange', this.onSessionVisibilityChange);
+    window.removeEventListener('focus', this.onSessionWindowFocus);
+    window.clearInterval(this.authSessionTimer);
   }
   saveSettings() { localStorage.setItem('paradox-settings', JSON.stringify(this.settings)); }
   readSession() {

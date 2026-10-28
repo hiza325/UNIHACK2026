@@ -54,6 +54,7 @@ export const actionMethods = {
     if (!response.ok) {
       const error = new Error(this.rateLimitMessage(result) || (response.status >= 500 ? this.t('authServiceError') : (result.error || this.t('authServiceError'))));
       error.status = response.status;
+      error.code = result.code || '';
       throw error;
     }
     return result;
@@ -66,10 +67,30 @@ export const actionMethods = {
       this.user = result.user;
       localStorage.setItem('paradox-session', JSON.stringify(this.user));
     } catch (error) {
-      if (error.status === 401) {
+      if ([401, 403].includes(error.status)) {
         this.user = null;
         localStorage.removeItem('paradox-session');
       }
+    }
+  },
+  async checkRemoteSession() {
+    if (!this.user || this.authProvider !== 'remote' || this.authSessionCheckPending) return;
+    this.authSessionCheckPending = true;
+    try {
+      const result = await this.requestServerAuth('session', null, 'GET');
+      if (result?.user) {
+        this.user = result.user;
+        localStorage.setItem('paradox-session', JSON.stringify(result.user));
+      }
+    } catch (error) {
+      if ([401, 403].includes(error.status)) {
+        const message = this.t(error.code === 'ACCOUNT_SUSPENDED' ? 'authAccountSuspended' : 'authSessionExpired');
+        await this.logout();
+        this.openAuth('login');
+        this.querySelector('#auth-error').textContent = message;
+      }
+    } finally {
+      this.authSessionCheckPending = false;
     }
   },
   async authenticate(event, text) {

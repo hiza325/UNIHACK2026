@@ -108,6 +108,28 @@ test.describe('auth', () => {
     await expect(page.locator('#auth-error')).not.toBeEmpty();
     expect(await page.evaluate(() => localStorage.getItem('paradox-session'))).toBeNull();
   });
+
+  test('an open browser session logs out when the account becomes suspended', async ({ page }) => {
+    let suspended = false;
+    await seedSession(page);
+    await page.route('**/api/auth/session', route => route.fulfill({
+      status: suspended ? 403 : 200,
+      contentType: 'application/json',
+      body: JSON.stringify(suspended ? { error: 'This account is suspended', code: 'ACCOUNT_SUSPENDED' } : { user: { ...SESSION, id: 'user-id', role: 'user', status: 'active' } }),
+    }));
+    await page.route('**/api/auth/logout', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ loggedOut: true }) }));
+
+    await page.goto('/#/dashboard');
+    await expect(page.locator('.sidebar')).toBeVisible();
+
+    suspended = true;
+    await page.evaluate(() => document.querySelector('edu-app').checkRemoteSession());
+
+    await expect(page.locator('#landing-login')).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem('paradox-session'))).toBeNull();
+    await expect(page.locator('#auth-backdrop')).toBeVisible();
+    await expect(page.locator('#auth-error')).toContainText('Tài khoản đã bị tạm khóa');
+  });
 });
 
 test.describe('route guard', () => {

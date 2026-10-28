@@ -92,19 +92,35 @@ export function publicUser(user, env = process.env) {
   };
 }
 
+async function authoritativeUser(user, env) {
+  const config = authConfig(env);
+  if (!config.serviceKey || !user?.id) return user;
+  const current = await supabaseRequest(`/auth/v1/admin/users/${encodeURIComponent(user.id)}`, { method: 'GET', service: true, env });
+  const bannedUntil = current.banned_until ? new Date(current.banned_until) : null;
+  if (bannedUntil && bannedUntil > new Date()) {
+    throw Object.assign(new Error('This account is suspended'), { status: 403, code: 'ACCOUNT_SUSPENDED' });
+  }
+  return current;
+}
+
 export async function currentUser(req, res, env = process.env) {
   authConfig(env);
   const values = cookies(req);
   let accessToken = values[ACCESS_COOKIE];
   if (accessToken) {
-    try { return { user: await supabaseRequest('/auth/v1/user', { method: 'GET', token: accessToken, env }), accessToken }; }
-    catch (error) { if (![401, 403].includes(error.status)) throw error; }
+    let user;
+    try { user = await supabaseRequest('/auth/v1/user', { method: 'GET', token: accessToken, env }); }
+    catch (error) {
+      if (error.status === 403) throw Object.assign(error, { code: error.code || 'ACCOUNT_SUSPENDED' });
+      if (error.status !== 401) throw error;
+    }
+    if (user) return { user: await authoritativeUser(user, env), accessToken };
   }
   if (!values[REFRESH_COOKIE]) throw Object.assign(new Error('Authentication required'), { status: 401 });
   const refreshed = await supabaseRequest('/auth/v1/token?grant_type=refresh_token', { body: { refresh_token: values[REFRESH_COOKIE] }, env });
   setSession(res, refreshed);
   accessToken = refreshed.access_token;
-  return { user: refreshed.user, accessToken };
+  return { user: await authoritativeUser(refreshed.user, env), accessToken };
 }
 
 export async function requireAdmin(req, res, env = process.env) {

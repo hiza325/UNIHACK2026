@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     const { user } = await currentUser(req, res);
     return res.status(200).json({ user: publicUser(user) });
   } catch (error) {
-    if (error.status === 401) clearSession(res);
+    if ([401, 403].includes(error.status)) clearSession(res);
     return sendError(res, error);
   }
 }
