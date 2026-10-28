@@ -10,7 +10,10 @@
     "social:generate": "node scripts/generate-social-preview.mjs",
     "contract:build": "hardhat build",
     "contract:test": "hardhat test solidity",
+    "contract:preflight:fuji": "npm run contract:build && node scripts/deploy-learning-credential-registry.mjs --preflight",
+    "contract:verify:fuji": "npm run contract:build && node scripts/verify-learning-credential-registry.mjs",
     "contract:deploy:fuji": "npm run contract:build && node scripts/deploy-learning-credential-registry.mjs",
+    "contract:deployer:core": "npm run contract:build && node scripts/serve-core-browser-deployer.mjs",
     "test": "playwright test",
     "test:all": "npm run contract:test && npm test",
     "test:ui": "playwright test --ui"

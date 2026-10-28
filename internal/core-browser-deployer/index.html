@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PARADOX — Core Browser Deployer</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">PARADOX AI · INTERNAL TOOL</p>
+        <h1>Core Browser Deployer</h1>
+        <p>Triển khai <code>LearningCredentialRegistry</code> bằng Core Extension trên Avalanche Fuji.</p>
+      </div>
+      <span class="local-badge">LOCALHOST ONLY</span>
+    </header>
+
+    <div class="warning" role="note">
+      Trang không yêu cầu private key. Mở trang không kết nối ví và không gửi giao dịch. Core luôn hiển thị bước xác nhận cuối cùng.
+    </div>
+
+    <section class="card" aria-labelledby="wallet-heading">
+      <div class="section-head">
+        <div><span class="step">1</span><h2 id="wallet-heading">Core Wallet</h2></div>
+        <span id="core-detection" class="pill neutral">Đang tìm Core…</span>
+      </div>
+      <div class="wallet-actions">
+        <button id="switch-fuji" class="secondary" type="button" disabled>Đồng bộ Core sang Fuji</button>
+        <button id="connect-wallet" class="primary" type="button">Connect Core Wallet</button>
+      </div>
+      <dl class="facts">
+        <div><dt>Địa chỉ</dt><dd id="wallet-address">Chưa kết nối</dd></div>
+        <div><dt>Chain ID</dt><dd id="chain-id">—</dd></div>
+        <div><dt>Mạng yêu cầu</dt><dd>Avalanche Fuji · 43113</dd></div>
+        <div><dt>Provider session</dt><dd id="provider-session">Chưa kết nối</dd></div>
+        <div><dt>Core signing network</dt><dd id="core-signing-network">Chưa xác minh</dd></div>
+      </dl>
+    </section>
+
+    <section class="card" aria-labelledby="contract-heading">
+      <div class="section-head">
+        <div><span class="step">2</span><h2 id="contract-heading">Artifact & quyền dự kiến</h2></div>
+        <span id="artifact-status" class="pill neutral">Đang kiểm tra…</span>
+      </div>
+      <dl class="facts">
+        <div><dt>Contract</dt><dd id="contract-name">—</dd></div>
+        <div><dt>Constructor</dt><dd id="constructor-arguments">—</dd></div>
+        <div><dt>Owner dự kiến</dt><dd id="expected-owner">Chờ kết nối ví</dd></div>
+        <div><dt>Issuer dự kiến</dt><dd id="expected-issuer">Chờ kết nối ví</dd></div>
+        <div><dt>Runtime hash</dt><dd id="runtime-hash">—</dd></div>
+      </dl>
+    </section>
+
+    <section class="card" aria-labelledby="preflight-heading">
+      <div class="section-head">
+        <div><span class="step">3</span><h2 id="preflight-heading">Preflight</h2></div>
+        <span id="preflight-status" class="pill neutral">Chưa chạy</span>
+      </div>
+      <button id="run-preflight" class="secondary" type="button" disabled>Chạy preflight (không ký)</button>
+      <ul id="preflight-checks" class="checks">
+        <li data-check="core">Core EIP-1193</li>
+        <li data-check="chain">Chain ID 43113</li>
+        <li data-check="account">Tài khoản ổn định</li>
+        <li data-check="artifact">Artifact và constructor hợp lệ</li>
+        <li data-check="permissions">Owner/issuer dự kiến</li>
+        <li data-check="gas">Balance và gas estimate</li>
+      </ul>
+      <pre id="preflight-output" class="output" hidden></pre>
+      <details class="diagnostics" open>
+        <summary>Network diagnostics (không chứa dữ liệu ký)</summary>
+        <pre id="network-diagnostics" class="output">Chưa có dữ liệu.</pre>
+      </details>
+    </section>
+
+    <section class="card danger-zone" aria-labelledby="deploy-heading">
+      <div class="section-head">
+        <div><span class="step">4</span><h2 id="deploy-heading">Xác nhận triển khai</h2></div>
+        <span class="pill danger">GỬI GIAO DỊCH</span>
+      </div>
+      <p>Chỉ mở khóa sau khi preflight PASS. Thao tác này sẽ mở Core để bạn xem và ký giao dịch.</p>
+      <label class="confirm-row"><input id="confirm-checkbox" type="checkbox" disabled> Tôi đã kiểm tra địa chỉ, Fuji 43113 và phí gas.</label>
+      <label for="confirm-text">Nhập chính xác <code>DEPLOY TO FUJI</code></label>
+      <input id="confirm-text" type="text" autocomplete="off" spellcheck="false" disabled>
+      <button id="deploy-contract" class="danger-button" type="button" disabled>Deploy bằng Core Wallet</button>
+      <div id="deployment-result" class="result" aria-live="polite"></div>
+      <a id="download-manifest" class="download" hidden>Tải deployment manifest</a>
+    </section>
+
+    <p id="status-message" class="status" role="status" aria-live="polite">Đang tải Hardhat artifact…</p>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

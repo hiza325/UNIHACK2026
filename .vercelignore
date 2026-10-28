@@ -1,0 +1,4 @@
+# Internal localhost-only blockchain deployment utility.
+internal/core-browser-deployer/
+scripts/serve-core-browser-deployer.mjs
+tests/core-browser-deployer.spec.js
