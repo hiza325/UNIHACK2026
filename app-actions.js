@@ -8,7 +8,9 @@ export const actionMethods = {
   },
   openAuth(mode) {
     this.authMode = mode;
-    if (mode !== 'otp') { this.pendingSignup = null; this.authOtpChallenge = ''; this.authDemoCode = ''; }
+    if (mode !== 'otp') this.pendingSignup = null;
+    if (mode !== 'reset') this.pendingPasswordReset = null;
+    if (!['otp', 'reset'].includes(mode)) { this.authOtpChallenge = ''; this.authDemoCode = ''; }
     this.querySelector('#auth-error').textContent = '';
     this.querySelector('#auth-backdrop').hidden = false;
     this.updateAuthText(this.authText());
@@ -16,7 +18,7 @@ export const actionMethods = {
   setAuthLoading(loading) {
     const submit = this.querySelector('.auth-submit');
     if (submit) submit.disabled = loading;
-    this.querySelectorAll('#auth-form input, #auth-resend').forEach(element => { element.disabled = loading; });
+    this.querySelectorAll('#auth-form input, #auth-resend, #auth-forgot').forEach(element => { element.disabled = loading; });
   },
   rateLimitMessage(data) {
     if (data?.code !== 'RATE_LIMITED') return '';
@@ -75,6 +77,52 @@ export const actionMethods = {
     const data = new FormData(event.currentTarget);
     const error = this.querySelector('#auth-error');
     error.textContent = '';
+    if (this.authMode === 'forgot') {
+      this.setAuthLoading(true);
+      try {
+        const email = this.normalizeEmail(data.get('email'));
+        const result = await this.requestServerAuth('password-reset', { action: 'request', email, language: this.lang });
+        if (!result) throw new Error(this.t('authServiceError'));
+        this.authProvider = 'remote';
+        this.pendingPasswordReset = { email };
+        this.authOtpChallenge = result.challenge;
+        this.authDemoCode = result.developmentCode || '';
+        this.authMode = 'reset';
+        this.updateAuthText(text);
+        event.currentTarget.reset();
+        this.querySelector('input[name="otp"]')?.focus();
+      } catch (requestError) {
+        error.textContent = requestError.message || this.t('authOtpError');
+      } finally {
+        this.setAuthLoading(false);
+      }
+      return;
+    }
+    if (this.authMode === 'reset') {
+      const password = String(data.get('password') || '');
+      if (password !== String(data.get('confirm') || '')) {
+        error.textContent = text.mismatch;
+        return;
+      }
+      this.setAuthLoading(true);
+      try {
+        const result = await this.requestServerAuth('password-reset', {
+          action: 'confirm', email: this.pendingPasswordReset?.email, code: data.get('otp'),
+          password, challenge: this.authOtpChallenge,
+        });
+        if (!result?.reset) throw new Error(this.t('authOtpInvalid'));
+        const email = this.pendingPasswordReset?.email || '';
+        this.openAuth('login');
+        this.querySelector('input[name="email"]').value = email;
+        this.querySelector('input[name="password"]')?.focus();
+        this.showToast(this.t('authResetSuccess'));
+      } catch (requestError) {
+        error.textContent = requestError.message || this.t('authOtpInvalid');
+      } finally {
+        this.setAuthLoading(false);
+      }
+      return;
+    }
     if (this.authMode === 'otp') {
       this.setAuthLoading(true);
       try {
@@ -132,15 +180,20 @@ export const actionMethods = {
       this.setAuthLoading(false);
     }
   },
-  async resendSignupOtp() {
-    if (!this.pendingSignup || this.authMode !== 'otp') return;
+  async resendAuthOtp() {
+    if (!['otp', 'reset'].includes(this.authMode)) return;
+    const resetting = this.authMode === 'reset';
+    const pending = resetting ? this.pendingPasswordReset : this.pendingSignup;
+    if (!pending) return;
     const error = this.querySelector('#auth-error');
     error.textContent = '';
     this.setAuthLoading(true);
     try {
-      const result = this.authProvider === 'remote'
-        ? await this.requestServerAuth('resend', { email: this.pendingSignup.email, language: this.lang })
-        : await this.requestOtp({ action: 'send', email: this.pendingSignup.email, language: this.lang });
+      const result = resetting
+        ? await this.requestServerAuth('password-reset', { action: 'request', email: pending.email, language: this.lang })
+        : this.authProvider === 'remote'
+          ? await this.requestServerAuth('resend', { email: pending.email, language: this.lang })
+          : await this.requestOtp({ action: 'send', email: pending.email, language: this.lang });
       this.authOtpChallenge = result.challenge;
       this.authDemoCode = result.developmentCode || '';
       this.updateAuthText(this.authText());
@@ -161,6 +214,7 @@ export const actionMethods = {
     const target = this.pendingView || 'dashboard';
     this.pendingView = null;
     this.pendingSignup = null;
+    this.pendingPasswordReset = null;
     this.authOtpChallenge = '';
     this.authDemoCode = '';
     this.navigate(target);

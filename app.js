@@ -22,6 +22,7 @@ class EduApp extends HTMLElement {
     this.files = { problem: [], work: [] };
     this.authMode = 'login';
     this.pendingSignup = null;
+    this.pendingPasswordReset = null;
     this.authOtpChallenge = '';
     this.authDemoCode = '';
     this.authProvider = 'local';

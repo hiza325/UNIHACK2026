@@ -25,29 +25,48 @@ function safeEqual(left, right) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-function createChallenge(email, code, secret, now = Date.now()) {
+export function createChallenge(email, code, secret, purpose = 'signup', now = Date.now(), context = '') {
   const expiresAt = now + OTP_LIFETIME_MS;
   const payload = Buffer.from(JSON.stringify({
     email,
+    purpose,
+    context,
     expiresAt,
     codeHash: hmac(secret, `${email}:${code}:${expiresAt}`),
   })).toString('base64url');
   return `${payload}.${hmac(secret, payload)}`;
 }
 
-function verifyChallenge(email, code, challenge, secret, now = Date.now()) {
+function verifyChallenge(email, code, challenge, secret, purpose = 'signup', now = Date.now(), context = '') {
   const [payload, signature, extra] = String(challenge || '').split('.');
   if (!payload || !signature || extra || !safeEqual(signature, hmac(secret, payload))) return false;
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    if (data.email !== email || !Number.isFinite(data.expiresAt) || data.expiresAt < now) return false;
+    if (data.email !== email || data.purpose !== purpose || data.context !== context || !Number.isFinite(data.expiresAt) || data.expiresAt < now) return false;
     return safeEqual(data.codeHash, hmac(secret, `${email}:${code}:${data.expiresAt}`));
   } catch {
     return false;
   }
 }
 
-function emailCopy(language, code) {
+function emailCopy(language, code, purpose = 'signup') {
+  if (purpose === 'password-reset') {
+    if (language === 'en') return {
+      subject: 'Reset your PARADOX password',
+      html: `<h2>Reset your PARADOX password</h2><p>Your verification code is:</p><p style="font-size:32px;font-weight:700;letter-spacing:8px">${code}</p><p>This code expires in 10 minutes. If you did not request this, you can ignore this email.</p>`,
+      text: `Reset your PARADOX password\n\nYour verification code is: ${code}\n\nThis code expires in 10 minutes. If you did not request this, you can ignore this email.`,
+    };
+    if (language === 'jp') return {
+      subject: 'PARADOX パスワード再設定コード',
+      html: `<h2>PARADOXのパスワードを再設定</h2><p>認証コード：</p><p style="font-size:32px;font-weight:700;letter-spacing:8px">${code}</p><p>このコードは10分後に期限切れになります。心当たりがない場合は、このメールを無視してください。</p>`,
+      text: `PARADOXのパスワードを再設定\n\n認証コード：${code}\n\nこのコードは10分後に期限切れになります。`,
+    };
+    return {
+      subject: 'Đặt lại mật khẩu PARADOX',
+      html: `<h2>Đặt lại mật khẩu PARADOX</h2><p>Mã xác nhận của bạn là:</p><p style="font-size:32px;font-weight:700;letter-spacing:8px">${code}</p><p>Mã có hiệu lực trong 10 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>`,
+      text: `Đặt lại mật khẩu PARADOX\n\nMã xác nhận của bạn là: ${code}\n\nMã có hiệu lực trong 10 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
+    };
+  }
   if (language === 'en') return {
     subject: 'Your PARADOX verification code',
     html: `<h2>Verify your PARADOX account</h2><p>Your verification code is:</p><p style="font-size:32px;font-weight:700;letter-spacing:8px">${code}</p><p>This code expires in 10 minutes. Do not share it with anyone.</p>`,
@@ -65,8 +84,8 @@ function emailCopy(language, code) {
   };
 }
 
-async function sendEmail(email, code, language, env, fetcher, suppliedTransporter, transportFactory) {
-  const copy = emailCopy(language, code);
+async function sendEmail(email, code, language, purpose, env, fetcher, suppliedTransporter, transportFactory) {
+  const copy = emailCopy(language, code, purpose);
   const provider = emailProvider(env);
   if (provider) {
     const transporter = suppliedTransporter || (transportFactory || (await import('nodemailer')).createTransport)(provider.transportOptions);
@@ -105,10 +124,12 @@ export async function processOtpRequest(payload, options = {}) {
 
   const action = payload?.action;
   const email = normalizeEmail(payload?.email);
+  const purpose = payload?.purpose === 'password-reset' ? 'password-reset' : 'signup';
+  const context = String(payload?.context || '');
   if (action === 'send') {
     const code = String(randomInt(0, 1000000)).padStart(6, '0');
-    const challenge = createChallenge(email, code, secret, options.now?.() ?? Date.now());
-    const delivered = await sendEmail(email, code, ['vi', 'en', 'jp'].includes(payload?.language) ? payload.language : 'vi', env, fetcher, options.transporter, options.transportFactory);
+    const challenge = createChallenge(email, code, secret, purpose, options.now?.() ?? Date.now(), context);
+    const delivered = await sendEmail(email, code, ['vi', 'en', 'jp'].includes(payload?.language) ? payload.language : 'vi', payload?.purpose, env, fetcher, options.transporter, options.transportFactory);
     if (!delivered && production) throw Object.assign(new Error('Email service is not configured'), { status: 503 });
     return { challenge, expiresIn: OTP_LIFETIME_MS / 1000, ...(delivered ? {} : { developmentCode: code }) };
   }
@@ -116,7 +137,7 @@ export async function processOtpRequest(payload, options = {}) {
   if (action === 'verify') {
     const code = String(payload?.code || '').trim();
     if (!/^\d{6}$/.test(code)) throw Object.assign(new Error('Invalid verification code'), { status: 400 });
-    const verified = verifyChallenge(email, code, payload?.challenge, secret, options.now?.() ?? Date.now());
+    const verified = verifyChallenge(email, code, payload?.challenge, secret, purpose, options.now?.() ?? Date.now(), context);
     if (!verified) throw Object.assign(new Error('Invalid or expired verification code'), { status: 400 });
     return { verified: true };
   }

@@ -191,6 +191,12 @@ Nếu chưa cấu hình email, backend trả `developmentCode` và giao diện h
 
 Khi cấu hình Gmail đầy đủ, backend tạo tài khoản chưa xác minh trong Supabase, gửi OTP bằng Gmail SMTP, chỉ xác nhận tài khoản sau khi OTP đúng rồi mới tạo session. Nếu gửi email thất bại, tài khoản chờ được dọn khỏi Supabase để người dùng có thể thử lại.
 
+### Quên mật khẩu bằng OTP
+
+Từ hộp thoại đăng nhập, chọn **Quên mật khẩu?**, nhập email đã xác minh, sau đó nhập OTP nhận qua Gmail/SMTP và mật khẩu mới. Backend chỉ cập nhật mật khẩu sau khi challenge OTP hợp lệ và được ràng buộc riêng với mục đích `password-reset`; OTP đăng ký không thể dùng lại để đổi mật khẩu.
+
+Endpoint luôn trả cùng một phản hồi ở bước yêu cầu mã, kể cả khi email không tồn tại hoặc chưa xác minh, nhằm tránh làm lộ danh sách tài khoản. Luồng này dùng chung giới hạn tần suất theo email/IP với OTP đăng ký. Mật khẩu cũ không bao giờ được đọc hoặc gửi qua email.
+
 Nếu không muốn dùng Gmail SMTP, có thể dùng cơ chế email mặc định của Supabase:
 
 1. Mở **Authentication → Providers → Email**, bật email/password và xác nhận email.
