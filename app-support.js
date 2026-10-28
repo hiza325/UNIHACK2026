@@ -16,8 +16,25 @@ export const supportMethods = {
       </section>
     </aside>`;
   },
+  formatSupportText(text) {
+    // Escape first so no model output can become markup, then restore a tiny safe subset:
+    // **bold**, __bold__, *italic*, _italic_, `inline code` and line breaks.
+    const escaped = this.escape(String(text ?? ''));
+    const codeTokens = [];
+    let safe = escaped.replace(/`([^`\n]+)`/g, (_, code) => `\uE000${codeTokens.push(`<code>${code}</code>`) - 1}\uE000`);
+    safe = safe
+      .replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^_\w])__([^_\n]+?)__(?![\w_])/g, '$1<strong>$2</strong>')
+      .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>')
+      .replace(/(^|[^_\w])_([^_\n]+?)_(?![\w_])/g, '$1<em>$2</em>');
+    safe = safe.replace(/\uE000(\d+)\uE000/g, (_, index) => codeTokens[Number(index)]);
+    return safe.replace(/\n/g, '<br>');
+  },
   supportMessageMarkup(message) {
-    const safe = this.escape(message.text).replace(/\n/g, '<br>');
+    const text = String(message.text ?? '');
+    const safe = message.role === 'user'
+      ? this.escape(text).replace(/\n/g, '<br>')
+      : this.formatSupportText(text);
     return `<div class="support-message ${message.role === 'user' ? 'user' : 'assistant'}"><span>${safe}</span></div>`;
   },
   updateBackToTop() {
@@ -26,6 +43,12 @@ export const supportMethods = {
   },
   supportTypingMarkup() {
     return `<div class="support-message assistant support-typing" role="status"><span>${this.t('supportThinking')}</span></div>`;
+  },
+  supportErrorText(error) {
+    if (error?.code === 'NOT_CONFIGURED') return this.t('supportNotConfigured');
+    if (error?.code === 'RATE_LIMITED') return this.t('supportRateLimited');
+    if (error?.code === 'TIMEOUT') return this.t('supportTimeout');
+    return this.t('supportError');
   },
   toggleSupport(force) {
     this.supportOpen = typeof force === 'boolean' ? force : !this.supportOpen;
@@ -60,7 +83,7 @@ export const supportMethods = {
       const reply = await requestSupportReply(this.supportMessages, this.lang, this.view || 'landing');
       this.supportMessages.push({ role: 'assistant', text: reply });
     } catch (error) {
-      this.supportMessages.push({ role: 'assistant', text: this.t(error.code === 'NOT_CONFIGURED' ? 'supportNotConfigured' : 'supportError') });
+      this.supportMessages.push({ role: 'assistant', text: this.supportErrorText(error) });
     } finally {
       this.supportLoading = false;
       this.supportMessages = this.supportMessages.slice(-20);

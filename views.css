@@ -927,6 +927,9 @@ body.dark .passport-skill-icon, body.dark .credential-mark, body.dark .passport-
 .support-messages { min-height: 0; padding: 16px; overflow-y: auto; background: #fffdf7; }
 .support-message { display: flex; margin-bottom: 10px; }
 .support-message span { max-width: 88%; padding: 10px 12px; border: 1px solid #e0e5dc; border-radius: 4px 12px 12px; background: #fff; color: #465248; font-size: 11px; line-height: 1.65; }
+.support-message span strong { color: #24382c; font-weight: 700; }
+.support-message span em { font-style: italic; }
+.support-message span code { padding: 1px 4px; border-radius: 4px; background: #eef1e8; font: 10px 'DM Mono', monospace; }
 .support-message.user { justify-content: flex-end; }
 .support-message.user span { border-color: #d8e4c8; border-radius: 12px 4px 12px 12px; background: #edf5e3; color: #31452f; }
 .support-typing span { color: #59645c; font-style: italic; }
@@ -945,6 +948,8 @@ body.dark .support-kicker, body.dark .support-head button { color: #bdc9c1; }
 body.dark .support-head button:hover { background: #2c3932; }
 body.dark .support-messages { background: #18211c; }
 body.dark .support-message span { border-color: #354139; background: #222e27; color: #dce5df; }
+body.dark .support-message span strong { color: #f1f5f2; }
+body.dark .support-message span code { background: #2c3932; }
 body.dark .support-message.user span { border-color: #465b48; background: #2b3b2d; color: #edf5e8; }
 body.dark .support-form, body.dark .support-note { border-color: #354139; background: #202b25; }
 body.dark .support-form input { border-color: #405047; background: #18211c; color: #edf3ef; }
