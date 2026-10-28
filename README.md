@@ -154,7 +154,25 @@ Kiểm tra kết nối bằng cách đăng ký một tài khoản mới; OTP s�
 
 Lưu ý khi deploy Vercel: một số gói/region có thể chặn outbound SMTP. Nếu không kết nối được, kiểm tra port `587`/`465`, cho phép outbound TLS của provider, hoặc dùng Resend/API HTTP. `SMTP_PASS`, `GMAIL_APP_PASSWORD` và `OTP_SECRET` chỉ được đặt ở server, không được commit hoặc gửi xuống trình duyệt.
 
-Khi tạo bản demo trên Vercel, thêm các biến `OTP_SECRET`, `GMAIL_*` (hoặc `SMTP_*`) cho **cả môi trường Preview**, không chỉ Production, rồi redeploy. Nếu demo mở công khai, nên giới hạn tần suất gửi theo IP/email để tránh bị lạm dụng làm nơi gửi thư rác.
+Khi tạo bản demo trên Vercel, thêm các biến `OTP_SECRET`, `GMAIL_*` (hoặc `SMTP_*`) cho **cả môi trường Preview**, không chỉ Production, rồi redeploy. Demo công khai đã có giới hạn tần suất OTP mặc định; xem mục dưới để chỉnh.
+
+### Giới hạn tần suất OTP
+
+Backend chặn spam ngay ở `/api/auth/signup`, `/api/auth/otp` và `/api/auth/resend`:
+
+| Biến | Mặc định | Ý nghĩa |
+| --- | --- | --- |
+| `OTP_SEND_COOLDOWN_SECONDS` | `60` | Thời gian chờ giữa hai lần gửi cho cùng email |
+| `OTP_SEND_EMAIL_LIMIT` | `5` | Số lần gửi tối đa cho một email trong một cửa sổ |
+| `OTP_SEND_IP_LIMIT` | `20` | Số lần gửi tối đa từ một IP trong một cửa sổ |
+| `OTP_SEND_WINDOW_MINUTES` | `60` | Độ dài cửa sổ cho giới hạn gửi |
+| `OTP_VERIFY_EMAIL_LIMIT` | `10` | Số lần nhập sai OTP tối đa cho một email |
+| `OTP_VERIFY_IP_LIMIT` | `50` | Số lần thử OTP tối đa từ một IP |
+| `OTP_VERIFY_WINDOW_MINUTES` | `15` | Độ dài cửa sổ cho giới hạn xác minh |
+
+Khi vượt giới hạn, API trả `429` kèm header `Retry-After` và mã `RATE_LIMITED`; giao diện hiển thị số giây cần chờ. Đặt `RATE_LIMIT_DISABLED=1` để tắt hoàn toàn khi cần test tải.
+
+Bộ đếm lưu trong bộ nhớ của từng serverless instance: một instance mới (cold start) sẽ đếm lại từ đầu, nên giới hạn này chặn được spam liên tục từ một client nhưng không phải hàng rào tuyệt đối. Nếu cần chặn chính xác trên toàn hệ thống, chuyển bộ đếm sang Redis/Upstash hoặc một bảng Supabase dùng chung.
 
 ### Chế độ demo vẫn gửi mail
 

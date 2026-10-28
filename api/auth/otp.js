@@ -1,5 +1,6 @@
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import { emailProvider, formatSender } from './_mail.js';
+import { guardOtpSend, guardOtpVerify } from './_rate-limit.js';
 
 const OTP_LIFETIME_MS = 10 * 60 * 1000;
 const RESEND_URL = 'https://api.resend.com/emails';
@@ -130,9 +131,17 @@ export default async function handler(req, res) {
   }
   try {
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const email = String(payload?.email || '').trim().toLowerCase();
+    if (payload?.action === 'send') guardOtpSend(req, email);
+    else if (payload?.action === 'verify') guardOtpVerify(req, email);
     return res.status(200).json(await processOtpRequest(payload));
   } catch (error) {
     const status = Number(error.status) || 500;
-    return res.status(status).json({ error: status < 500 ? error.message : 'OTP service is temporarily unavailable' });
+    if (status === 429) res.setHeader('Retry-After', String(Number(error.retryAfter) || 60));
+    return res.status(status).json({
+      error: status < 500 ? error.message : 'OTP service is temporarily unavailable',
+      ...(error.code ? { code: error.code } : {}),
+      ...(error.retryAfter ? { retryAfter: error.retryAfter } : {}),
+    });
   }
 }

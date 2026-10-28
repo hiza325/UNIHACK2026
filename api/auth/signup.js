@@ -1,5 +1,6 @@
 import { normalizeCredentials, parseBody, publicUser, sendError, setSession, supabaseRequest } from './_supabase.js';
 import { emailOtpConfigured } from './_mail.js';
+import { guardOtpSend } from './_rate-limit.js';
 import { processOtpRequest } from './otp.js';
 
 export default async function handler(req, res) {
@@ -8,6 +9,7 @@ export default async function handler(req, res) {
     const body = parseBody(req);
     const { email, password, name } = normalizeCredentials(body, true);
     if (emailOtpConfigured()) {
+      guardOtpSend(req, email);
       let user;
       try {
         user = await supabaseRequest('/auth/v1/admin/users', { body: { email, password, email_confirm: false, user_metadata: { full_name: name } }, service: true });

@@ -37,7 +37,12 @@ export default defineConfig({
       SUPABASE_URL: '',
       SUPABASE_ANON_KEY: '',
       SUPABASE_SERVICE_ROLE_KEY: '',
-      ADMIN_EMAILS: ''
+      ADMIN_EMAILS: '',
+      OTP_SEND_COOLDOWN_SECONDS: '0',
+      OTP_SEND_EMAIL_LIMIT: '3',
+      OTP_SEND_IP_LIMIT: '500',
+      OTP_VERIFY_EMAIL_LIMIT: '500',
+      OTP_VERIFY_IP_LIMIT: '500'
     }
   }
 });

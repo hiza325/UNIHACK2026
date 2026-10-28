@@ -109,5 +109,10 @@ export async function requireAdmin(req, res, env = process.env) {
 
 export function sendError(res, error) {
   const status = Number(error.status) || 500;
-  res.status(status).json({ error: status >= 500 ? 'Authentication service is temporarily unavailable' : error.message, ...(error.code ? { code: error.code } : {}) });
+  if (status === 429) res.setHeader('Retry-After', String(Number(error.retryAfter) || 60));
+  res.status(status).json({
+    error: status >= 500 ? 'Authentication service is temporarily unavailable' : error.message,
+    ...(error.code ? { code: error.code } : {}),
+    ...(error.retryAfter ? { retryAfter: error.retryAfter } : {}),
+  });
 }

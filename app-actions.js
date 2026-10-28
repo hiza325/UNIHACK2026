@@ -18,6 +18,11 @@ export const actionMethods = {
     if (submit) submit.disabled = loading;
     this.querySelectorAll('#auth-form input, #auth-resend').forEach(element => { element.disabled = loading; });
   },
+  rateLimitMessage(data) {
+    if (data?.code !== 'RATE_LIMITED') return '';
+    const seconds = Math.max(1, Number(data.retryAfter) || 60);
+    return String(this.t('authRateLimited')).replace('{seconds}', String(seconds));
+  },
   async requestOtp(payload) {
     const response = await fetch('/api/auth/otp', {
       method: 'POST',
@@ -25,7 +30,7 @@ export const actionMethods = {
       body: JSON.stringify(payload),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || this.t('authOtpError'));
+    if (!response.ok) throw new Error(this.rateLimitMessage(data) || data.error || this.t('authOtpError'));
     return data;
   },
   async requestServerAuth(action, payload, method = 'POST') {
@@ -45,7 +50,7 @@ export const actionMethods = {
     const localDevelopment = ['localhost', '127.0.0.1'].includes(location.hostname);
     if (localDevelopment && (response.status === 404 || result.code === 'AUTH_NOT_CONFIGURED')) return null;
     if (!response.ok) {
-      const error = new Error(response.status >= 500 ? this.t('authServiceError') : (result.error || this.t('authServiceError')));
+      const error = new Error(this.rateLimitMessage(result) || (response.status >= 500 ? this.t('authServiceError') : (result.error || this.t('authServiceError'))));
       error.status = response.status;
       throw error;
     }
