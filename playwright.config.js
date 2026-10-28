@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.spec.js',
   fullyParallel: true,
+  workers: 2,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {

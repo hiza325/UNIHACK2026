@@ -147,6 +147,8 @@ export const actionMethods = {
     }
   },
   async completeAuthentication(account) {
+    this.configureLearningPassportService();
+    this.configureLearningRecordsService();
     this.user = account;
     this.initializeUserData(account.email);
     localStorage.setItem('paradox-session', JSON.stringify(this.user));
@@ -357,6 +359,7 @@ export const actionMethods = {
     this.appendMessage(this.escape(mode === 'resubmit' ? this.t('debateResubmitted') : this.t('submitted')), mode === 'resubmit');
     this.setAnalyzing(true);
     try {
+      const learningRecord = await this.prepareLearningRecord(mode, problem, solution, previousAttempt);
       const result = await requestDebateAnalysis({
         mode,
         problem,
@@ -367,6 +370,7 @@ export const actionMethods = {
         conversation: activeSession.conversation,
         previousHints: activeSession.hints,
         attemptNumber: mode === 'resubmit' ? activeSession.revisionCount + 2 : 1,
+        ...(learningRecord ? { learningRecord } : {}),
       });
       if (mode === 'resubmit') {
         activeSession.revisionCount += 1;
@@ -388,6 +392,7 @@ export const actionMethods = {
     } finally {
       this.setAnalyzing(false);
       this.saveAuditState();
+      this.loadLearningRecordHistory({ force: true });
     }
   },
   async sendMessage(quickQuestion = '') {
@@ -402,7 +407,8 @@ export const actionMethods = {
     if (input) input.value = '';
     this.setAnalyzing(true);
     try {
-      const result = await requestDebateAnalysis({ mode: 'discuss', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: value, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints });
+      const learningRecord = this.currentLearningRecordContext();
+      const result = await requestDebateAnalysis({ mode: 'discuss', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: value, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints, ...(learningRecord ? { learningRecord } : {}) });
       this.auditResult = { ...result, comparison: this.auditResult?.comparison || result.comparison };
       const reply = result.reply || result.summary;
       session.conversation.push({ role: 'assistant', text: reply });
@@ -429,7 +435,8 @@ export const actionMethods = {
     session.conversation.push({ role: 'user', text: requestText });
     this.setAnalyzing(true);
     try {
-      const result = await requestDebateAnalysis({ mode: 'hint', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: requestText, hintLevel: nextLevel, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints });
+      const learningRecord = this.currentLearningRecordContext();
+      const result = await requestDebateAnalysis({ mode: 'hint', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: requestText, hintLevel: nextLevel, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints, ...(learningRecord ? { learningRecord } : {}) });
       const hint = result.hint;
       if (!hint || hint.level !== nextLevel) throw Object.assign(new Error('Invalid hint'), { code: 'INVALID_OUTPUT' });
       session.hintLevel = nextLevel;

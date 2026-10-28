@@ -13,6 +13,8 @@ import sessionHandler from '../api/auth/session.js';
 import logoutHandler from '../api/auth/logout.js';
 import adminUsersHandler from '../api/admin/users.js';
 import debateHandler from '../api/debate.js';
+import credentialsHandler from '../api/credentials/index.js';
+import learningRecordsHandler from '../api/learning-records/index.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const port = Number(process.env.PORT || 8173);
@@ -53,6 +55,8 @@ const API_HANDLERS = new Map([
   ['/api/auth/session', sessionHandler], ['/api/auth/logout', logoutHandler],
   ['/api/admin/users', adminUsersHandler],
   ['/api/debate', debateHandler],
+  ['/api/credentials', credentialsHandler],
+  ['/api/learning-records', learningRecordsHandler],
 ]);
 
 async function runApiHandler(handler, req, res) {
@@ -70,7 +74,8 @@ async function runApiHandler(handler, req, res) {
     status(code) { this.statusCode = code; return this; },
     json(payload) { res.writeHead(this.statusCode, { 'Content-Type': 'application/json; charset=utf-8', ...headers }); res.end(JSON.stringify(payload)); return this; },
   };
-  await handler({ method: req.method, headers: req.headers, body: rawBody || undefined }, response);
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  await handler({ method: req.method, headers: req.headers, body: rawBody || undefined, query: Object.fromEntries(url.searchParams) }, response);
 }
 
 export function createStaticServer() {

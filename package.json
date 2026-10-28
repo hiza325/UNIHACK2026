@@ -3,18 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": { "node": ">=22.12" },
   "scripts": {
     "serve": "node tests/static-server.mjs",
     "fonts:vendor": "node scripts/vendor-fonts.mjs",
     "social:generate": "node scripts/generate-social-preview.mjs",
+    "contract:build": "hardhat build",
+    "contract:test": "hardhat test solidity",
+    "contract:deploy:fuji": "npm run contract:build && node scripts/deploy-learning-credential-registry.mjs",
     "test": "playwright test",
+    "test:all": "npm run contract:test && npm test",
     "test:ui": "playwright test --ui"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
-    "@playwright/test": "^1.64.1"
+    "@playwright/test": "^1.64.1",
+    "hardhat": "^3.21.1"
   },
   "dependencies": {
+    "ethers": "^6.17.0",
     "nodemailer": "^10.2.1"
   }
 }

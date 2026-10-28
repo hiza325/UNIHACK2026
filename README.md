@@ -43,6 +43,7 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 - Vanilla JavaScript và Web Components
 - CSS thuần, chạy trực tiếp trên trình duyệt; không cần Sass hoặc bước biên dịch
 - Supabase Auth, cơ sở dữ liệu người dùng và Node.js serverless API trên Vercel
+- Solidity, Hardhat 3, Ethers v6 và Avalanche Fuji Testnet cho Proof of Learning
 
 ## Cấu trúc chính
 
@@ -62,9 +63,15 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | `api/admin/users.js` | API quản trị người dùng, được bảo vệ bằng role admin phía server |
 | `api/debate.js` | Proxy AI Debate Engine, validation đầu vào/đầu ra và timeout AnyRouter |
 | `debate-ai.js`, `debate-prompt.js` | Client gọi Debate API và system prompt học thuật phía server |
-| `learning-passport-service.js` | Service contract cho kết quả AI, tra cứu chứng nhận và Avalanche adapter tương lai |
+| `api/learning-records/` | API, service và Supabase store cho phiên học, bài nộp, tương tác và đánh giá |
+| `learning-records-service.js`, `learning-records-actions.js` | Đồng bộ Audit/History với learning-record API cho phiên Supabase thật |
+| `learning-passport-service.js` | Client service cho Passport, credential API và Avalanche Explorer |
 | `learning-passport-mock.js` | Fixtures được gắn nhãn rõ ràng cho giao diện Learning Passport |
 | `learning-passport-actions.js` | Tương tác chi tiết và tra cứu chứng nhận |
+| `contracts/LearningCredentialRegistry.sol` | Registry hash chứng nhận có issuer authorization và revocation |
+| `api/credentials/` | API, Fuji gateway và Supabase credential persistence |
+| `supabase/migrations/` | Migration bảng credential và lịch sử transaction |
+| `scripts/deploy-learning-credential-registry.mjs` | Deploy script chỉ chấp nhận Fuji chain ID 43113 |
 | `app-actions.js` | Tương tác Audit, Practice, upload và modal |
 | `i18n.js` | Bản dịch bổ sung cho 8 khu vực, Việt/Anh/Nhật |
 | `demo.js` | Dữ liệu demo cho phiên học, thử thách, biểu đồ và kỹ năng |
@@ -84,6 +91,7 @@ Test end-to-end dùng Playwright + axe-core (`tests/app.spec.js`): đăng ký/đ
 ```bash
 npm install
 npx playwright install chromium
+npm run contract:test
 npm test
 ```
 
@@ -184,7 +192,7 @@ Kết quả chuẩn hóa gồm:
 
 Prompt bắt buộc không bịa lỗi cho bài đúng và phải trả `insufficient` khi thiếu cơ sở đánh giá. Nội dung do người dùng gửi được coi là dữ liệu không tin cậy, không được phép thay đổi system prompt.
 
-Trong một phiên Audit, cùng endpoint còn hỗ trợ bốn mode: `analyze`, `discuss`, `hint`, `resubmit`. Hội thoại gần nhất, tối đa ba gợi ý và tối đa mười lần nộp được lưu trong audit state ở IndexedDB. Gợi ý chỉ tăng từ cấp 1 đến cấp 3 khi người học bấm yêu cầu; server kiểm tra đúng cấp và từ chối nội dung trùng hoàn toàn. Khi nộp lại, AI nhận cả lời giải trước và sau để trả phần so sánh, còn giao diện theo dõi số lần sửa và giữ nguyên lịch sử khi chuyển trang.
+Trong một phiên Audit, cùng endpoint còn hỗ trợ bốn mode: `analyze`, `discuss`, `hint`, `resubmit`. Hội thoại gần nhất, tối đa ba gợi ý và tối đa mười lần nộp được giữ trong audit state ở IndexedDB để phục hồi giao diện. Với tài khoản Supabase, bản ghi chuẩn còn được lưu qua learning-record API ở backend; chế độ tài khoản local tiếp tục dùng IndexedDB/localStorage làm fallback. Gợi ý chỉ tăng từ cấp 1 đến cấp 3 khi người học bấm yêu cầu; server kiểm tra đúng cấp và từ chối nội dung trùng hoàn toàn. Khi nộp lại, AI nhận cả lời giải trước và sau để trả phần so sánh, còn giao diện theo dõi số lần sửa và giữ nguyên lịch sử khi chuyển trang.
 
 ### Rubric đánh giá bài sửa
 
@@ -204,21 +212,108 @@ Server tự tính tổng và không tin tổng điểm/trạng thái do mô hìn
 - Frontend gộp các request giống nhau đang chạy và cache mode `analyze` trong 2 phút, tối đa 50 kết quả. `discuss`, `hint` và `resubmit` không cache để tránh dùng lại ngữ cảnh cũ.
 - API giới hạn 15 request/phút/client, timeout upstream 25 giây và chỉ đọc `ANYROUTER_API_KEY` ở server.
 - Mọi output AI được chuẩn hóa và kiểm tra lại; trạng thái rubric được suy ra phía server.
-- Mỗi lần nộp lại tạo `proofRecord` phiên bản `paradox-proof-of-learning-v1`, gồm SHA-256 content hash, rubric version, attempt number, thời gian, model, confidence, trạng thái và các tiêu chí. Cấu trúc này sẵn sàng lưu database và làm payload tham chiếu cho Avalanche; Giai đoạn 2 chưa ghi dữ liệu lên blockchain.
+- Mỗi lần nộp lại tạo `proofRecord` phiên bản `paradox-proof-of-learning-v1`, gồm SHA-256 content hash, rubric version, attempt number, thời gian, model, confidence, trạng thái và các tiêu chí. Backend lưu cấu trúc này cùng evaluation; đây chỉ là bằng chứng off-chain chuẩn bị cho credential, không tự tạo transaction hoặc chứng nhận blockchain.
 
-## Learning Passport — Giai đoạn 5
+## Backend & Learning Records
 
-Hai route `#/passport` và `#/verify` cung cấp hồ sơ năng lực, tiến độ, kết quả đánh giá, danh sách chứng nhận, modal chi tiết và trang tra cứu theo mã. Toàn bộ dữ liệu hiện tại đến từ `learning-passport-mock.js` và luôn có nhãn **DỮ LIỆU MẪU / MOCK DATA**; không có dữ liệu nào được mô tả là kết quả AI hoặc blockchain thật.
+Giai đoạn 3 dùng chính Supabase project và Supabase Auth hiện có, không tạo database hoặc hệ thống đăng nhập thứ hai. Áp dụng migration additive `supabase/migrations/202610280002_learning_records.sql` để tạo bốn bảng:
 
-`learning-passport-service.js` chuẩn bị các điểm tích hợp nhưng không tự gọi blockchain:
+| Bảng | Dữ liệu chính |
+| --- | --- |
+| `learning_sessions` | Đề bài, môn học, trạng thái, thời điểm bắt đầu/kết thúc và tổng thời gian |
+| `learning_submissions` | Lời giải ban đầu, từng bản sửa, trạng thái phân tích và output AI đã validate |
+| `learning_interactions` | Phân tích, câu hỏi phản biện, câu trả lời và gợi ý theo cấp |
+| `learning_evaluations` | Rubric, điểm, nhận xét, lỗi đã sửa/còn lại và dữ liệu eligibility cho Passport |
 
-- `LEARNING_PASSPORT_API_INTERFACE` mô tả route dự kiến để lấy Passport, nhập `proofRecord` từ AI và xác minh chứng nhận.
+Migration không xóa hoặc cập nhật bản ghi cũ. Mỗi bảng đều có `learner_id`; RLS chỉ cho tài khoản đã đăng nhập đọc dữ liệu của chính mình. Quyền ghi bị thu hồi khỏi `anon`/`authenticated` và chỉ backend với `service_role` được ghi. Backend vẫn kiểm tra session cookie và thêm điều kiện `learner_id` vào mọi truy vấn, nên service-role không thay thế kiểm tra ownership ở tầng API.
+
+### Learning-record API
+
+Tất cả route yêu cầu phiên Supabase hợp lệ trong cookie `HttpOnly`:
+
+| Method | Route/body | Mục đích |
+| --- | --- | --- |
+| `POST` | `/api/learning-records` + `{ "action": "createSession", ... }` | Tạo phiên và bài nộp ban đầu |
+| `POST` | `/api/learning-records` + `{ "action": "createSubmission", "sessionId", "solution" }` | Thêm một bản sửa mới, không ghi đè bài cũ |
+| `POST` | `/api/learning-records` + `{ "action": "abandonSession", "sessionId" }` | Đóng phiên đang học |
+| `GET` | `/api/learning-records?limit=50&offset=0` | Lấy lịch sử phiên của người dùng hiện tại |
+| `GET` | `/api/learning-records?id=<uuid>` | Lấy chi tiết phiên, submissions, interactions và evaluations |
+| `GET` | `/api/learning-records?view=evaluations` | Lấy evaluation đủ điều kiện để Learning Passport sử dụng |
+
+Frontend chỉ tạo session/submission. Khi `/api/debate` nhận `learningRecord.sessionId` và `submissionId`, backend xác minh owner và đối chiếu đề/lời giải đã lưu trước khi gọi AI. Chỉ output AI đã qua schema/rubric validation phía server mới được ghi thành analysis/evaluation. Một submission đã phân tích không được chấm lại để tránh ghi đè kết quả cũ; bản sửa luôn tạo submission mới.
+
+Client không thể tự gửi trạng thái `pass`, điểm hoặc eligibility. Backend chỉ chuẩn bị `credential_id`, credential ID hash tương thích registry, SHA-256 evidence hash, `credential_status: eligible` và `verification_status: unverified` khi evaluation đạt đủ điều kiện. `transactionHash` luôn là `null` ở API này; việc phát hành/xác minh blockchain thuộc luồng credential riêng và cần giao dịch Fuji thật.
+
+### Cấu hình Supabase
+
+1. Link Supabase CLI với project rồi chạy `supabase db push`, **hoặc** mở SQL Editor và chạy migration `202610280002_learning_records.sql` sau migration credential nếu dùng cả hai tính năng.
+2. Cấu hình `SUPABASE_URL`, `SUPABASE_ANON_KEY` và `SUPABASE_SERVICE_ROLE_KEY` trong `.env` local/Vercel. Service-role key chỉ được đặt ở server và không được prefix thành biến public.
+3. Cấu hình `ANYROUTER_API_KEY` để thực hiện phân tích thật. Nếu key chưa có, session/submission vẫn được giữ lại với `analysis_failed` / `analysis_unavailable`; backend không tạo evaluation hoặc credential giả.
+4. Redeploy serverless API sau khi thêm environment variables. GitHub Pages thuần tĩnh không chạy được các route này.
+
+History/Dashboard/Analytics tự tải tối đa 100 phiên Supabase sau khi xác thực và sau mỗi lần Audit. Nếu đang dùng chế độ tài khoản local, luồng cũ trên IndexedDB/localStorage vẫn hoạt động và giao diện không thay đổi.
+
+## Learning Passport và Avalanche Proof of Learning
+
+Hai route `#/passport` và `#/verify` cung cấp hồ sơ năng lực, tiến độ, kết quả đánh giá, danh sách chứng nhận, modal chi tiết và trang tra cứu theo mã. Khi chưa dùng Supabase Auth/API, dữ liệu đến từ `learning-passport-mock.js` và luôn có nhãn **DỮ LIỆU MẪU / MOCK DATA**. Với phiên Supabase thật, giao diện tự gọi `/api/credentials`, hiển thị transaction/status đã lưu và xác minh lại từ Avalanche Fuji khi người dùng tra cứu.
+
+`learning-passport-service.js` kết nối frontend với backend nhưng không bao giờ nhận private key:
+
+- `LEARNING_PASSPORT_API_INTERFACE` mô tả route lấy Passport, phát hành, xác minh và thu hồi.
 - `createCredentialDraftFromAiEvaluation()` chuyển proof record thành bản nháp chứng nhận ở trạng thái `unverified`.
-- `AVALANCHE_CREDENTIAL_INTERFACE` mô tả network, explorer và chữ ký hàm contract dự kiến; địa chỉ contract hiện để `null`.
+- `AVALANCHE_CREDENTIAL_INTERFACE` chỉ chứa Avalanche Fuji (`43113`), Explorer và chữ ký hàm registry.
 - Trạng thái `verified` chỉ được hiển thị khi có Transaction Hash hợp lệ và kết quả kiểm tra thật với `verification.source = "avalanche"`, `checked = true`, `valid = true`.
 - Nút Avalanche Explorer chỉ hoạt động khi Transaction Hash đúng định dạng 32-byte và network nằm trong danh sách hỗ trợ.
+- Credential `manual-test` bắt buộc dùng mã `PXP-TEST-*`, `isTest: true` và được gắn nhãn **CHỨNG NHẬN KIỂM THỬ**. Payload có `source: "mock"` bị backend từ chối.
 
-Giai đoạn này không tạo database, không deploy smart contract và không phát sinh giao dịch Avalanche.
+### Smart contract
+
+`LearningCredentialRegistry` chỉ lưu hai giá trị `bytes32` (credential ID hash và evidence hash), địa chỉ issuer cùng timestamp. Bài làm, email, tên người học và PII không được đưa lên chain. Contract hỗ trợ:
+
+- Owner cấp hoặc thu hồi quyền issuer; owner luôn phải còn quyền issuer.
+- Chỉ issuer đang được cấp quyền mới được phát hành/thu hồi.
+- Chặn credential ID trùng, evidence hash trùng, hash rỗng và thu hồi lần hai.
+- Xác minh tồn tại/trạng thái qua `credentialExists`, `getCredential` và `isCredentialValid`.
+- Chuyển owner theo quy trình hai bước `transferOwnership` / `acceptOwnership`.
+
+```bash
+npm run contract:build
+npm run contract:test
+```
+
+### Supabase persistence
+
+Áp dụng `supabase/migrations/202610280001_learning_credentials.sql` bằng Supabase CLI hoặc SQL Editor trước khi bật API. Migration tạo:
+
+- `learning_credentials`: metadata off-chain, credential/evidence hash, Fuji contract, transaction hash và trạng thái xác minh.
+- `credential_transactions`: lịch sử `issue`/`revoke` với `submitting`, `pending`, `confirmed` hoặc `failed`.
+- RLS và quyền chỉ dành cho `service_role`; frontend không được truy cập bảng trực tiếp.
+
+Backend ghi trạng thái `pending` ngay khi nhận transaction hash, sau đó cập nhật receipt thành `confirmed`, `revoked` hoặc `failed`. Tra cứu so sánh evidence hash on-chain với database trước khi trả trạng thái verified.
+Nếu request phát hành mất kết nối sau khi đã gửi transaction, bản ghi `failed` có thể được gửi lại với `retryFailed: true`; service kiểm tra chain trước, tự hòa giải transaction đã mine và chỉ gửi transaction mới khi credential chưa tồn tại on-chain.
+
+### Cấu hình và deploy Fuji
+
+Tạo **ví mới chỉ dùng cho Fuji**, không tái sử dụng ví Mainnet. Lấy AVAX testnet không có giá trị thật tại [Core Testnet Faucet](https://core.app/tools/testnet-faucet), rồi đặt biến trong `.env`/Vercel (không commit giá trị thật):
+
+```env
+AVALANCHE_FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
+AVALANCHE_ISSUER_PRIVATE_KEY=0x...
+```
+
+Deploy:
+
+```bash
+npm run contract:deploy:fuji
+```
+
+Script kiểm tra RPC trả đúng chain ID `43113`, kiểm tra số dư Fuji AVAX, deploy, xác minh issuer và chỉ sau receipt thành công mới tạo `deployments/avalanche-fuji.json`. Sau đó thêm địa chỉ thật:
+
+```env
+AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS=0x...
+```
+
+Không có cấu hình hoặc code path Avalanche Mainnet. Tại thời điểm tài liệu này được cập nhật, contract **chưa được deploy**, vì vậy chưa có contract address hay transaction hash thật để công bố.
 
 ### Điều hướng nhanh
 
@@ -239,7 +334,7 @@ Giai đoạn này không tạo database, không deploy smart contract và không
 
 ## Trạng thái prototype và bảo mật
 
-- Khi có cấu hình Supabase, tài khoản và mật khẩu được Supabase quản lý, access/refresh token nằm trong cookie `HttpOnly`, còn `localStorage` chỉ giữ hồ sơ hiển thị và dữ liệu học tập demo. Khi thiếu cấu hình, ứng dụng dùng chế độ local dành cho phát triển.
+- Khi có cấu hình Supabase, tài khoản và mật khẩu được Supabase quản lý, access/refresh token nằm trong cookie `HttpOnly`; learning records thật được lưu trong Supabase và IndexedDB chỉ giữ state giao diện hiện tại. Khi thiếu cấu hình, ứng dụng dùng chế độ local dành cho phát triển.
 - Chọn tệp chỉ cập nhật tên tệp trên giao diện. Tệp chưa được tải lên hoặc phân tích.
 - AI Debate Engine gọi AnyRouter thật; Practice Lab và dữ liệu biểu đồ vẫn là nội dung demo. Kết quả AI có thể sai nên chỉ nên dùng như phản hồi hỗ trợ học tập, không phải đáp án có thẩm quyền.
-- Dữ liệu học tập hiện vẫn nằm trên từng trình duyệt. Nếu cần đồng bộ lịch sử học trên nhiều thiết bị, bước tiếp theo là chuyển các bảng lịch sử/practice/settings sang Supabase PostgreSQL với Row Level Security.
+- Với tài khoản Supabase, History của AI Audit và Proof of Learning credential/transaction state được lưu trong Supabase sau khi áp dụng migration. Practice/settings và chế độ tài khoản local vẫn nằm trên từng trình duyệt.

@@ -78,3 +78,45 @@ test('Learning Passport and verification views are responsive and accessible on 
     expect(await highImpactViolations(page), `axe violations on mobile ${route}`).toEqual([]);
   }
 });
+
+test('Learning Passport loads persisted Fuji status and verifies through the credential API', async ({ page }) => {
+  await seedSession(page);
+  await page.addInitScript(() => {
+    window.PARADOX_LEARNING_PASSPORT_CONFIG = { mode: 'api', apiBaseUrl: '/api' };
+  });
+  const credential = {
+    id: 'credential-live-1', code: 'PXP-TEST-2026-0001', name: 'Clearly labelled test credential', skill: 'TEST ONLY',
+    issuedAt: '2026-10-28', issuer: '0x2222222222222222222222222222222222222222', assessmentScore: 90,
+    status: 'verified', source: 'avalanche', isTest: true, evidenceHash: `sha256:${'ab'.repeat(32)}`,
+    transactionHash: validTransactionHash, issueTransactionHash: validTransactionHash, network: 'avalanche-fuji', chainId: 43113,
+    verification: { checked: true, valid: true, source: 'avalanche', checkedAt: '2026-10-28T00:00:00.000Z' },
+  };
+  const passport = {
+    schemaVersion: 'paradox-learning-passport-v1', passportId: 'PLP-LIVE-TEST',
+    source: { type: 'avalanche', isReal: true, label: 'AVALANCHE FUJI', network: 'avalanche-fuji', chainId: 43113 },
+    learner: { id: SESSION.id, displayName: SESSION.name, email: SESSION.email, level: 'Proof of Learning', cohort: 'Avalanche Fuji' },
+    summary: { overallScore: 0, progress: 0, completedAssessments: 0, learningHours: null },
+    skills: [], assessments: [], credentials: [credential],
+  };
+  let verifyRequest;
+  await page.route('**/api/credentials*', async route => {
+    if (route.request().method() === 'POST') verifyRequest = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(route.request().method() === 'POST' ? { credential } : { passport }),
+    });
+  });
+
+  await page.goto('/#/passport');
+  await expect(page.locator('.passport-data-notice.live')).toContainText('FUJI TESTNET');
+  await expect(page.locator('.credential-row')).toContainText('CHỨNG NHẬN KIỂM THỬ');
+  await expect(page.locator('.credential-status.verified')).toBeVisible();
+
+  await page.locator('[data-certificate-details]').click();
+  await page.locator('[data-verify-certificate]').click();
+  await expect(page.locator('#passport-verification-result')).toBeVisible();
+  await expect(page.locator('.passport-data-notice.live')).toBeVisible();
+  await expect(page.locator('a.explorer-button')).toHaveAttribute('href', new RegExp(validTransactionHash));
+  expect(verifyRequest).toEqual({ action: 'verify', credentialCode: 'PXP-TEST-2026-0001' });
+});

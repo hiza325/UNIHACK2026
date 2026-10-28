@@ -33,6 +33,8 @@ export const routerMethods = {
     this.view = APP_VIEWS.includes(raw) ? raw : 'dashboard';
     this.render();
     if (this.view === 'admin') this.loadAdminAccounts();
+    if (this.view === 'passport') this.loadLearningPassportSnapshot();
+    if (['dashboard', 'history', 'analytics', 'profile'].includes(this.view)) this.loadLearningRecordHistory();
   },
   navigate(view) {
     const target = `#/${view}`;

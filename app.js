@@ -9,6 +9,8 @@ import { notificationMethods } from './app-notifications.js';
 import { supportMethods } from './app-support.js';
 import { learningPassportActionMethods } from './learning-passport-actions.js';
 import { createLearningPassportService } from './learning-passport-service.js';
+import { learningRecordActionMethods } from './learning-records-actions.js';
+import { createLearningRecordsService } from './learning-records-service.js';
 import { defineComponents } from './components.js';
 
 
@@ -45,7 +47,18 @@ class EduApp extends HTMLElement {
     this.supportMessages = [];
     this.supportOpen = false;
     this.supportLoading = false;
-    this.learningPassportService = createLearningPassportService({ mode: 'mock' });
+    this.learningPassportService = createLearningPassportService({ mode: 'mock', apiBaseUrl: '/api' });
+    this.passportSnapshot = null;
+    this.passportLoading = false;
+    this.passportLoadAttempted = false;
+    this.passportError = '';
+    this.learningRecordsService = createLearningRecordsService({ enabled: false, apiBaseUrl: '/api' });
+    this.learningRecordSessionId = '';
+    this.learningRecordSubmissionId = '';
+    this.remoteLearningSessions = [];
+    this.learningRecordsLoaded = false;
+    this.learningRecordsLoading = false;
+    this.learningRecordSyncError = '';
     this.passportSelectedCredentialCode = '';
     this.passportVerificationQuery = '';
     this.passportVerificationResult = null;
@@ -63,6 +76,8 @@ class EduApp extends HTMLElement {
     window.addEventListener('hashchange', this.onHashChange);
     window.addEventListener('scroll', this.updateBackToTop, { passive: true });
     this.restoreAuthentication().finally(() => {
+      this.configureLearningPassportService();
+      this.configureLearningRecordsService();
       this.handleRoute();
       this.loadAuditState().then(() => {
         this.auditStorageReady = true;
@@ -94,6 +109,6 @@ class EduApp extends HTMLElement {
   escape(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 }
 
-Object.assign(EduApp.prototype, dataMethods, viewMethods, actionMethods, routerMethods, themeMethods, eventMethods, notificationMethods, supportMethods, learningPassportActionMethods);
+Object.assign(EduApp.prototype, dataMethods, viewMethods, actionMethods, routerMethods, themeMethods, eventMethods, notificationMethods, supportMethods, learningPassportActionMethods, learningRecordActionMethods);
 
 defineComponents(EduApp);

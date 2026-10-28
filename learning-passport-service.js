@@ -3,23 +3,24 @@ import { createMockLearningPassport } from './learning-passport-mock.js';
 export const LEARNING_PASSPORT_API_INTERFACE = Object.freeze({
   schemaVersion: 'paradox-learning-passport-v1',
   routes: {
-    passport: 'GET /api/learning-passport/:learnerId',
-    ingestAiEvaluation: 'POST /api/learning-passport/evaluations',
-    credential: 'GET /api/learning-passport/credentials/:code',
-    verifyCredential: 'POST /api/learning-passport/credentials/:code/verify',
+    passport: 'GET /api/credentials',
+    credential: 'GET /api/credentials?code=:code',
+    issueCredential: 'POST /api/credentials { action: "issue" }',
+    verifyCredential: 'POST /api/credentials { action: "verify" }',
+    revokeCredential: 'POST /api/credentials { action: "revoke" }',
+    eligibleLearningEvaluations: 'GET /api/learning-records?view=evaluations',
   },
   aiInput: ['proofRecord', 'evaluation', 'learnerId', 'sessionId'],
 });
 
 export const AVALANCHE_CREDENTIAL_INTERFACE = Object.freeze({
   interfaceVersion: 'paradox-avalanche-credential-v1',
-  contractAddress: null,
+  contractAddressEnvironmentVariable: 'AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS',
   supportedNetworks: [
-    { id: 'avalanche-mainnet', chainId: 43114, explorerTransactionBaseUrl: 'https://subnets.avax.network/c-chain/tx/' },
     { id: 'avalanche-fuji', chainId: 43113, explorerTransactionBaseUrl: 'https://subnets-test.avax.network/c-chain/tx/' },
   ],
   readMethods: [
-    { name: 'getCredential', inputs: ['bytes32 credentialId'], outputs: ['bytes32 evidenceHash', 'uint64 issuedAt', 'uint8 status'] },
+    { name: 'getCredential', inputs: ['bytes32 credentialId'], outputs: ['bytes32 evidenceHash', 'address issuer', 'uint64 issuedAt', 'uint64 revokedAt'] },
     { name: 'isCredentialValid', inputs: ['bytes32 credentialId'], outputs: ['bool'] },
   ],
   writeMethods: [
@@ -84,11 +85,20 @@ function requireApiBase(apiBaseUrl) {
   if (!apiBaseUrl) throw Object.assign(new Error('Learning Passport API is not configured'), { code: 'PASSPORT_API_NOT_CONFIGURED' });
 }
 
-export function createLearningPassportService({ mode = 'mock', apiBaseUrl = '', fetcher = globalThis.fetch } = {}) {
+export function createLearningPassportService({ mode = 'mock', apiBaseUrl = '/api', fetcher = globalThis.fetch } = {}) {
+  const baseUrl = String(apiBaseUrl).replace(/\/$/, '');
+  async function apiRequest(path = '', options = {}) {
+    requireApiBase(baseUrl);
+    const response = await fetcher(`${baseUrl}/credentials${path}`, { credentials: 'same-origin', ...options });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw Object.assign(new Error(data.error || 'Learning Passport request failed'), { code: data.code || 'PASSPORT_API_ERROR', status: response.status });
+    }
+    return data;
+  }
   return {
     mode,
     getSnapshot(user, language) {
-      if (mode !== 'mock') throw new Error('Synchronous snapshots are available only in mock mode');
       return createMockLearningPassport(user, language);
     },
     findCredential(passport, code) {
@@ -97,20 +107,20 @@ export function createLearningPassportService({ mode = 'mock', apiBaseUrl = '', 
     },
     getDisplayStatus: getCredentialDisplayStatus,
     getExplorerUrl: getAvalancheExplorerUrl,
-    async fetchPassport(learnerId) {
-      requireApiBase(apiBaseUrl);
-      const response = await fetcher(`${apiBaseUrl}/learning-passport/${encodeURIComponent(learnerId)}`, { credentials: 'same-origin' });
-      if (!response.ok) throw Object.assign(new Error('Learning Passport request failed'), { code: 'PASSPORT_API_ERROR', status: response.status });
-      return response.json();
+    async fetchPassport() {
+      const data = await apiRequest();
+      return data.passport;
     },
-    async ingestAiEvaluation(payload) {
-      requireApiBase(apiBaseUrl);
-      const draft = createCredentialDraftFromAiEvaluation(payload);
-      const response = await fetcher(`${apiBaseUrl}/learning-passport/evaluations`, {
-        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, credential: draft }),
+    async fetchCredential(code) {
+      const data = await apiRequest(`?${new URLSearchParams({ code: String(code || '').trim().toUpperCase() })}`);
+      return data.credential;
+    },
+    async verifyCredential(code) {
+      const data = await apiRequest('', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', credentialCode: String(code || '').trim().toUpperCase() }),
       });
-      if (!response.ok) throw Object.assign(new Error('AI evaluation import failed'), { code: 'PASSPORT_API_ERROR', status: response.status });
-      return response.json();
+      return data.credential;
     },
   };
 }

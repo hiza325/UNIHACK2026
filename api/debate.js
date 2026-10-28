@@ -1,5 +1,8 @@
 import { DEBATE_PROMPT } from '../debate-prompt.js';
 import { createHash } from 'node:crypto';
+import { currentUser } from './auth/_supabase.js';
+import { createLearningRecordService } from './learning-records/_service.js';
+import { createLearningRecordStore } from './learning-records/_store.js';
 
 const ANYROUTER_URL = 'https://anyrouter.dev/api/v1/chat/completions';
 const DEFAULT_MODEL = 'anyrouter/free';
@@ -133,7 +136,7 @@ export function validateDebateAnalysis(raw, context = {}) {
   };
 }
 
-function normalizePayload(payload) {
+export function normalizeDebatePayload(payload) {
   const problem = requiredText(payload?.problem, 'Problem', 3, 12000);
   const solution = requiredText(payload?.solution, 'Solution', 1, 16000);
   if (problem.length + solution.length > 24000) throw inputError('Combined input is too long');
@@ -169,7 +172,7 @@ function normalizePayload(payload) {
 export async function createDebateAnalysis(payload, options = {}) {
   const apiKey = options.apiKey || process.env.ANYROUTER_API_KEY;
   if (!apiKey) throw Object.assign(new Error('ANYROUTER_API_KEY is not configured'), { status: 503, code: 'NOT_CONFIGURED' });
-  const input = normalizePayload(payload);
+  const input = normalizeDebatePayload(payload);
   const fetcher = options.fetcher || fetch;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 25000);
@@ -221,16 +224,59 @@ export async function createDebateAnalysis(payload, options = {}) {
   }
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' }); }
-  if (!allowRequest(req)) return res.status(429).json({ error: 'Too many AI analysis requests. Please wait a moment.', code: 'RATE_LIMIT' });
-  try {
-    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    return res.status(200).json({ analysis: await createDebateAnalysis(payload) });
-  } catch (error) {
-    const status = Number(error.status) || 500;
-    const code = error.code || (status >= 500 ? 'INTERNAL_ERROR' : 'INVALID_INPUT');
-    const message = status === 400 ? error.message : status === 503 ? 'AI analysis is not configured' : status === 504 ? 'AI analysis timed out' : 'AI analysis is temporarily unavailable';
-    return res.status(status).json({ error: message, code });
-  }
+export function createDebateHandler({
+  analysisFactory = createDebateAnalysis,
+  sessionResolver = currentUser,
+  storeFactory = createLearningRecordStore,
+  recordServiceFactory = createLearningRecordService,
+} = {}) {
+  return async function handler(req, res) {
+    if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' }); }
+    if (!allowRequest(req)) return res.status(429).json({ error: 'Too many AI analysis requests. Please wait a moment.', code: 'RATE_LIMIT' });
+    let recordService;
+    let authorizedRecord;
+    let normalizedInput;
+    try {
+      const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      normalizedInput = normalizeDebatePayload(payload);
+      const recordContext = payload?.learningRecord;
+      if (recordContext?.sessionId || recordContext?.submissionId) {
+        if (!recordContext.sessionId || !recordContext.submissionId) throw inputError('Complete learning record context is required');
+        const session = await sessionResolver(req, res);
+        recordService = recordServiceFactory({ store: storeFactory() });
+        authorizedRecord = await recordService.authorizeAiRequest({
+          sessionId: recordContext.sessionId,
+          submissionId: recordContext.submissionId,
+          userId: session.user.id,
+          input: normalizedInput,
+        });
+      }
+      const analysis = await analysisFactory(payload);
+      if (authorizedRecord) {
+        await recordService.recordAiResult({
+          authorized: authorizedRecord,
+          input: normalizedInput,
+          result: analysis,
+          model: analysis.proofRecord?.model || process.env.ANYROUTER_MODEL || DEFAULT_MODEL,
+        });
+      }
+      return res.status(200).json({ analysis });
+    } catch (error) {
+      if (authorizedRecord && recordService && normalizedInput) {
+        await recordService.recordAiFailure({ authorized: authorizedRecord, input: normalizedInput, error }).catch(() => {});
+      }
+      const status = error instanceof SyntaxError ? 400 : Number(error.status) || 500;
+      const code = error.code || (status >= 500 ? 'INTERNAL_ERROR' : 'INVALID_INPUT');
+      const message = status < 500
+        ? error.message
+        : code === 'NOT_CONFIGURED'
+          ? 'AI analysis is not configured'
+          : status === 504
+            ? 'AI analysis timed out'
+            : 'AI analysis is temporarily unavailable';
+      return res.status(status).json({ error: message, code });
+    }
+  };
 }
+
+export default createDebateHandler();

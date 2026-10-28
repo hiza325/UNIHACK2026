@@ -91,6 +91,16 @@ export const dataMethods = {
     this.passportVerificationQuery = '';
     this.passportVerificationResult = null;
     this.passportVerificationSearched = false;
+    this.passportSnapshot = null;
+    this.passportLoading = false;
+    this.passportLoadAttempted = false;
+    this.passportError = '';
+    this.learningRecordSessionId = '';
+    this.learningRecordSubmissionId = '';
+    this.remoteLearningSessions = [];
+    this.learningRecordsLoaded = false;
+    this.learningRecordsLoading = false;
+    this.learningRecordSyncError = '';
   },
   async loadUserData() {
     this.resetInMemoryUserData();
@@ -131,6 +141,8 @@ export const dataMethods = {
       attempts: Array.isArray(savedSession.attempts) ? savedSession.attempts.slice(-10) : [],
       conversation: Array.isArray(savedSession.conversation) ? savedSession.conversation.slice(-40) : [],
     };
+    this.learningRecordSessionId = typeof state.learningRecordSessionId === 'string' ? state.learningRecordSessionId : '';
+    this.learningRecordSubmissionId = typeof state.learningRecordSubmissionId === 'string' ? state.learningRecordSubmissionId : '';
     if (this.auditResult && this.auditText && !this.debateSession.attempts.length) {
       this.debateSession.attempts.push({ solution: this.auditText, analysis: this.auditResult, at: new Date().toISOString() });
     }
@@ -148,11 +160,14 @@ export const dataMethods = {
       result: this.auditResult,
       debateSession: this.debateSession,
       messages: this.auditMessages.slice(-60),
+      learningRecordSessionId: this.learningRecordSessionId,
+      learningRecordSubmissionId: this.learningRecordSubmissionId,
       files: { problem: this.files.problem[0] || null, work: this.files.work[0] || null }
     };
     try { this.auditDB.transaction('state', 'readwrite').objectStore('state').put(state, this.userStorageKey('audit-state')); } catch { /* IndexedDB may be unavailable in private mode. */ }
   },
   getSessions() {
+    if (this.learningRecordsService?.enabled && this.learningRecordsLoaded) return this.remoteLearningSessions;
     const saved = this.readJSON(this.userStorageKey('audit-sessions'), []);
     const seen = new Set();
     return saved.filter(item => {
