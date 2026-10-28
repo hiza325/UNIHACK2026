@@ -1,11 +1,13 @@
-import { gmailOtpConfigured, normalizeCredentials, parseBody, publicUser, sendError, setSession, supabaseRequest } from './_supabase.js';
+import { normalizeCredentials, parseBody, publicUser, sendError, setSession, supabaseRequest } from './_supabase.js';
+import { emailOtpConfigured } from './_mail.js';
 import { processOtpRequest } from './otp.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'Method not allowed' }); }
   try {
-    const { email, password, name } = normalizeCredentials(parseBody(req), true);
-    if (gmailOtpConfigured()) {
+    const body = parseBody(req);
+    const { email, password, name } = normalizeCredentials(body, true);
+    if (emailOtpConfigured()) {
       let user;
       try {
         user = await supabaseRequest('/auth/v1/admin/users', { body: { email, password, email_confirm: false, user_metadata: { full_name: name } }, service: true });
@@ -14,7 +16,7 @@ export default async function handler(req, res) {
         throw error;
       }
       try {
-        const otp = await processOtpRequest({ action: 'send', email, language: parseBody(req).language });
+        const otp = await processOtpRequest({ action: 'send', email, language: body.language });
         return res.status(200).json({ requiresOtp: true, challenge: otp.challenge, userId: user.id });
       } catch (emailError) {
         await supabaseRequest(`/auth/v1/admin/users/${encodeURIComponent(user.id)}`, { method: 'DELETE', service: true }).catch(() => {});

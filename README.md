@@ -107,12 +107,56 @@ SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ADMIN_EMAILS=admin@paradox.ai
 OTP_SECRET=mot-chuoi-bi-mat-ngau-nhien-toi-thieu-32-ky-tu
+
+# Chọn một trong hai cách gửi OTP bên dưới.
+SMTP_HOST=smtp.your-provider.example
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_REQUIRE_TLS=true
+SMTP_USER=your-smtp-user
+SMTP_PASS=your-smtp-password
+SMTP_FROM_EMAIL=no-reply@your-domain.example
+SMTP_FROM_NAME=PARADOX AI
+
 GMAIL_USER=email-cua-ban@gmail.com
 GMAIL_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
 GMAIL_FROM_NAME=PARADOX AI
 ```
 
+### Gửi OTP qua SMTP
+
+Backend hỗ trợ SMTP chuẩn qua `nodemailer`, dùng được với SendGrid, Mailgun, Amazon SES, Postmark, Brevo, Zoho hoặc SMTP server tự host. Cấu hình đầy đủ các biến sau trong `.env` local hoặc Vercel:
+
+| Biến | Bắt buộc | Ghi chú |
+| --- | --- | --- |
+| `SMTP_HOST` | Có | Hostname, không kèm `smtp://` hoặc đường dẫn |
+| `SMTP_PORT` | Không | Mặc định `587`; dùng `465` cho implicit TLS |
+| `SMTP_SECURE` | Không | Tự bật khi port là `465`; đặt `true`/`false` nếu cần |
+| `SMTP_REQUIRE_TLS` | Không | Mặc định `true` cho host remote ở port không secure; dùng STARTTLS |
+| `SMTP_USER`, `SMTP_PASS` | Không | Phải đặt cùng nhau; bỏ trống nếu relay nội bộ không cần auth |
+| `SMTP_FROM_EMAIL` | Có* | Địa chỉ người gửi, ví dụ `no-reply@your-domain.example`; có thể bỏ trống nếu `SMTP_USER` là email |
+| `SMTP_FROM_NAME` | Không | Tên hiển thị, mặc định `PARADOX AI` |
+
+\* Nếu bỏ trống `SMTP_FROM_EMAIL`, backend dùng `SMTP_USER` khi đó là địa chỉ email, sau đó đến `OTP_FROM_EMAIL`.
+
+Thứ tự ưu tiên khi gửi: **SMTP chung → Gmail App Password → Resend API**. Nếu có bất kỳ biến `SMTP_*` nào nhưng cấu hình thiếu hoặc sai, API trả lỗi cấu hình thay vì âm thầm gửi bằng provider khác.
+
+Ví dụ với SMTP local (MailHog/Mailpit):
+
+```env
+SMTP_HOST=127.0.0.1
+SMTP_PORT=1025
+SMTP_REQUIRE_TLS=false
+SMTP_FROM_EMAIL=dev@paradox.local
+```
+
+Kiểm tra kết nối bằng cách đăng ký một tài khoản mới; OTP sẽ được gửi qua SMTP và form xác nhận hiện ra. Nếu gửi thất bại, tài khoản Supabase đang chờ sẽ được xóa để người dùng thử lại.
+
+Lưu ý khi deploy Vercel: một số gói/region có thể chặn outbound SMTP. Nếu không kết nối được, kiểm tra port `587`/`465`, cho phép outbound TLS của provider, hoặc dùng Resend/API HTTP. `SMTP_PASS`, `GMAIL_APP_PASSWORD` và `OTP_SECRET` chỉ được đặt ở server, không được commit hoặc gửi xuống trình duyệt.
+
 ### Gửi OTP bằng chính Gmail của bạn
+
+> Nếu chọn Gmail, hãy bỏ trống hoặc comment toàn bộ biến `SMTP_*`; SMTP chung được ưu tiên hơn Gmail.
 
 1. Bật **Xác minh 2 bước** cho tài khoản Google.
 2. Mở [Google App Passwords](https://myaccount.google.com/apppasswords), tạo mật khẩu ứng dụng mới và đặt vào `GMAIL_APP_PASSWORD`. Không dùng mật khẩu Gmail thông thường.

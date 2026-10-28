@@ -1,4 +1,5 @@
-import { gmailOtpConfigured, parseBody, sendError, supabaseRequest } from './_supabase.js';
+import { parseBody, sendError, supabaseRequest } from './_supabase.js';
+import { emailOtpConfigured } from './_mail.js';
 import { processOtpRequest } from './otp.js';
 
 export default async function handler(req, res) {
@@ -6,7 +7,7 @@ export default async function handler(req, res) {
   try {
     const email = String(parseBody(req).email || '').trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email address' });
-    if (gmailOtpConfigured()) {
+    if (emailOtpConfigured()) {
       const otp = await processOtpRequest({ action: 'send', email, language: parseBody(req).language });
       return res.status(200).json({ sent: true, challenge: otp.challenge });
     }

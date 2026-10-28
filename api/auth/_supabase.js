@@ -1,3 +1,5 @@
+import { emailOtpConfigured } from './_mail.js';
+
 const ACCESS_COOKIE = 'paradox-access';
 const REFRESH_COOKIE = 'paradox-refresh';
 
@@ -9,8 +11,10 @@ export function authConfig(env = process.env) {
   return { url, anonKey, serviceKey, adminEmails: String(env.ADMIN_EMAILS || 'admin@paradox.ai,huyclasswiz@gmail.com,huyriuuu@gmail.com,lamnguyen080306@gmail.com').split(',').map(email => email.trim().toLowerCase()).filter(Boolean) };
 }
 
+// Deprecated alias kept for callers that used the Gmail-only helper. It now
+// covers both generic SMTP and Gmail App Password delivery.
 export function gmailOtpConfigured(env = process.env) {
-  return Boolean(env.GMAIL_USER && env.GMAIL_APP_PASSWORD && env.OTP_SECRET && String(env.OTP_SECRET).length >= 32);
+  return emailOtpConfigured(env);
 }
 
 export function parseBody(req) {

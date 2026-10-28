@@ -1,4 +1,5 @@
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
+import { emailProvider, formatSender } from './_mail.js';
 
 const OTP_LIFETIME_MS = 10 * 60 * 1000;
 const RESEND_URL = 'https://api.resend.com/emails';
@@ -49,30 +50,36 @@ function emailCopy(language, code) {
   if (language === 'en') return {
     subject: 'Your PARADOX verification code',
     html: `<h2>Verify your PARADOX account</h2><p>Your verification code is:</p><p style="font-size:32px;font-weight:700;letter-spacing:8px">${code}</p><p>This code expires in 10 minutes. Do not share it with anyone.</p>`,
+    text: `Verify your PARADOX account\n\nYour verification code is: ${code}\n\nThis code expires in 10 minutes. Do not share it with anyone.`,
   };
   if (language === 'jp') return {
     subject: 'PARADOX 認証コード',
     html: `<h2>PARADOXアカウントを認証</h2><p>認証コード：</p><p style="font-size:32px;font-weight:700;letter-spacing:8px">${code}</p><p>このコードは10分後に期限切れになります。他人に共有しないでください。</p>`,
+    text: `PARADOXアカウントを認証\n\n認証コード：${code}\n\nこのコードは10分後に期限切れになります。他人に共有しないでください。`,
   };
   return {
     subject: 'Mã xác nhận tài khoản PARADOX',
     html: `<h2>Xác nhận tài khoản PARADOX</h2><p>Mã OTP của bạn là:</p><p style="font-size:32px;font-weight:700;letter-spacing:8px">${code}</p><p>Mã có hiệu lực trong 10 phút. Không chia sẻ mã này với bất kỳ ai.</p>`,
+    text: `Xác nhận tài khoản PARADOX\n\nMã OTP của bạn là: ${code}\n\nMã có hiệu lực trong 10 phút. Không chia sẻ mã này với bất kỳ ai.`,
   };
 }
 
-async function sendEmail(email, code, language, env, fetcher, suppliedTransporter) {
+async function sendEmail(email, code, language, env, fetcher, suppliedTransporter, transportFactory) {
   const copy = emailCopy(language, code);
-  if (env.GMAIL_USER && env.GMAIL_APP_PASSWORD) {
-    const transporter = suppliedTransporter || (await import('nodemailer')).createTransport({
-        service: 'gmail',
-        auth: { user: env.GMAIL_USER, pass: String(env.GMAIL_APP_PASSWORD).replace(/\s+/g, '') },
+  const provider = emailProvider(env);
+  if (provider) {
+    const transporter = suppliedTransporter || (transportFactory || (await import('nodemailer')).createTransport)(provider.transportOptions);
+    try {
+      await transporter.sendMail({
+        from: formatSender(provider),
+        to: email,
+        subject: copy.subject,
+        html: copy.html,
+        text: copy.text,
       });
-    await transporter.sendMail({
-      from: `"${String(env.GMAIL_FROM_NAME || 'PARADOX AI').replace(/["\r\n]/g, '')}" <${env.GMAIL_USER}>`,
-      to: email,
-      subject: copy.subject,
-      html: copy.html,
-    });
+    } catch (error) {
+      throw Object.assign(new Error('Email delivery failed'), { status: 502, code: 'EMAIL_DELIVERY_FAILED', cause: error });
+    }
     return true;
   }
   if (!env.RESEND_API_KEY || !env.OTP_FROM_EMAIL) return false;
@@ -100,7 +107,7 @@ export async function processOtpRequest(payload, options = {}) {
   if (action === 'send') {
     const code = String(randomInt(0, 1000000)).padStart(6, '0');
     const challenge = createChallenge(email, code, secret, options.now?.() ?? Date.now());
-    const delivered = await sendEmail(email, code, ['vi', 'en', 'jp'].includes(payload?.language) ? payload.language : 'vi', env, fetcher, options.transporter);
+    const delivered = await sendEmail(email, code, ['vi', 'en', 'jp'].includes(payload?.language) ? payload.language : 'vi', env, fetcher, options.transporter, options.transportFactory);
     if (!delivered && production) throw Object.assign(new Error('Email service is not configured'), { status: 503 });
     return { challenge, expiresIn: OTP_LIFETIME_MS / 1000, ...(delivered ? {} : { developmentCode: code }) };
   }
