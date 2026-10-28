@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { emailOtpConfigured } from './_mail.js';
 import { createChallenge, processOtpRequest } from './otp.js';
-import { supabaseRequest } from './_supabase.js';
+import { findAuthUserByEmail, supabaseRequest } from './_supabase.js';
 
 function normalizeEmail(value) {
   const email = String(value || '').trim().toLowerCase();
@@ -20,6 +20,10 @@ function normalizePassword(value) {
 }
 
 async function findConfirmedUser(email, request, env) {
+  if (request === supabaseRequest) {
+    const user = await findAuthUserByEmail(email, env);
+    return user && (user.email_confirmed_at || user.confirmed_at) ? user : null;
+  }
   const data = await request('/auth/v1/admin/users?page=1&per_page=1000', { method: 'GET', service: true, env });
   const user = (Array.isArray(data?.users) ? data.users : []).find(item => String(item.email || '').toLowerCase() === email);
   return user && (user.email_confirmed_at || user.confirmed_at) ? user : null;

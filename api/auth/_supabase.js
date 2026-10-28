@@ -70,6 +70,12 @@ export async function supabaseRequest(path, { method = 'POST', body, token, serv
   return data;
 }
 
+export async function findAuthUserByEmail(email, env = process.env) {
+  const normalized = String(email || '').trim().toLowerCase();
+  const data = await supabaseRequest('/auth/v1/admin/users?page=1&per_page=1000', { method: 'GET', service: true, env });
+  return (Array.isArray(data?.users) ? data.users : []).find(user => String(user.email || '').toLowerCase() === normalized) || null;
+}
+
 export function publicUser(user, env = process.env) {
   const config = authConfig(env);
   const email = String(user.email || '').toLowerCase();
