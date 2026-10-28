@@ -8,12 +8,14 @@ export const adminViews = {
     const rows = accounts.map(account => {
       const suspended = account.status === 'suspended';
       const ownAccount = account.email === this.user.email;
+      const reasonOptions = ['account_sharing', 'account_information_dispute', 'policy_violation', 'abusive_behavior', 'other'].map(reason => `<option value="${reason}">${this.escape(this.suspensionReasonLabel(reason))}</option>`).join('');
+      const suspensionDetails = suspended ? `<div class="admin-suspension-details"><strong>${this.t('appealReason')}:</strong> ${this.escape(this.suspensionReasonLabel(account.suspensionReason))}${account.suspensionAppeal?.message ? `<br><strong>${this.t('adminAppeal')}:</strong> ${this.escape(account.suspensionAppeal.message)} <small>(${this.escape(account.suspensionAppeal.status || 'pending')})</small>` : `<br><small>${this.t('adminNoAppeal')}</small>`}</div>` : '';
       return `<div class="admin-user-row" data-admin-user data-search="${this.escape(`${account.name} ${account.email}`.toLowerCase())}">
-        <div class="admin-user"><span class="avatar">${this.escape((account.name || account.email)[0].toUpperCase())}</span><span><strong>${this.escape(account.name)}</strong><small>${this.escape(account.email)}</small></span></div>
+        <div class="admin-user"><span class="avatar">${this.escape((account.name || account.email)[0].toUpperCase())}</span><span><strong>${this.escape(account.name)}</strong><small>${this.escape(account.email)}</small>${suspensionDetails}</span></div>
         <span class="admin-role">${account.role === 'admin' ? this.t('adminRoleAdmin') : this.t('adminRoleUser')}</span>
         <span class="status ${suspended ? 'needs' : 'mastered'}">${suspended ? this.t('adminSuspended') : this.t('adminActive')}</span>
         <span class="admin-created">${this.escape(new Date(account.createdAt).toLocaleDateString(this.lang === 'jp' ? 'ja-JP' : this.lang))}</span>
-        <button class="ghost-button" type="button" data-account-id="${this.escape(account.id)}" data-account-status="${suspended ? 'active' : 'suspended'}" ${ownAccount ? 'disabled' : ''}>${suspended ? this.t('adminActivate') : this.t('adminSuspend')}</button>
+        <div class="admin-account-action">${suspended ? '' : `<select data-ban-reason-for="${this.escape(account.id)}" aria-label="${this.t('adminBanReason')}">${reasonOptions}</select>`}<button class="ghost-button" type="button" data-account-id="${this.escape(account.id)}" data-account-status="${suspended ? 'active' : 'suspended'}" ${ownAccount ? 'disabled' : ''}>${suspended ? this.t('adminActivate') : this.t('adminSuspend')}</button></div>
       </div>`;
     }).join('');
     return `<div class="page admin-page">
@@ -48,9 +50,9 @@ export const adminViews = {
       if (!['localhost', '127.0.0.1'].includes(location.hostname)) this.showToast(error.message);
     }
   },
-  async updateAccountStatus(accountId, status) {
+  async updateAccountStatus(accountId, status, reason = '') {
     try {
-      const response = await fetch('/api/admin/users', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ id: accountId, status }) });
+      const response = await fetch('/api/admin/users', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ id: accountId, status, ...(status === 'suspended' ? { reason } : {}) }) });
       if ([404, 503].includes(response.status) && ['localhost', '127.0.0.1'].includes(location.hostname)) {
         this.setAccountStatus(accountId, status);
       } else {

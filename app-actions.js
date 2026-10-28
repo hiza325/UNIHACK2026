@@ -55,6 +55,7 @@ export const actionMethods = {
       const error = new Error(this.rateLimitMessage(result) || (response.status >= 500 ? this.t('authServiceError') : (result.error || this.t('authServiceError'))));
       error.status = response.status;
       error.code = result.code || '';
+      error.details = result;
       throw error;
     }
     return result;
@@ -84,14 +85,45 @@ export const actionMethods = {
       }
     } catch (error) {
       if ([401, 403].includes(error.status)) {
-        const message = this.t(error.code === 'ACCOUNT_SUSPENDED' ? 'authAccountSuspended' : 'authSessionExpired');
         await this.logout();
-        this.openAuth('login');
-        this.querySelector('#auth-error').textContent = message;
+        if (error.code === 'ACCOUNT_SUSPENDED' && error.details?.appealToken) this.openSuspensionAppeal(error.details);
+        else {
+          this.openAuth('login');
+          this.querySelector('#auth-error').textContent = this.t('authSessionExpired');
+        }
       }
     } finally {
       this.authSessionCheckPending = false;
     }
+  },
+  suspensionReasonLabel(reason) {
+    const key = ['account_sharing', 'account_information_dispute', 'policy_violation', 'abusive_behavior', 'other'].includes(reason) ? reason : 'other';
+    return this.t(`suspensionReason_${key}`);
+  },
+  openSuspensionAppeal(details) {
+    const backdrop = this.querySelector('#auth-backdrop');
+    const panel = backdrop?.querySelector('.auth-panel');
+    if (!backdrop || !panel) return;
+    const reason = this.suspensionReasonLabel(details?.suspensionReason);
+    panel.innerHTML = `<button class="auth-close" id="appeal-close" aria-label="${this.t('close')}"><span aria-hidden="true">×</span></button><img class="auth-logo" src="logo-mark.svg" alt=""><span class="auth-kicker">PARADOX AI</span><h2>${this.t('appealTitle')}</h2><p class="auth-subtitle">${this.t('appealReason')}: <strong>${this.escape(reason)}</strong></p><form id="suspension-appeal-form"><label>${this.t('appealContent')}<textarea name="message" minlength="20" maxlength="2000" required placeholder="${this.t('appealPlaceholder')}"></textarea></label><p class="auth-error" id="appeal-error" role="alert"></p><button class="auth-submit" type="submit">${this.t('appealSubmit')}<span>↗</span></button></form><small class="auth-legal">${this.t('appealNotice')}</small>`;
+    backdrop.hidden = false;
+    panel.querySelector('#appeal-close').addEventListener('click', () => this.renderLanding());
+    backdrop.addEventListener('click', event => { if (event.target === backdrop) this.renderLanding(); });
+    panel.querySelector('#suspension-appeal-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const button = form.querySelector('button');
+      const error = form.querySelector('#appeal-error');
+      button.disabled = true;
+      error.textContent = '';
+      try {
+        await this.requestServerAuth('otp', { action: 'suspension-appeal', appealToken: details.appealToken, message: new FormData(form).get('message') });
+        form.innerHTML = `<p class="appeal-success">${this.t('appealSuccess')}</p>`;
+      } catch (requestError) {
+        error.textContent = requestError.message || this.t('authServiceError');
+        button.disabled = false;
+      }
+    });
   },
   async authenticate(event, text) {
     event.preventDefault();
@@ -197,7 +229,8 @@ export const actionMethods = {
       const account = remote?.user || await this.loginAccount(email, password);
       await this.completeAuthentication(account);
     } catch (loginError) {
-      error.textContent = loginError.message || this.t('authInvalidCredentials');
+      if (loginError.code === 'ACCOUNT_SUSPENDED' && loginError.details?.appealToken) this.openSuspensionAppeal(loginError.details);
+      else error.textContent = loginError.message || this.t('authInvalidCredentials');
     } finally {
       this.setAuthLoading(false);
     }

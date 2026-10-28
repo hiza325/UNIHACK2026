@@ -41,7 +41,11 @@ export const eventMethods = {
     if (verifyCredential) { this.openPassportVerification(verifyCredential.dataset.verifyCertificate); return; }
     if (event.target.closest?.('[data-close-passport-detail]') || event.target.id === 'passport-detail-modal') { this.closePassportCredential(); return; }
     const accountStatus = event.target.closest?.('[data-account-status]');
-    if (accountStatus && this.user?.role === 'admin') { this.updateAccountStatus(accountStatus.dataset.accountId, accountStatus.dataset.accountStatus); return; }
+    if (accountStatus && this.user?.role === 'admin') {
+      const reason = this.querySelector(`[data-ban-reason-for="${CSS.escape(accountStatus.dataset.accountId)}"]`)?.value || '';
+      this.updateAccountStatus(accountStatus.dataset.accountId, accountStatus.dataset.accountStatus, reason);
+      return;
+    }
     if (event.target.closest?.('#export-data')) { this.exportData(); return; }
     if (event.target.closest?.('#export-history')) { this.exportHistory(); return; }
     if (event.target.closest?.('#reset-data')) { this.openResetModal(); return; }

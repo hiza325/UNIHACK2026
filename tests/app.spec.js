@@ -111,13 +111,18 @@ test.describe('auth', () => {
 
   test('an open browser session logs out when the account becomes suspended', async ({ page }) => {
     let suspended = false;
+    let appealPayload;
     await seedSession(page);
     await page.route('**/api/auth/session', route => route.fulfill({
       status: suspended ? 403 : 200,
       contentType: 'application/json',
-      body: JSON.stringify(suspended ? { error: 'This account is suspended', code: 'ACCOUNT_SUSPENDED' } : { user: { ...SESSION, id: 'user-id', role: 'user', status: 'active' } }),
+      body: JSON.stringify(suspended ? { error: 'This account is suspended', code: 'ACCOUNT_SUSPENDED', suspensionReason: 'account_sharing', appealToken: 'signed-appeal-token' } : { user: { ...SESSION, id: 'user-id', role: 'user', status: 'active' } }),
     }));
     await page.route('**/api/auth/logout', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ loggedOut: true }) }));
+    await page.route('**/api/auth/otp', async route => {
+      appealPayload = route.request().postDataJSON();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ appealed: true }) });
+    });
 
     await page.goto('/#/dashboard');
     await expect(page.locator('.sidebar')).toBeVisible();
@@ -128,7 +133,12 @@ test.describe('auth', () => {
     await expect(page.locator('#landing-login')).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem('paradox-session'))).toBeNull();
     await expect(page.locator('#auth-backdrop')).toBeVisible();
-    await expect(page.locator('#auth-error')).toContainText('Tài khoản đã bị tạm khóa');
+    await expect(page.locator('.auth-panel')).toContainText('Chia sẻ tài khoản');
+    await expect(page.locator('#suspension-appeal-form textarea')).toBeVisible();
+    await page.fill('#suspension-appeal-form textarea', 'Tôi không chia sẻ tài khoản và mong quản trị viên kiểm tra lại giúp tôi.');
+    await page.click('#suspension-appeal-form button[type="submit"]');
+    await expect(page.locator('.appeal-success')).toBeVisible();
+    expect(appealPayload).toMatchObject({ action: 'suspension-appeal', appealToken: 'signed-appeal-token' });
   });
 });
 

@@ -2,6 +2,8 @@ import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import { emailProvider, formatSender } from './_mail.js';
 import { guardOtpSend, guardOtpVerify } from './_rate-limit.js';
 import { processPasswordReset } from './_password-reset.js';
+import { supabaseRequest } from './_supabase.js';
+import { verifySuspensionAppealToken } from './_suspension.js';
 
 const OTP_LIFETIME_MS = 10 * 60 * 1000;
 const RESEND_URL = 'https://api.resend.com/emails';
@@ -163,6 +165,20 @@ export default async function handler(req, res) {
       guardOtpVerify(req, email);
       await processPasswordReset({ ...payload, action: 'confirm' });
       return res.status(200).json({ reset: true });
+    }
+    if (payload?.action === 'suspension-appeal') {
+      const identity = verifySuspensionAppealToken(payload?.appealToken);
+      guardOtpVerify(req, identity.email);
+      const message = String(payload?.message || '').trim();
+      if (message.length < 20 || message.length > 2000) return res.status(400).json({ error: 'Appeal must contain 20 to 2000 characters' });
+      const user = await supabaseRequest(`/auth/v1/admin/users/${encodeURIComponent(identity.id)}`, { method: 'GET', service: true });
+      const bannedUntil = user.banned_until ? new Date(user.banned_until) : null;
+      if (String(user.email || '').toLowerCase() !== identity.email || !bannedUntil || bannedUntil <= new Date()) return res.status(409).json({ error: 'This account is not suspended' });
+      await supabaseRequest(`/auth/v1/admin/users/${encodeURIComponent(identity.id)}`, {
+        method: 'PUT', service: true,
+        body: { app_metadata: { ...(user.app_metadata || {}), suspension_appeal: { message, status: 'pending', submitted_at: new Date().toISOString() } } },
+      });
+      return res.status(200).json({ appealed: true });
     }
     if (payload?.action === 'send') guardOtpSend(req, email);
     else if (payload?.action === 'verify') guardOtpVerify(req, email);

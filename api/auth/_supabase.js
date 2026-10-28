@@ -1,4 +1,5 @@
 import { emailOtpConfigured } from './_mail.js';
+import { createSuspensionAppealToken } from './_suspension.js';
 
 const ACCESS_COOKIE = 'paradox-access';
 const REFRESH_COOKIE = 'paradox-refresh';
@@ -89,7 +90,18 @@ export function publicUser(user, env = process.env) {
     createdAt: user.created_at,
     verifiedAt: user.email_confirmed_at || user.confirmed_at || null,
     lastLoginAt: user.last_sign_in_at || null,
+    suspensionReason: user.app_metadata?.suspension_reason || '',
+    suspensionAppeal: user.app_metadata?.suspension_appeal || null,
   };
+}
+
+export function suspendedAccountError(user, env = process.env) {
+  return Object.assign(new Error('This account is suspended'), {
+    status: 403,
+    code: 'ACCOUNT_SUSPENDED',
+    suspensionReason: user.app_metadata?.suspension_reason || 'other',
+    appealToken: createSuspensionAppealToken(user, env),
+  });
 }
 
 async function authoritativeUser(user, env) {
@@ -97,9 +109,7 @@ async function authoritativeUser(user, env) {
   if (!config.serviceKey || !user?.id) return user;
   const current = await supabaseRequest(`/auth/v1/admin/users/${encodeURIComponent(user.id)}`, { method: 'GET', service: true, env });
   const bannedUntil = current.banned_until ? new Date(current.banned_until) : null;
-  if (bannedUntil && bannedUntil > new Date()) {
-    throw Object.assign(new Error('This account is suspended'), { status: 403, code: 'ACCOUNT_SUSPENDED' });
-  }
+  if (bannedUntil && bannedUntil > new Date()) throw suspendedAccountError(current, env);
   return current;
 }
 
@@ -135,6 +145,8 @@ export function sendError(res, error) {
   res.status(status).json({
     error: status >= 500 ? 'Authentication service is temporarily unavailable' : error.message,
     ...(error.code ? { code: error.code } : {}),
+    ...(error.suspensionReason ? { suspensionReason: error.suspensionReason } : {}),
+    ...(error.appealToken ? { appealToken: error.appealToken } : {}),
     ...(error.retryAfter ? { retryAfter: error.retryAfter } : {}),
   });
 }
