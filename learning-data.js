@@ -96,14 +96,21 @@ export function deriveAchievements(metrics) {
     consistency: metrics.longestStreak ?? metrics.streak,
     'critical-thinker': metrics.completed,
   };
-  return ACHIEVEMENT_DEFINITIONS.map(definition => ({
-    ...definition,
-    current: Math.max(0, Number(currentById[definition.id]) || 0),
-    available: definition.id !== 'error-hunter' || metrics.successfulCorrections !== undefined || metrics.selfDetectionObserved > 0,
-  })).map(item => ({
+  return ACHIEVEMENT_DEFINITIONS.map(definition => {
+    const target = Number.isFinite(definition.target) && definition.target > 0 ? definition.target : 1;
+    const rawCurrent = Number(currentById[definition.id]);
+    const safeCurrent = Number.isFinite(rawCurrent) && rawCurrent >= 0 ? rawCurrent : 0;
+    const current = Math.min(safeCurrent, target);
+    return {
+      ...definition,
+      target,
+      current,
+      available: definition.id !== 'error-hunter' || metrics.successfulCorrections !== undefined || metrics.selfDetectionObserved > 0,
+    };
+  }).map(item => ({
     ...item,
     status: !item.available ? 'unavailable' : item.current >= item.target ? 'earned' : 'locked',
-    percent: item.available ? Math.min(100, Math.round(item.current / item.target * 100)) : null,
+    percent: item.available ? Math.min(100, Math.round((item.current / item.target) * 100)) : null,
   }));
 }
 
@@ -117,14 +124,17 @@ export function normalizeAchievementSummary(summary) {
   const achievements = [];
   for (const definition of ACHIEVEMENT_DEFINITIONS) {
     const item = byId.get(definition.id);
-    const current = Number(item?.current);
-    if (!Number.isInteger(current) || current < 0 || Number(item?.target) !== definition.target) return null;
+    const rawCurrent = Number(item?.current);
+    if (!Number.isInteger(rawCurrent) || rawCurrent < 0 || Number(item?.target) !== definition.target) return null;
+    const target = Number.isFinite(definition.target) && definition.target > 0 ? definition.target : 1;
+    const current = Math.min(rawCurrent, target);
     achievements.push({
       ...definition,
+      target,
       current,
       available: true,
-      status: current >= definition.target ? 'earned' : 'locked',
-      percent: Math.min(100, Math.round(current / definition.target * 100)),
+      status: current >= target ? 'earned' : 'locked',
+      percent: Math.min(100, Math.round((current / target) * 100)),
       evidence: item?.evidence && typeof item.evidence === 'object' ? item.evidence : {},
     });
   }

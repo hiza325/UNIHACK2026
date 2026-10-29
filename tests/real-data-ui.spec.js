@@ -196,6 +196,40 @@ test('Real state uses stored metrics, resumes the selected session, and separate
   await expect(page.locator('[data-credential-state="issued"] .credential-status.verified')).toBeVisible();
 });
 
+test('Achievement progress is capped at target even when backend metric exceeds it', async ({ page }) => {
+  await configureRemoteData(page);
+  const sessions = realSessions();
+  const summary = achievementSummary({ completed: 2, corrections: 2, streak: 8 });
+  // Force current values above their targets to verify UI capping.
+  for (const item of summary.achievements) item.current = item.target + 5;
+  await mockRemoteApis(page, { sessions, passport: emptyPassport(), achievements: summary });
+  await page.goto('/#/profile');
+
+  await expect(page.locator('[data-achievement-page-state="real"]')).toBeVisible();
+  const progressTexts = await page.locator('.achievement-tile small').allTextContents();
+  for (const text of progressTexts) {
+    const match = text.trim().match(/^(\d+)\/(\d+)$/);
+    if (match) expect(Number(match[1])).toBeLessThanOrEqual(Number(match[2]));
+  }
+  // Progress bars must never exceed 100%.
+  const widths = await page.locator('.achievement-progress span').evaluateAll(elements => elements.map(el => parseFloat(el.style.width)));
+  for (const width of widths) expect(width).toBeLessThanOrEqual(100);
+});
+
+test('FAQ and About copy no longer claim browser-only storage', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('paradox-session', JSON.stringify({ name: 'QA', email: 'qa@example.com' })));
+  await page.goto('/#/about');
+  const faq3A = await page.evaluate(() => document.querySelector('edu-app')?.t('faq3A') || '');
+  expect(faq3A).not.toMatch(/chỉ lưu tên, email và tiến độ trên trình duyệt|only keeps your name, email, and progress in the browser|ブラウザに保存するだけ/);
+});
+
+test('About page does not describe Achievement persistence as unimplemented', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('paradox-session', JSON.stringify({ name: 'QA', email: 'qa@example.com' })));
+  await page.goto('/#/about');
+  await expect(page.locator('.feature-status.developing')).toBeVisible();
+  await expect(page.locator('.feature-status.developing')).not.toContainText(/Achievement persistence|Persistent Achievements|Achievement永続化/);
+});
+
 test('Demo state remains available for tests but is visibly labelled and isolated', async ({ page }) => {
   await page.addInitScript(({ user, sessionsKey }) => {
     localStorage.setItem('paradox-session', JSON.stringify(user));

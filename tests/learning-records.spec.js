@@ -448,6 +448,14 @@ test('seven distinct consecutive completion days use Asia/Ho_Chi_Minh and ignore
   expect(summary.achievements.find(item => item.id === 'consistency')).toMatchObject({ current: 7, earned: true });
 });
 
+test('backend achievement summary preserves raw counts above target for UI capping', () => {
+  const sessions = Array.from({ length: 3 }, (_, index) => evidenceSession(index + 1, new Date(Date.parse('2026-10-01T05:00:00.000Z') + index * 86_400_000).toISOString()));
+  const summary = deriveLearningAchievementSummary({ sessions, generatedAt: new Date('2026-10-03T06:00:00.000Z') });
+  const firstSession = summary.achievements.find(item => item.id === 'first-session');
+  expect(firstSession).toMatchObject({ current: 3, target: 1, earned: true });
+  expect(summary.metrics.validCompletedSessions).toBe(3);
+});
+
 test('ten unique valid completed sessions unlock Critical Thinker and invalid duplicate rows do not count', () => {
   const sessions = Array.from({ length: 10 }, (_, index) => evidenceSession(index + 1, new Date(Date.parse('2026-09-01T05:00:00.000Z') + index * 2 * 86_400_000).toISOString()));
   sessions.push({ ...sessions[0] });

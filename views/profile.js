@@ -14,8 +14,12 @@ export const profileViews = {
   achievementCardMarkup(achievement) {
     const t = key => this.t(key);
     const statusKey = achievement.status === 'earned' ? 'achievementEarned' : achievement.status === 'unavailable' ? 'achievementUnavailable' : 'achievementLocked';
+    const safeTarget = Number.isFinite(achievement?.target) && achievement.target > 0 ? achievement.target : 1;
+    const safeCurrent = Number.isFinite(achievement?.current) && achievement.current >= 0 ? achievement.current : 0;
+    const displayCurrent = Math.min(safeCurrent, safeTarget);
+    const displayPercent = Math.min(100, Math.round((displayCurrent / safeTarget) * 100));
     const progress = achievement.available
-      ? `<div class="achievement-progress" role="progressbar" aria-label="${this.escape(t(achievement.key))}" aria-valuemin="0" aria-valuemax="${achievement.target}" aria-valuenow="${achievement.current}"><span style="width:${achievement.percent}%"></span></div><small>${t('achievementProgress').replace('{current}', String(achievement.current)).replace('{target}', String(achievement.target))}</small>`
+      ? `<div class="achievement-progress" role="progressbar" aria-label="${this.escape(t(achievement.key))}" aria-valuemin="0" aria-valuemax="${safeTarget}" aria-valuenow="${displayCurrent}"><span style="width:${displayPercent}%"></span></div><small>${t('achievementProgress').replace('{current}', String(displayCurrent)).replace('{target}', String(safeTarget))}</small>`
       : `<small>${t('achievementMissingEvidence')}</small>`;
     return `<article class="badge-tile achievement-tile ${achievement.status}" data-achievement-status="${achievement.status}"><span class="badge-icon">${svgIcon(achievement.status === 'earned' ? 'spark' : 'clock')}</span><strong>${t(achievement.key)}</strong><span class="achievement-status">${t(statusKey)}</span>${progress}</article>`;
   },
