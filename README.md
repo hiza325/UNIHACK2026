@@ -28,7 +28,7 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 - Trang giới thiệu responsive, có điều hướng đến **Trang chủ**, **Cách hoạt động**, **Có gì ở PARADOX?** và **Lợi ích**.
 - Ứng dụng gồm **AI Audit**, **Dashboard**, **History**, **Analytics**, **Practice Lab**, **Profile**, **Learning Passport**, **About / Guide**, **Settings** và trang **Admin** có phân quyền.
 - Điều hướng bằng hash (`#/audit`, `#/dashboard`, …). Riêng `#/sitemap` là màn hình sitemap tối, mở được khi chưa đăng nhập; các trang còn lại yêu cầu phiên demo.
-- AI Debate Engine nhận đề bài và lời giải, gọi AnyRouter thực tế để đánh giá đúng/sai/chưa đủ dữ kiện, phân loại lỗi kiến thức/logic/phương pháp và hỗ trợ hỏi tiếp theo ngữ cảnh.
+- AI Debate Engine nhận đề bài và lời giải, gọi AI Gateway phía server (Gemini là provider chính, AnyRouter là dự phòng) để đánh giá đúng/sai/chưa đủ dữ kiện, phân loại lỗi kiến thức/logic/phương pháp và hỗ trợ hỏi tiếp theo ngữ cảnh.
 - Dashboard tổng hợp tiến độ; History có bộ lọc trạng thái và tìm kiếm; Analytics có biểu đồ 7/30/90 ngày.
 - Practice Lab có câu hỏi trắc nghiệm, phản hồi đáp án và lưu trạng thái đã giải trong `localStorage`.
 - Profile cho phép đổi tên hiển thị; Settings lưu giao diện, ngôn ngữ, môn học, mức gợi ý và tùy chọn thông báo.
@@ -61,7 +61,9 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | `views/` | Template tách theo khu vực, gồm `admin`, `landing`, `dashboard`, `audit`, `history`, `analytics`, `practice`, `profile`, `about`, `settings`, `sitemap` |
 | `api/auth/` | API đăng ký, OTP, đăng nhập, session cookie và đăng xuất qua Supabase |
 | `api/admin/users.js` | API quản trị người dùng, được bảo vệ bằng role admin phía server |
-| `api/debate.js` | Proxy AI Debate Engine, validation đầu vào/đầu ra và timeout AnyRouter |
+| `api/debate.js` | Proxy AI Debate Engine, validation đầu vào/đầu ra và gọi AI Gateway |
+| `api/_ai/` | AI Gateway server-only: catalogue provider, timeout, retry, fallback Gemini → AnyRouter |
+| `api/ai/status.js` | Health check read-only cho trạng thái cấu hình provider |
 | `debate-ai.js`, `debate-prompt.js` | Client gọi Debate API và system prompt học thuật phía server |
 | `api/learning-records/` | API, service và Supabase store cho phiên học, bài nộp, tương tác và đánh giá |
 | `learning-records-service.js`, `learning-records-actions.js` | Đồng bộ Audit/History với learning-record API cho phiên Supabase thật |
@@ -261,7 +263,7 @@ Câu trả lời được render an toàn ở frontend: nội dung được esca
 
 ## AI Debate Engine
 
-Trang `#/audit` gọi endpoint cùng domain `/api/debate`. Endpoint tái sử dụng `ANYROUTER_API_KEY` và `ANYROUTER_MODEL`, giữ key hoàn toàn ở server. Input được giới hạn độ dài; request upstream có timeout 25 giây; JSON từ mô hình được kiểm tra lại theo schema trước khi trả cho frontend.
+Trang `#/audit` gọi endpoint cùng domain `/api/debate`. Endpoint dùng AI Gateway dùng chung (`api/_ai/`) với **Gemini là provider chính** và **AnyRouter là dự phòng**, đọc key hoàn toàn từ `GEMINI_API_KEY` / `ANYROUTER_LEARNING_API_KEY` ở server. Input được giới hạn độ dài; mỗi lần gọi provider có timeout riêng, retry có giới hạn, tổng thời gian có deadline; fallback chỉ xảy ra khi provider thiếu cấu hình, lỗi, timeout hoặc trả JSON sai schema. JSON từ mô hình được kiểm tra lại theo schema trước khi trả cho frontend. Chi tiết cấu hình: [`docs/AI-LEARNING-INTEGRATION.md`](docs/AI-LEARNING-INTEGRATION.md).
 
 Kết quả chuẩn hóa gồm:
 
@@ -290,7 +292,7 @@ Server tự tính tổng và không tin tổng điểm/trạng thái do mô hìn
 ### Tối ưu và Proof of Learning
 
 - Frontend gộp các request giống nhau đang chạy và cache mode `analyze` trong 2 phút, tối đa 50 kết quả. `discuss`, `hint` và `resubmit` không cache để tránh dùng lại ngữ cảnh cũ.
-- API giới hạn 15 request/phút/client, timeout upstream 25 giây và chỉ đọc `ANYROUTER_API_KEY` ở server.
+- API giới hạn 15 request/phút/client; gateway chỉ đọc `GEMINI_API_KEY`, `ANYROUTER_LEARNING_API_KEY` và các biến model tương ứng ở server. Support widget vẫn dùng `ANYROUTER_API_KEY` riêng.
 - Mọi output AI được chuẩn hóa và kiểm tra lại; trạng thái rubric được suy ra phía server.
 - Mỗi lần nộp lại tạo `proofRecord` phiên bản `paradox-proof-of-learning-v1`, gồm SHA-256 content hash, rubric version, attempt number, thời gian, model, confidence, trạng thái và các tiêu chí. Backend lưu cấu trúc này cùng evaluation; đây chỉ là bằng chứng off-chain chuẩn bị cho credential, không tự tạo transaction hoặc chứng nhận blockchain.
 
@@ -328,7 +330,7 @@ Client không thể tự gửi trạng thái `pass`, điểm hoặc eligibility.
 
 1. Link Supabase CLI với project rồi chạy `supabase db push`, **hoặc** mở SQL Editor và chạy migration `202610280002_learning_records.sql` sau migration credential nếu dùng cả hai tính năng.
 2. Cấu hình `SUPABASE_URL`, `SUPABASE_ANON_KEY` và `SUPABASE_SERVICE_ROLE_KEY` trong `.env` local/Vercel. Service-role key chỉ được đặt ở server và không được prefix thành biến public.
-3. Cấu hình `ANYROUTER_API_KEY` để thực hiện phân tích thật. Nếu key chưa có, session/submission vẫn được giữ lại với `analysis_failed` / `analysis_unavailable`; backend không tạo evaluation hoặc credential giả.
+3. Cấu hình `GEMINI_API_KEY` (provider chính) và tùy chọn `ANYROUTER_LEARNING_API_KEY` (dự phòng) để thực hiện phân tích thật. Nếu chưa có key nào, API trả `503 NOT_CONFIGURED` kèm danh sách biến còn thiếu; session/submission vẫn được giữ lại với `analysis_failed` / `analysis_unavailable` và backend không tạo evaluation hoặc credential giả.
 4. Redeploy serverless API sau khi thêm environment variables. GitHub Pages thuần tĩnh không chạy được các route này.
 
 History/Dashboard/Analytics tự tải tối đa 100 phiên Supabase sau khi xác thực và sau mỗi lần Audit. Nếu đang dùng chế độ tài khoản local, luồng cũ trên IndexedDB/localStorage vẫn hoạt động và giao diện không thay đổi.

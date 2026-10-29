@@ -1,11 +1,10 @@
 import { DEBATE_PROMPT } from '../debate-prompt.js';
 import { createHash } from 'node:crypto';
+import { createAiGateway } from './_ai/gateway.js';
 import { currentUser } from './auth/_supabase.js';
 import { createLearningRecordService } from './learning-records/_service.js';
 import { createLearningRecordStore } from './learning-records/_store.js';
 
-const ANYROUTER_URL = 'https://anyrouter.dev/api/v1/chat/completions';
-const DEFAULT_MODEL = 'anyrouter/free';
 const LANGUAGES = new Set(['vi', 'en', 'jp']);
 const STATUSES = new Set(['correct', 'incorrect', 'insufficient']);
 const CATEGORIES = new Set(['knowledge', 'logic', 'method']);
@@ -169,63 +168,82 @@ export function normalizeDebatePayload(payload) {
   };
 }
 
-export async function createDebateAnalysis(payload, options = {}) {
-  const apiKey = options.apiKey || process.env.ANYROUTER_API_KEY;
-  if (!apiKey) throw Object.assign(new Error('ANYROUTER_API_KEY is not configured'), { status: 503, code: 'NOT_CONFIGURED' });
+function debateUserContent(input) {
+  return `<mode>${input.mode}</mode>\n<problem>\n${input.problem}\n</problem>\n<learner_solution>\n${input.solution}\n</learner_solution>${input.previousSolution ? `\n<previous_solution>${input.previousSolution}</previous_solution>` : ''}${input.previousAnalysis ? `\n<previous_analysis>${input.previousAnalysis}</previous_analysis>` : ''}${input.conversation.length ? `\n<conversation_history>${JSON.stringify(input.conversation)}</conversation_history>` : ''}${input.previousHints.length ? `\n<prior_hints>${JSON.stringify(input.previousHints)}</prior_hints>` : ''}${input.hintLevel ? `\n<requested_hint_level>${input.hintLevel}</requested_hint_level>` : ''}${input.question ? `\n<follow_up_question>${input.question}</follow_up_question>` : ''}`;
+}
+
+function debateSystemPrompt(language) {
+  return `${DEBATE_PROMPT}\nRequested interface language: ${language}.`;
+}
+
+/**
+ * Runs the multi-step PARADOX debate through the shared AI gateway.
+ * Gemini answers first; AnyRouter is the fallback. They are only used when the
+ * previous provider is missing, fails, times out, or returns output that fails
+ * schema validation. The Socratic rules in DEBATE_PROMPT are always sent from
+ * the server and are never client-supplied.
+ */
+export async function createDebateAnalysisWithMeta(payload, options = {}) {
   const input = normalizeDebatePayload(payload);
-  const fetcher = options.fetcher || fetch;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 25000);
-  const userContent = `<mode>${input.mode}</mode>\n<problem>\n${input.problem}\n</problem>\n<learner_solution>\n${input.solution}\n</learner_solution>${input.previousSolution ? `\n<previous_solution>${input.previousSolution}</previous_solution>` : ''}${input.previousAnalysis ? `\n<previous_analysis>${input.previousAnalysis}</previous_analysis>` : ''}${input.conversation.length ? `\n<conversation_history>${JSON.stringify(input.conversation)}</conversation_history>` : ''}${input.previousHints.length ? `\n<prior_hints>${JSON.stringify(input.previousHints)}</prior_hints>` : ''}${input.hintLevel ? `\n<requested_hint_level>${input.hintLevel}</requested_hint_level>` : ''}${input.question ? `\n<follow_up_question>${input.question}</follow_up_question>` : ''}`;
-  try {
-    const response = await fetcher(ANYROUTER_URL, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: options.model || process.env.ANYROUTER_MODEL || DEFAULT_MODEL,
-        messages: [
-          { role: 'system', content: `${DEBATE_PROMPT}\nRequested interface language: ${input.language}.` },
-          { role: 'user', content: userContent },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1,
-        max_tokens: 2200,
-      }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw Object.assign(new Error(data?.error?.message || `AnyRouter returned ${response.status}`), { status: 502, code: 'UPSTREAM_ERROR' });
-    const analysis = validateDebateAnalysis(parseJsonContent(data?.choices?.[0]?.message?.content), { mode: input.mode, hintLevel: input.hintLevel, previousHints: input.previousHints });
-    if (input.mode === 'resubmit' && analysis.evaluation) {
-      const contentHash = createHash('sha256').update(JSON.stringify({ problem: input.problem, previousSolution: input.previousSolution, solution: input.solution })).digest('hex');
-      analysis.proofRecord = {
-        schemaVersion: 'paradox-proof-of-learning-v1',
-        rubricVersion: RUBRIC_VERSION,
-        contentHash,
-        attemptNumber: input.attemptNumber,
-        evaluatedAt: new Date().toISOString(),
-        model: options.model || process.env.ANYROUTER_MODEL || DEFAULT_MODEL,
-        analysisStatus: analysis.status,
-        confidence: analysis.confidence,
-        evidenceSufficient: analysis.evaluation.evidenceSufficient,
-        status: analysis.evaluation.status,
-        score: analysis.evaluation.score,
-        criteria: analysis.evaluation.criteria,
-        correctedIssues: analysis.evaluation.correctedIssues,
-        remainingIssues: analysis.evaluation.remainingIssues,
-      };
-    }
-    return analysis;
-  } catch (error) {
-    if (error?.name === 'AbortError') throw Object.assign(new Error('AI analysis timed out'), { status: 504, code: 'TIMEOUT' });
-    throw error;
-  } finally {
-    clearTimeout(timeout);
+  const gateway = options.gateway || createAiGateway({
+    fetcher: options.fetcher,
+    env: options.env,
+    providers: options.providers,
+    providerOrder: options.providerOrder,
+    timeoutMs: options.timeoutMs,
+    totalTimeoutMs: options.totalTimeoutMs,
+    maxRetries: options.maxRetries,
+    retryDelayMs: options.retryDelayMs,
+  });
+  const context = { mode: input.mode, hintLevel: input.hintLevel, previousHints: input.previousHints };
+  const result = await gateway.complete({
+    systemPrompt: debateSystemPrompt(input.language),
+    userPrompt: debateUserContent(input),
+    temperature: 0.1,
+    maxOutputTokens: 2200,
+    json: true,
+    validate: text => validateDebateAnalysis(parseJsonContent(text), context),
+  });
+  const analysis = result.value;
+  if (input.mode === 'resubmit' && analysis.evaluation) {
+    const contentHash = createHash('sha256').update(JSON.stringify({ problem: input.problem, previousSolution: input.previousSolution, solution: input.solution })).digest('hex');
+    analysis.proofRecord = {
+      schemaVersion: 'paradox-proof-of-learning-v1',
+      rubricVersion: RUBRIC_VERSION,
+      contentHash,
+      attemptNumber: input.attemptNumber,
+      evaluatedAt: new Date().toISOString(),
+      model: options.model || result.providerModel,
+      analysisStatus: analysis.status,
+      confidence: analysis.confidence,
+      evidenceSufficient: analysis.evaluation.evidenceSufficient,
+      status: analysis.evaluation.status,
+      score: analysis.evaluation.score,
+      criteria: analysis.evaluation.criteria,
+      correctedIssues: analysis.evaluation.correctedIssues,
+      remainingIssues: analysis.evaluation.remainingIssues,
+    };
   }
+  return {
+    analysis,
+    meta: {
+      provider: result.provider,
+      model: result.providerModel,
+      attempts: result.attempts,
+      retryCount: result.retryCount,
+      fallbackUsed: result.fallbackUsed,
+      latencyMs: result.latencyMs,
+      trace: result.trace,
+    },
+  };
+}
+
+export async function createDebateAnalysis(payload, options = {}) {
+  return (await createDebateAnalysisWithMeta(payload, options)).analysis;
 }
 
 export function createDebateHandler({
-  analysisFactory = createDebateAnalysis,
+  analysisFactory = createDebateAnalysisWithMeta,
   sessionResolver = currentUser,
   storeFactory = createLearningRecordStore,
   recordServiceFactory = createLearningRecordService,
@@ -251,16 +269,18 @@ export function createDebateHandler({
           input: normalizedInput,
         });
       }
-      const analysis = await analysisFactory(payload);
+      const produced = await analysisFactory(payload);
+      const analysis = produced?.analysis || produced;
+      const meta = produced?.meta || null;
       if (authorizedRecord) {
         await recordService.recordAiResult({
           authorized: authorizedRecord,
           input: normalizedInput,
           result: analysis,
-          model: analysis.proofRecord?.model || process.env.ANYROUTER_MODEL || DEFAULT_MODEL,
+          model: analysis.proofRecord?.model || meta?.model || 'ai-gateway',
         });
       }
-      return res.status(200).json({ analysis });
+      return res.status(200).json({ analysis, ...(meta ? { meta } : {}) });
     } catch (error) {
       if (authorizedRecord && recordService && normalizedInput) {
         await recordService.recordAiFailure({ authorized: authorizedRecord, input: normalizedInput, error }).catch(() => {});
@@ -274,7 +294,8 @@ export function createDebateHandler({
           : status === 504
             ? 'AI analysis timed out'
             : 'AI analysis is temporarily unavailable';
-      return res.status(status).json({ error: message, code });
+      const details = error?.details && typeof error.details === 'object' ? { details: error.details } : {};
+      return res.status(status).json({ error: message, code, ...details });
     }
   };
 }
