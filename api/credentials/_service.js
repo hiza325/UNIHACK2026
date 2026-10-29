@@ -22,6 +22,7 @@ export function normalizeCredentialIssueInput(body = {}, actor = {}) {
   if (!CREDENTIAL_CODE.test(credentialCode)) throw credentialError('Invalid credential code', 'INVALID_CREDENTIAL_CODE', 400);
   const learnerId = String(body.learnerId || '').trim();
   if (!UUID.test(learnerId)) throw credentialError('A valid learner ID is required', 'INVALID_LEARNER_ID', 400);
+  const evaluationId = String(body.evaluationId || '').trim();
   const source = String(body.source || '');
   if (!['ai-evaluation', 'manual-test'].includes(source)) throw credentialError('Credential source is not allowed', 'INVALID_CREDENTIAL_SOURCE', 400);
 
@@ -44,9 +45,11 @@ export function normalizeCredentialIssueInput(body = {}, actor = {}) {
 
   return {
     learnerId,
+    evaluationId: evaluationId || null,
     credentialCode,
     credentialIdHash: credentialIdFromCode(credentialCode),
     evidenceHash: normalizeEvidenceHash(body.evidenceHash || body.proofRecord?.contentHash),
+    proofRecord: body.proofRecord && typeof body.proofRecord === 'object' ? body.proofRecord : null,
     title: text(body.title, 160, 'title'),
     skill: text(body.skill, 120, 'skill'),
     assessmentScore: score,
@@ -141,11 +144,54 @@ export function buildLearningPassport(user, rows) {
   };
 }
 
-export function createCredentialService({ store, avalancheFactory = createAvalancheGateway } = {}) {
+export function createCredentialService({ store, avalancheFactory = createAvalancheGateway, learningRecordStore = null } = {}) {
   if (!store) throw new TypeError('Credential store is required');
+
+  async function verifyAiEvidence(input, learnerId) {
+    if (!learningRecordStore) throw credentialError('Learning record store is not configured', 'LEARNING_RECORD_STORE_NOT_CONFIGURED', 503);
+    const evaluationId = String(input.evaluationId || '').trim();
+    if (!UUID.test(evaluationId)) throw credentialError('A valid learning evaluation ID is required', 'INVALID_LEARNING_EVALUATION_ID', 400);
+    const evaluation = await learningRecordStore.findEvaluation(evaluationId, learnerId);
+    if (!evaluation) throw credentialError('Learning evaluation was not found', 'LEARNING_EVALUATION_NOT_FOUND', 404);
+    if (evaluation.status !== 'pass') throw credentialError('Learning evaluation did not pass', 'LEARNING_EVALUATION_NOT_PASSING', 409);
+    if (evaluation.credential_eligible !== true) throw credentialError('Learning evaluation is not credential eligible', 'LEARNING_EVALUATION_NOT_ELIGIBLE', 409);
+
+    const submission = await learningRecordStore.findSubmission(evaluation.submission_id, evaluation.session_id, learnerId);
+    if (!submission) throw credentialError('Learning submission was not found', 'LEARNING_SUBMISSION_NOT_FOUND', 404);
+    const session = await learningRecordStore.findSession(evaluation.session_id, learnerId);
+    if (!session || String(session.learner_id).toLowerCase() !== String(learnerId).toLowerCase()) {
+      throw credentialError('Learning session does not belong to this learner', 'LEARNING_SESSION_OWNERSHIP_MISMATCH', 403);
+    }
+
+    const dbProof = evaluation.proof_record;
+    if (!dbProof || typeof dbProof !== 'object') throw credentialError('Learning evaluation has no proof record', 'LEARNING_EVALUATION_PROOF_MISSING', 409);
+    if (dbProof.isMock === true || dbProof.source === 'mock') throw credentialError('Mock evidence cannot be issued', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
+    if (dbProof.schemaVersion !== 'paradox-proof-of-learning-v1' || dbProof.evidenceSufficient !== true || dbProof.status !== 'pass') {
+      throw credentialError('Learning evaluation proof is not eligible', 'LEARNING_EVALUATION_PROOF_INELIGIBLE', 409);
+    }
+    const requestProof = input.proofRecord;
+    if (requestProof && typeof requestProof === 'object') {
+      if (requestProof.contentHash && String(requestProof.contentHash).toLowerCase() !== String(dbProof.contentHash).toLowerCase()) {
+        throw credentialError('Proof record does not match the stored evaluation', 'LEARNING_EVALUATION_PROOF_MISMATCH', 409);
+      }
+      if (requestProof.score !== undefined && Number(requestProof.score) !== Number(dbProof.score)) {
+        throw credentialError('Proof record does not match the stored evaluation', 'LEARNING_EVALUATION_PROOF_MISMATCH', 409);
+      }
+    }
+
+    return {
+      evidenceHash: normalizeEvidenceHash(dbProof.contentHash),
+      assessmentScore: Number.isFinite(dbProof.score) ? Math.max(0, Math.min(100, Math.round(dbProof.score))) : input.assessmentScore,
+    };
+  }
 
   async function issue(body, actor) {
     const input = normalizeCredentialIssueInput(body, actor);
+    if (input.source === 'ai-evaluation') {
+      const verified = await verifyAiEvidence(input, input.learnerId);
+      input.evidenceHash = verified.evidenceHash;
+      input.assessmentScore = verified.assessmentScore;
+    }
     const existing = await store.findByCode(input.credentialCode);
     if (existing && (body.retryFailed !== true || existing.blockchain_status !== 'failed')) {
       throw credentialError('Credential code already exists', 'DUPLICATE_CREDENTIAL', 409);

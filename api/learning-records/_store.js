@@ -95,6 +95,9 @@ export function createLearningRecordStore({ env = process.env, fetcher = globalT
     async listEvaluations(sessionId, learnerId) {
       return request('learning_evaluations', { query: { select: '*', session_id: `eq.${sessionId}`, learner_id: `eq.${learnerId}`, order: 'evaluated_at.asc' } });
     },
+    async findEvaluation(id, learnerId) {
+      return request('learning_evaluations', { query: { select: '*', id: `eq.${id}`, learner_id: `eq.${learnerId}`, limit: '1' }, single: true });
+    },
     async listEligibleEvaluations(learnerId, { limit = 50, offset = 0 } = {}) {
       return request('learning_evaluations', { query: { select: '*', learner_id: `eq.${learnerId}`, credential_eligible: 'eq.true', order: 'evaluated_at.desc', limit: String(limit), offset: String(offset) } });
     },

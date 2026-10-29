@@ -1,6 +1,7 @@
 import { currentUser, parseBody, publicUser, requireAdmin } from '../auth/_supabase.js';
 import { createCredentialService } from './_service.js';
 import { createCredentialStore } from './_store.js';
+import { createLearningRecordStore } from '../learning-records/_store.js';
 
 const SAFE_SERVER_CODES = new Set([
   'AVALANCHE_RPC_NOT_CONFIGURED', 'AVALANCHE_RPC_INVALID', 'AVALANCHE_RPC_UNAVAILABLE',
@@ -21,7 +22,7 @@ function sendCredentialError(res, error) {
   return res.status(status).json({ error: safeMessage, ...(error?.code ? { code: error.code } : {}) });
 }
 
-export function createCredentialsHandler({ storeFactory = createCredentialStore, serviceFactory = createCredentialService } = {}) {
+export function createCredentialsHandler({ storeFactory = createCredentialStore, serviceFactory = createCredentialService, learningRecordStoreFactory = () => { try { return createLearningRecordStore(); } catch { return null; } } } = {}) {
   return async function credentialsHandler(req, res) {
     if (!['GET', 'POST'].includes(req.method)) {
       res.setHeader('Allow', 'GET, POST');
@@ -30,7 +31,7 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
     try {
       if (req.method === 'GET') {
         const session = await currentUser(req, res);
-        const service = serviceFactory({ store: storeFactory() });
+        const service = serviceFactory({ store: storeFactory(), learningRecordStore: learningRecordStoreFactory() });
         const code = queryValue(req, 'code');
         if (code) {
           const credential = await service.find(code);
@@ -42,7 +43,7 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
 
       const body = parseBody(req);
       const action = String(body.action || '');
-      const service = serviceFactory({ store: storeFactory() });
+      const service = serviceFactory({ store: storeFactory(), learningRecordStore: learningRecordStoreFactory() });
       if (action === 'verify') {
         await currentUser(req, res);
         return res.status(200).json({ credential: await service.verify(body.credentialCode) });

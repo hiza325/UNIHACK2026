@@ -9,6 +9,10 @@ import { createCredentialService, normalizeCredentialIssueInput } from '../api/c
 
 const ADMIN = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', role: 'admin' };
 const LEARNER_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const OTHER_LEARNER_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const SESSION_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const SUBMISSION_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+const EVALUATION_ID = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
 const ISSUE_TX = `0x${'11'.repeat(32)}`;
 const REVOKE_TX = `0x${'22'.repeat(32)}`;
 const EVIDENCE_HASH = `0x${'ab'.repeat(32)}`;
@@ -55,6 +59,27 @@ function createMemoryStore() {
       Object.assign(row, patch);
       return { ...row };
     },
+  };
+}
+
+function createLearningMemoryStore(evaluationOverrides = {}) {
+  const sessions = [{ id: SESSION_ID, learner_id: LEARNER_ID, status: 'completed', started_at: '2026-10-28T10:00:00.000Z', completed_at: '2026-10-28T10:05:00.000Z' }];
+  const submissions = [{ id: SUBMISSION_ID, session_id: SESSION_ID, learner_id: LEARNER_ID, attempt_number: 2, submission_type: 'revision', analysis_state: 'analyzed' }];
+  const evaluations = [{
+    id: EVALUATION_ID,
+    session_id: SESSION_ID,
+    submission_id: SUBMISSION_ID,
+    learner_id: LEARNER_ID,
+    status: 'pass',
+    credential_eligible: true,
+    proof_record: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 90, contentHash: 'cd'.repeat(32) },
+    ...evaluationOverrides,
+  }];
+  return {
+    sessions, submissions, evaluations,
+    async findSession(id, learnerId) { return sessions.find(s => s.id === id && s.learner_id === learnerId) || null; },
+    async findSubmission(id, sessionId, learnerId) { return submissions.find(s => s.id === id && s.session_id === sessionId && s.learner_id === learnerId) || null; },
+    async findEvaluation(id, learnerId) { return evaluations.find(e => e.id === id && e.learner_id === learnerId) || null; },
   };
 }
 
@@ -153,4 +178,140 @@ test('verification detects evidence mismatch and Fuji chain guard rejects Mainne
   await expect(assertFujiNetwork({ getNetwork: async () => ({ chainId: 43114n }) })).rejects.toMatchObject({ code: 'AVALANCHE_WRONG_CHAIN', status: 503 });
   await expect(assertFujiNetwork({ getNetwork: async () => ({ chainId: 43113n }) })).resolves.toMatchObject({ chainId: 43113n });
   expect(normalizeEvidenceHash(`sha256:${'12'.repeat(32)}`)).toBe(`0x${'12'.repeat(32)}`);
+});
+
+test('ai-evaluation issuance verifies ownership against learning records', async () => {
+  const store = createMemoryStore();
+  const learningStore = createLearningMemoryStore();
+  const gateway = successfulGateway();
+  const service = createCredentialService({ store, avalancheFactory: async () => gateway, learningRecordStore: learningStore });
+
+  const credential = await service.issue({
+    credentialCode: 'PXP-2026-REAL-0001',
+    learnerId: LEARNER_ID,
+    title: 'Verified reasoning credential',
+    skill: 'Logical reasoning',
+    assessmentScore: 90,
+    source: 'ai-evaluation',
+    isTest: false,
+    isMock: false,
+    evaluationId: EVALUATION_ID,
+    proofRecord: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 90, contentHash: 'cd'.repeat(32) },
+  }, ADMIN);
+
+  expect(credential).toMatchObject({ status: 'verified', isTest: false });
+  expect(store.credentials[0].learner_id).toBe(LEARNER_ID);
+});
+
+test('ai-evaluation issuance rejects evidence from another learner', async () => {
+  const store = createMemoryStore();
+  const learningStore = createLearningMemoryStore(); // evaluation belongs to LEARNER_ID
+  const gateway = successfulGateway();
+  const service = createCredentialService({ store, avalancheFactory: async () => gateway, learningRecordStore: learningStore });
+
+  await expect(service.issue({
+    credentialCode: 'PXP-2026-REAL-0001',
+    learnerId: OTHER_LEARNER_ID, // mismatched
+    title: 'Forged credential',
+    skill: 'Logical reasoning',
+    assessmentScore: 90,
+    source: 'ai-evaluation',
+    isTest: false,
+    evaluationId: EVALUATION_ID,
+    proofRecord: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 90, contentHash: 'cd'.repeat(32) },
+  }, ADMIN)).rejects.toMatchObject({ code: 'LEARNING_EVALUATION_NOT_FOUND', status: 404 });
+});
+
+test('ai-evaluation issuance rejects missing evaluation', async () => {
+  const store = createMemoryStore();
+  const learningStore = createLearningMemoryStore();
+  const gateway = successfulGateway();
+  const service = createCredentialService({ store, avalancheFactory: async () => gateway, learningRecordStore: learningStore });
+
+  await expect(service.issue({
+    credentialCode: 'PXP-2026-REAL-0001',
+    learnerId: LEARNER_ID,
+    title: 'Missing eval',
+    skill: 'Logical reasoning',
+    assessmentScore: 90,
+    source: 'ai-evaluation',
+    isTest: false,
+    evaluationId: '11111111-1111-4111-8111-111111111111',
+    proofRecord: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 90, contentHash: 'cd'.repeat(32) },
+  }, ADMIN)).rejects.toMatchObject({ code: 'LEARNING_EVALUATION_NOT_FOUND', status: 404 });
+});
+
+test('ai-evaluation issuance rejects forged proofRecord contentHash', async () => {
+  const store = createMemoryStore();
+  const learningStore = createLearningMemoryStore();
+  const gateway = successfulGateway();
+  const service = createCredentialService({ store, avalancheFactory: async () => gateway, learningRecordStore: learningStore });
+
+  await expect(service.issue({
+    credentialCode: 'PXP-2026-REAL-0001',
+    learnerId: LEARNER_ID,
+    title: 'Forged proof',
+    skill: 'Logical reasoning',
+    assessmentScore: 90,
+    source: 'ai-evaluation',
+    isTest: false,
+    evaluationId: EVALUATION_ID,
+    proofRecord: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 90, contentHash: 'ff'.repeat(32) },
+  }, ADMIN)).rejects.toMatchObject({ code: 'LEARNING_EVALUATION_PROOF_MISMATCH', status: 409 });
+});
+
+test('ai-evaluation issuance rejects mock evaluation evidence', async () => {
+  const store = createMemoryStore();
+  const learningStore = createLearningMemoryStore({ proof_record: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 90, contentHash: 'cd'.repeat(32), isMock: true } });
+  const gateway = successfulGateway();
+  const service = createCredentialService({ store, avalancheFactory: async () => gateway, learningRecordStore: learningStore });
+
+  await expect(service.issue({
+    credentialCode: 'PXP-2026-REAL-0001',
+    learnerId: LEARNER_ID,
+    title: 'Mock evidence',
+    skill: 'Logical reasoning',
+    assessmentScore: 90,
+    source: 'ai-evaluation',
+    isTest: false,
+    evaluationId: EVALUATION_ID,
+    proofRecord: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 90, contentHash: 'cd'.repeat(32) },
+  }, ADMIN)).rejects.toMatchObject({ code: 'MOCK_CREDENTIAL_FORBIDDEN', status: 400 });
+});
+
+test('ai-evaluation issuance requires learning record store', async () => {
+  const store = createMemoryStore();
+  const gateway = successfulGateway();
+  const service = createCredentialService({ store, avalancheFactory: async () => gateway }); // no learningRecordStore
+
+  await expect(service.issue({
+    credentialCode: 'PXP-2026-REAL-0001',
+    learnerId: LEARNER_ID,
+    title: 'No store',
+    skill: 'Logical reasoning',
+    assessmentScore: 90,
+    source: 'ai-evaluation',
+    isTest: false,
+    evaluationId: EVALUATION_ID,
+    proofRecord: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 90, contentHash: 'cd'.repeat(32) },
+  }, ADMIN)).rejects.toMatchObject({ code: 'LEARNING_RECORD_STORE_NOT_CONFIGURED', status: 503 });
+});
+
+test('ai-evaluation issuance rejects non-passing evaluation', async () => {
+  const store = createMemoryStore();
+  const learningStore = createLearningMemoryStore({ status: 'needs_improvement', credential_eligible: false });
+  const gateway = successfulGateway();
+  const service = createCredentialService({ store, avalancheFactory: async () => gateway, learningRecordStore: learningStore });
+
+  await expect(service.issue({
+    credentialCode: 'PXP-2026-REAL-0001',
+    learnerId: LEARNER_ID,
+    title: 'Not passing',
+    skill: 'Logical reasoning',
+    assessmentScore: 90,
+    source: 'ai-evaluation',
+    isTest: false,
+    evaluationId: EVALUATION_ID,
+    proofRecord: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 90, contentHash: 'cd'.repeat(32) },
+  }, ADMIN)).rejects.toMatchObject({ code: 'LEARNING_EVALUATION_NOT_PASSING', status: 409 });
 });
