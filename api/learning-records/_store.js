@@ -40,6 +40,15 @@ export function createLearningRecordStore({ env = process.env, fetcher = globalT
     return single ? (Array.isArray(data) ? data[0] || null : data) : data || [];
   }
 
+  async function listAll(table, query, { pageSize = 500 } = {}) {
+    const rows = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await request(table, { query: { ...query, limit: String(pageSize), offset: String(offset) } });
+      rows.push(...page);
+      if (page.length < pageSize) return rows;
+    }
+  }
+
   return {
     async insertSession(record) {
       return request('learning_sessions', { method: 'POST', body: record, single: true });
@@ -88,6 +97,30 @@ export function createLearningRecordStore({ env = process.env, fetcher = globalT
     },
     async listEligibleEvaluations(learnerId, { limit = 50, offset = 0 } = {}) {
       return request('learning_evaluations', { query: { select: '*', learner_id: `eq.${learnerId}`, credential_eligible: 'eq.true', order: 'evaluated_at.desc', limit: String(limit), offset: String(offset) } });
+    },
+    async listAchievementSessions(learnerId) {
+      return listAll('learning_sessions', {
+        select: 'id,status,started_at,completed_at',
+        learner_id: `eq.${learnerId}`,
+        status: 'eq.completed',
+        order: 'completed_at.asc,id.asc',
+      });
+    },
+    async listAchievementSubmissions(learnerId) {
+      return listAll('learning_submissions', {
+        select: 'id,session_id,attempt_number,submission_type,analysis_state,ai_analysis',
+        learner_id: `eq.${learnerId}`,
+        analysis_state: 'eq.analyzed',
+        order: 'submitted_at.asc,id.asc',
+      });
+    },
+    async listAchievementEvaluations(learnerId) {
+      return listAll('learning_evaluations', {
+        select: 'session_id,submission_id,status',
+        learner_id: `eq.${learnerId}`,
+        status: 'eq.pass',
+        order: 'evaluated_at.asc,id.asc',
+      });
     },
   };
 }

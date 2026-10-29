@@ -2,6 +2,14 @@ import { credentialIdFromCode } from '../credentials/_avalanche.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ANALYSIS_MODES = new Set(['analyze', 'resubmit']);
+const ACHIEVEMENT_SCHEMA_VERSION = 'paradox-achievement-summary-v1';
+const ACHIEVEMENT_TIME_ZONE = 'Asia/Ho_Chi_Minh';
+const ACHIEVEMENT_DEFINITIONS = Object.freeze([
+  Object.freeze({ id: 'first-session', target: 1 }),
+  Object.freeze({ id: 'error-hunter', target: 1 }),
+  Object.freeze({ id: 'consistency', target: 7 }),
+  Object.freeze({ id: 'critical-thinker', target: 10 }),
+]);
 
 function recordError(message, code, status, cause) {
   return Object.assign(new Error(message, cause ? { cause } : undefined), { code, status });
@@ -34,6 +42,130 @@ function credentialCode(submissionId, evaluatedAt) {
 function durationSeconds(session, now = new Date()) {
   const started = new Date(session.started_at).getTime();
   return Number.isFinite(started) ? Math.max(0, Math.round((now.getTime() - started) / 1000)) : 0;
+}
+
+function timeZoneDateKey(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: ACHIEVEMENT_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date).filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function dateKeyValue(value) {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : NaN;
+}
+
+function calculateStreaks(dateKeys, todayKey) {
+  const ordered = [...new Set(dateKeys)].sort();
+  let longest = [];
+  let running = [];
+  for (const key of ordered) {
+    const previous = running.at(-1);
+    if (previous && dateKeyValue(key) - dateKeyValue(previous) === 86_400_000) running.push(key);
+    else running = [key];
+    if (running.length > longest.length) longest = [...running];
+  }
+
+  const dates = new Set(ordered);
+  const today = dateKeyValue(todayKey);
+  let current = 0;
+  if (Number.isFinite(today)) {
+    let cursor = dates.has(todayKey) ? today : today - 86_400_000;
+    while (dates.has(new Date(cursor).toISOString().slice(0, 10))) {
+      current += 1;
+      cursor -= 86_400_000;
+    }
+  }
+  return { current, longest: longest.length, longestDates: longest };
+}
+
+function isValidCompletedSession(row) {
+  if (!UUID.test(String(row?.id || '')) || row?.status !== 'completed') return false;
+  const startedAt = new Date(row.started_at).getTime();
+  const completedAt = new Date(row.completed_at).getTime();
+  return Number.isFinite(startedAt) && Number.isFinite(completedAt) && completedAt >= startedAt;
+}
+
+/**
+ * Builds the read-only achievement projection from server-owned learning rows.
+ * No client score, pass flag, achievement flag, demo row, or blockchain state is
+ * accepted by this function.
+ */
+export function deriveLearningAchievementSummary({ sessions = [], submissions = [], evaluations = [], generatedAt = new Date() } = {}) {
+  const completedById = new Map();
+  for (const row of sessions) {
+    if (isValidCompletedSession(row) && !completedById.has(row.id)) completedById.set(row.id, row);
+  }
+  const completedSessions = [...completedById.values()].sort((left, right) => (
+    new Date(left.completed_at).getTime() - new Date(right.completed_at).getTime()
+  ));
+  const completedIds = new Set(completedById.keys());
+
+  const submissionsBySession = new Map();
+  for (const row of submissions) {
+    if (!completedIds.has(row?.session_id) || !UUID.test(String(row?.id || ''))) continue;
+    const rows = submissionsBySession.get(row.session_id) || [];
+    rows.push(row);
+    submissionsBySession.set(row.session_id, rows);
+  }
+  const passingEvaluations = new Set(evaluations
+    .filter(row => completedIds.has(row?.session_id) && row?.status === 'pass' && UUID.test(String(row?.submission_id || '')))
+    .map(row => `${row.session_id}:${row.submission_id}`));
+
+  const correctedSessionIds = [];
+  for (const session of completedSessions) {
+    const rows = (submissionsBySession.get(session.id) || []).sort((left, right) => Number(left.attempt_number) - Number(right.attempt_number));
+    const initial = rows.find(row => row.submission_type === 'initial' && Number(row.attempt_number) === 1);
+    if (initial?.analysis_state !== 'analyzed' || initial.ai_analysis?.status !== 'incorrect') continue;
+    const corrected = rows.some(row => row.submission_type === 'revision'
+      && Number(row.attempt_number) > 1
+      && row.analysis_state === 'analyzed'
+      && row.ai_analysis?.status === 'correct'
+      && row.ai_analysis?.evaluation?.status === 'pass'
+      && passingEvaluations.has(`${session.id}:${row.id}`));
+    if (corrected) correctedSessionIds.push(session.id);
+  }
+
+  const activityDates = completedSessions.map(row => timeZoneDateKey(row.completed_at)).filter(Boolean);
+  const streaks = calculateStreaks(activityDates, timeZoneDateKey(generatedAt));
+  const currentById = {
+    'first-session': completedSessions.length,
+    'error-hunter': correctedSessionIds.length,
+    consistency: streaks.longest,
+    'critical-thinker': completedSessions.length,
+  };
+  const evidenceById = {
+    'first-session': { sessionIds: completedSessions.slice(0, 1).map(row => row.id) },
+    'error-hunter': { sessionIds: correctedSessionIds.slice(0, 1) },
+    consistency: { activityDates: streaks.longestDates.slice(0, 7) },
+    'critical-thinker': { sessionIds: completedSessions.slice(0, 10).map(row => row.id) },
+  };
+
+  return {
+    schemaVersion: ACHIEVEMENT_SCHEMA_VERSION,
+    source: { type: 'learning_records', authoritative: true },
+    timeZone: ACHIEVEMENT_TIME_ZONE,
+    generatedAt: (generatedAt instanceof Date ? generatedAt : new Date(generatedAt)).toISOString(),
+    metrics: {
+      validCompletedSessions: completedSessions.length,
+      successfulCorrectionSessions: correctedSessionIds.length,
+      distinctActivityDays: new Set(activityDates).size,
+      currentStreak: streaks.current,
+      longestStreak: streaks.longest,
+    },
+    achievements: ACHIEVEMENT_DEFINITIONS.map(definition => ({
+      ...definition,
+      current: currentById[definition.id],
+      earned: currentById[definition.id] >= definition.target,
+      evidence: evidenceById[definition.id],
+    })),
+  };
 }
 
 function publicSubmission(row) {
@@ -300,6 +432,15 @@ export function createLearningRecordService({ store, now = () => new Date() } = 
     async listSessions(user, options = {}) {
       const learnerId = requireUuid(user?.id, 'Learner ID');
       return (await store.listSessions(learnerId, options)).map(publicLearningSession);
+    },
+    async getAchievementSummary(user) {
+      const learnerId = requireUuid(user?.id, 'Learner ID');
+      const [sessions, submissions, evaluations] = await Promise.all([
+        store.listAchievementSessions(learnerId),
+        store.listAchievementSubmissions(learnerId),
+        store.listAchievementEvaluations(learnerId),
+      ]);
+      return deriveLearningAchievementSummary({ sessions, submissions, evaluations, generatedAt: now() });
     },
     async getSession(sessionId, user) {
       const learnerId = requireUuid(user?.id, 'Learner ID');

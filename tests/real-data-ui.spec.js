@@ -68,7 +68,20 @@ function realSessions() {
   ];
 }
 
-async function mockRemoteApis(page, { sessions = [], passport = emptyPassport(), status = 200 } = {}) {
+function achievementSummary({ completed = 0, corrections = 0, streak = 0 } = {}) {
+  const values = { 'first-session': completed, 'error-hunter': corrections, consistency: streak, 'critical-thinker': completed };
+  const targets = { 'first-session': 1, 'error-hunter': 1, consistency: 7, 'critical-thinker': 10 };
+  return {
+    schemaVersion: 'paradox-achievement-summary-v1',
+    source: { type: 'learning_records', authoritative: true },
+    timeZone: 'Asia/Ho_Chi_Minh',
+    generatedAt: '2026-10-29T02:00:00.000Z',
+    metrics: { validCompletedSessions: completed, successfulCorrectionSessions: corrections, distinctActivityDays: completed, currentStreak: streak, longestStreak: streak },
+    achievements: Object.keys(targets).map(id => ({ id, current: values[id], target: targets[id], earned: values[id] >= targets[id], evidence: {} })),
+  };
+}
+
+async function mockRemoteApis(page, { sessions = [], passport = emptyPassport(), status = 200, achievements } = {}) {
   await page.route('**/api/learning-records*', async route => {
     if (status !== 200) {
       await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Database unavailable', code: 'LEARNING_RECORD_DATABASE_UNAVAILABLE' }) });
@@ -86,7 +99,11 @@ async function mockRemoteApis(page, { sessions = [], passport = emptyPassport(),
       });
       return;
     }
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sessions }) });
+    const completed = sessions.filter(item => item.status === 'completed').length;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      sessions,
+      achievementSummary: achievements || achievementSummary({ completed }),
+    }) });
   });
   await page.route('**/api/credentials*', route => route.fulfill({
     status,
@@ -101,7 +118,7 @@ test('Loading state is visible while real Dashboard sources are pending', async 
   const gate = new Promise(resolve => { release = resolve; });
   await page.route('**/api/learning-records*', async route => {
     await gate;
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sessions: [] }) });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sessions: [], achievementSummary: achievementSummary() }) });
   });
   await page.route('**/api/credentials*', async route => {
     await gate;
@@ -135,7 +152,7 @@ test('API failures render Error with retry instead of zeroes or empty conclusion
   let failing = true;
   await page.route('**/api/learning-records*', route => route.fulfill({
     status: failing ? 503 : 200, contentType: 'application/json',
-    body: JSON.stringify(failing ? { error: 'Unavailable', code: 'LEARNING_RECORD_DATABASE_UNAVAILABLE' } : { sessions: [] }),
+    body: JSON.stringify(failing ? { error: 'Unavailable', code: 'LEARNING_RECORD_DATABASE_UNAVAILABLE' } : { sessions: [], achievementSummary: achievementSummary() }),
   }));
   await page.route('**/api/credentials*', route => route.fulfill({
     status: failing ? 503 : 200, contentType: 'application/json',
@@ -174,7 +191,7 @@ test('Real state uses stored metrics, resumes the selected session, and separate
   await page.goto('/#/profile');
   await expect(page.locator('[data-achievement-page-state="real"]')).toBeVisible();
   await expect(page.locator('[data-achievement-status="earned"]')).toHaveCount(1);
-  await expect(page.locator('[data-achievement-status="unavailable"]')).toHaveCount(1);
+  await expect(page.locator('[data-achievement-status="locked"]')).toHaveCount(3);
   await expect(page.locator('[data-credential-state="issued"]')).toContainText('PXP-2026-REAL-0001');
   await expect(page.locator('[data-credential-state="issued"] .credential-status.verified')).toBeVisible();
 });
@@ -195,4 +212,8 @@ test('Demo state remains available for tests but is visibly labelled and isolate
 
   await page.goto('/#/practice');
   await expect(page.locator('[data-practice-state="demo"] .data-source-badge.demo')).toBeVisible();
+
+  await page.goto('/#/profile');
+  await expect(page.locator('[data-achievement-page-state="demo"]')).toBeVisible();
+  await expect(page.locator('.profile-page .data-source-badge.demo')).toContainText('DEMO');
 });

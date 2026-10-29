@@ -161,7 +161,7 @@ export const extraCopy = {
     profUpgradeToast: 'Bản prototype chưa hỗ trợ nâng cấp gói.',
     badge1: 'Người tự sửa lỗi', badge2: 'Chuỗi 7 ngày',
     badge3: 'Nhà phản biện', badge4: 'Nhà lập luận',
-    badge1Desc: 'Tự sửa 5 lỗi', badge2Desc: 'Học 7 ngày liên tiếp',
+    badge1Desc: 'Sửa đúng một bài đã làm sai', badge2Desc: 'Học 7 ngày liên tiếp',
     badge3Desc: 'Hoàn thành 10 phiên', badge4Desc: 'Mở khoá sau 20 phiên',
 
     aboutHeading: 'Học bằng cách tự tìm ra lỗi',
@@ -395,7 +395,7 @@ export const extraCopy = {
     profUpgradeToast: 'Upgrading is not available in this prototype.',
     badge1: 'Self-corrector', badge2: '7-day streak',
     badge3: 'Auditor', badge4: 'Reasoner',
-    badge1Desc: 'Fixed 5 errors yourself', badge2Desc: 'Studied 7 days in a row',
+    badge1Desc: 'Corrected one initially wrong solution', badge2Desc: 'Studied 7 days in a row',
     badge3Desc: 'Completed 10 sessions', badge4Desc: 'Unlocks after 20 sessions',
 
     aboutHeading: 'Learn by finding the mistake',
@@ -629,7 +629,7 @@ export const extraCopy = {
     profUpgradeToast: 'このプロトタイプではアップグレードできません。',
     badge1: '自己修正者', badge2: '7日連続',
     badge3: '監査者', badge4: '論理者',
-    badge1Desc: '5つの誤りを自分で修正', badge2Desc: '7日連続で学習',
+    badge1Desc: '最初に間違えた解答を1回修正', badge2Desc: '7日連続で学習',
     badge3Desc: '10セッション完了', badge4Desc: '20セッションで解除',
 
     aboutHeading: '間違いを見つけて学ぶ',

@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { createDebateHandler } from '../api/debate.js';
-import { createLearningRecordService } from '../api/learning-records/_service.js';
+import { createLearningRecordService, deriveLearningAchievementSummary } from '../api/learning-records/_service.js';
+import { createLearningRecordsHandler } from '../api/learning-records/index.js';
+import { createLearningRecordStore } from '../api/learning-records/_store.js';
 import { credentialIdFromCode } from '../api/credentials/_avalanche.js';
 
 const LEARNER = { id: '11111111-1111-4111-8111-111111111111', name: 'Learner' };
@@ -61,6 +63,9 @@ function createMemoryStore() {
     },
     async listEvaluations(sessionId, learnerId) { return evaluations.filter(item => item.session_id === sessionId && item.learner_id === learnerId); },
     async listEligibleEvaluations(learnerId) { return evaluations.filter(item => item.learner_id === learnerId && item.credential_eligible); },
+    async listAchievementSessions(learnerId) { return sessions.filter(item => item.learner_id === learnerId && item.status === 'completed'); },
+    async listAchievementSubmissions(learnerId) { return submissions.filter(item => item.learner_id === learnerId && item.analysis_state === 'analyzed'); },
+    async listAchievementEvaluations(learnerId) { return evaluations.filter(item => item.learner_id === learnerId && item.status === 'pass'); },
   };
 }
 
@@ -71,6 +76,16 @@ function passingResult() {
     comparison: { summary: 'Improved.', improvements: ['Fixed reasoning.'], remainingIssues: [] },
     evaluation: { rubricVersion: 'paradox-rubric-v1', evidenceSufficient: true, score: 100, status: 'pass', comment: 'Meets every criterion.', criteria, correctedIssues: ['Reasoning fixed.'], remainingIssues: [] },
     proofRecord: { schemaVersion: 'paradox-proof-of-learning-v1', rubricVersion: 'paradox-rubric-v1', contentHash: 'ab'.repeat(32), evidenceSufficient: true, status: 'pass', score: 100, model: 'test-model' },
+  };
+}
+
+function apiResponse() {
+  return {
+    statusCode: 200,
+    payload: null,
+    setHeader() { return this; },
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { this.payload = payload; return this; },
   };
 }
 
@@ -85,30 +100,103 @@ test('learning records persist sessions, revisions, analysis and reloadable hist
   const initialAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: created.submission.id, userId: LEARNER.id, input: initialInput });
   await service.recordAiResult({ authorized: initialAuthorization, input: initialInput, result: { status: 'incorrect', summary: 'Division is incorrect.', issues: [{ category: 'knowledge' }], strengths: [], reply: '' }, model: 'test-model' });
 
+  const hintInput = { mode: 'hint', problem: 'Solve 2x = 8', solution: 'x = 6', question: 'Give me one hint.', hintLevel: 1 };
+  const hintAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: created.submission.id, userId: LEARNER.id, input: hintInput });
+  await service.recordAiResult({ authorized: hintAuthorization, input: hintInput, result: { status: 'incorrect', summary: 'Review division.', hint: { level: 1, content: 'Divide both sides by 2.' }, reply: '' }, model: 'test-model' });
+
+  const discussionInput = { mode: 'discuss', problem: 'Solve 2x = 8', solution: 'x = 6', question: 'Why divide by 2?', hintLevel: 0 };
+  const discussionAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: created.submission.id, userId: LEARNER.id, input: discussionInput });
+  await service.recordAiResult({ authorized: discussionAuthorization, input: discussionInput, result: { status: 'incorrect', summary: 'Use the inverse operation.', reply: 'Division isolates x.' }, model: 'test-model' });
+
   const revision = await service.createSubmission({ sessionId: created.session.id, solution: 'x = 4', analysis: { status: 'correct' } }, LEARNER);
   expect(revision.attemptNumber).toBe(2);
   const revisionInput = { mode: 'resubmit', problem: 'Solve 2x = 8', solution: 'x = 4', question: '', hintLevel: 0 };
   const revisionAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: revision.id, userId: LEARNER.id, input: revisionInput });
   await service.recordAiResult({ authorized: revisionAuthorization, input: revisionInput, result: passingResult(), model: 'test-model' });
 
-  const reloaded = await service.getSession(created.session.id, LEARNER);
+  const reloadedService = createLearningRecordService({ store, now: () => new Date('2026-10-28T10:05:00.000Z') });
+  const reloaded = await reloadedService.getSession(created.session.id, LEARNER);
   expect(reloaded).toMatchObject({ status: 'completed', latestEvaluationStatus: 'pass', latestScore: 100, durationSeconds: 300 });
   expect(reloaded.submissions).toHaveLength(2);
-  expect(reloaded.submissions[0]).toMatchObject({ analysisState: 'analyzed', analysis: { status: 'incorrect' } });
-  expect(reloaded.submissions[1]).toMatchObject({ analysisState: 'analyzed', analysis: { evaluation: { status: 'pass' } } });
-  expect(reloaded.interactions).toHaveLength(2);
+  expect(reloaded.submissions[0]).toMatchObject({ type: 'initial', solution: 'x = 6', analysisState: 'analyzed', analysis: { status: 'incorrect' } });
+  expect(reloaded.submissions[1]).toMatchObject({ type: 'revision', solution: 'x = 4', analysisState: 'analyzed', analysis: { evaluation: { status: 'pass' } } });
+  expect(reloaded.interactions).toHaveLength(6);
   expect(await service.listSessions(LEARNER)).toHaveLength(1);
+  const achievements = await reloadedService.getAchievementSummary(LEARNER);
+  expect(achievements.metrics).toMatchObject({ validCompletedSessions: 1, successfulCorrectionSessions: 1 });
+  expect(achievements.achievements.filter(item => item.earned).map(item => item.id)).toEqual(['first-session', 'error-hunter']);
   await expect(service.authorizeAiRequest({ sessionId: created.session.id, submissionId: revision.id, userId: LEARNER.id, input: revisionInput }))
     .rejects.toMatchObject({ code: 'LEARNING_SUBMISSION_ALREADY_ANALYZED', status: 409 });
 });
 
-test('learning record ownership is enforced and input cannot self-assign a passing evaluation', async () => {
+test('learning record ownership is enforced and input cannot self-assign a passing evaluation or achievement', async () => {
   const store = createMemoryStore();
   const service = createLearningRecordService({ store });
-  const created = await service.createSession({ problem: 'Explain a theorem', initialSolution: 'Unfinished proof', subject: 'Logic', latestEvaluationStatus: 'pass', latestScore: 100 }, LEARNER);
+  const created = await service.createSession({ problem: 'Explain a theorem', initialSolution: 'Unfinished proof', subject: 'Logic', latestEvaluationStatus: 'pass', latestScore: 100, status: 'completed', achievement: 'error-hunter' }, LEARNER);
   expect(store.sessions[0]).toMatchObject({ status: 'in_progress', latest_score: null });
+  expect((await service.getAchievementSummary(LEARNER)).achievements.every(item => item.earned === false)).toBe(true);
+  expect((await service.getAchievementSummary(OTHER_LEARNER)).metrics.validCompletedSessions).toBe(0);
   await expect(service.getSession(created.session.id, OTHER_LEARNER)).rejects.toMatchObject({ code: 'LEARNING_SESSION_NOT_FOUND', status: 404 });
   await expect(service.createSubmission({ sessionId: created.session.id, solution: 'Forged pass', status: 'pass', score: 100 }, OTHER_LEARNER)).rejects.toMatchObject({ code: 'LEARNING_SESSION_NOT_FOUND' });
+});
+
+test('learning-record API returns authoritative achievement projection and rejects fake unlock actions', async () => {
+  const originalUrl = process.env.SUPABASE_URL;
+  const originalAnonKey = process.env.SUPABASE_ANON_KEY;
+  process.env.SUPABASE_URL = 'https://example.supabase.co';
+  process.env.SUPABASE_ANON_KEY = 'test-anon-key';
+  const store = createMemoryStore();
+  const service = createLearningRecordService({ store });
+  try {
+    await service.createSession({ problem: 'Explain a theorem', initialSolution: 'Unfinished proof' }, LEARNER);
+    const handler = createLearningRecordsHandler({
+      storeFactory: () => store,
+      sessionResolver: async () => ({ user: { ...LEARNER, email: 'learner@example.com' } }),
+    });
+    const getResponse = apiResponse();
+    await handler({ method: 'GET', query: {}, headers: {} }, getResponse);
+    expect(getResponse.statusCode).toBe(200);
+    expect(getResponse.payload).toMatchObject({
+      sessions: [expect.objectContaining({ status: 'in_progress' })],
+      achievementSummary: {
+        schemaVersion: 'paradox-achievement-summary-v1',
+        source: { type: 'learning_records', authoritative: true },
+        metrics: { validCompletedSessions: 0, successfulCorrectionSessions: 0 },
+      },
+    });
+
+    const fakeResponse = apiResponse();
+    await handler({ method: 'POST', body: { action: 'unlockAchievement', achievement: 'error-hunter', earned: true }, headers: {} }, fakeResponse);
+    expect(fakeResponse).toMatchObject({ statusCode: 400, payload: { code: 'INVALID_LEARNING_RECORD_ACTION' } });
+    expect((await service.getAchievementSummary(LEARNER)).achievements.every(item => !item.earned)).toBe(true);
+  } finally {
+    if (originalUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = originalUrl;
+    if (originalAnonKey === undefined) delete process.env.SUPABASE_ANON_KEY; else process.env.SUPABASE_ANON_KEY = originalAnonKey;
+  }
+});
+
+test('achievement store queries scope every evidence table to the authenticated learner', async () => {
+  const urls = [];
+  const store = createLearningRecordStore({
+    env: { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'test-service-key' },
+    fetcher: async url => {
+      urls.push(new URL(url));
+      return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+
+  await Promise.all([
+    store.listAchievementSessions(LEARNER.id),
+    store.listAchievementSubmissions(LEARNER.id),
+    store.listAchievementEvaluations(LEARNER.id),
+  ]);
+
+  expect(urls).toHaveLength(3);
+  for (const url of urls) expect(url.searchParams.get('learner_id')).toBe(`eq.${LEARNER.id}`);
+  expect(urls.find(url => url.pathname.endsWith('/learning_sessions'))?.searchParams.get('status')).toBe('eq.completed');
+  expect(urls.find(url => url.pathname.endsWith('/learning_submissions'))?.searchParams.get('analysis_state')).toBe('eq.analyzed');
+  expect(urls.find(url => url.pathname.endsWith('/learning_evaluations'))?.searchParams.get('status')).toBe('eq.pass');
+  expect(urls.find(url => url.pathname.endsWith('/learning_submissions'))?.searchParams.get('select')).not.toContain('solution_text');
 });
 
 test('server-derived evaluation prepares hashes but never fabricates blockchain verification', async () => {
@@ -124,6 +212,7 @@ test('server-derived evaluation prepares hashes but never fabricates blockchain 
   expect(evaluation.credential.id).toMatch(/^PXP-2026-[A-F0-9]{8}-\d{4}$/);
   expect(evaluation.credential.idHash).toBe(credentialIdFromCode(evaluation.credential.id));
   expect(evaluation.credential.hash).toBe(`0x${'ab'.repeat(32)}`);
+  expect(store.evaluations[0].proof_record).toMatchObject({ schemaVersion: 'paradox-proof-of-learning-v1', status: 'pass', score: 100 });
   expect(await service.listEligibleEvaluations(LEARNER)).toHaveLength(1);
 
   const discussionInput = { mode: 'discuss', problem: 'Solve 2x = 8', solution: 'x = 4', question: 'Why?', hintLevel: 0 };
@@ -157,4 +246,89 @@ test('Debate API without an AI key records analysis failure without creating an 
   expect(response).toMatchObject({ statusCode: 503, payload: { code: 'NOT_CONFIGURED' } });
   expect(failure.error).toMatchObject({ code: 'NOT_CONFIGURED' });
   expect(failure.input).toMatchObject({ mode: 'analyze', problem: 'Solve 2x = 8', solution: 'x = 6' });
+});
+
+function evidenceSession(index, completedAt, overrides = {}) {
+  const id = `${String(index).padStart(8, '0')}-dddd-4ddd-8ddd-dddddddddddd`;
+  const completed = new Date(completedAt);
+  return {
+    id,
+    status: 'completed',
+    started_at: new Date(completed.getTime() - 60_000).toISOString(),
+    completed_at: completed.toISOString(),
+    ...overrides,
+  };
+}
+
+function evidenceSubmission(index, sessionId, attemptNumber, type, status, evaluationStatus = null) {
+  return {
+    id: `${String(index).padStart(8, '0')}-eeee-4eee-8eee-eeeeeeeeeeee`,
+    session_id: sessionId,
+    attempt_number: attemptNumber,
+    submission_type: type,
+    analysis_state: 'analyzed',
+    ai_analysis: { status, ...(evaluationStatus ? { evaluation: { status: evaluationStatus } } : {}) },
+  };
+}
+
+test('an initially correct solution does not count as self-correction', () => {
+  const session = evidenceSession(1, '2026-10-20T05:00:00.000Z');
+  const initial = evidenceSubmission(1, session.id, 1, 'initial', 'correct');
+  const summary = deriveLearningAchievementSummary({ sessions: [session], submissions: [initial], generatedAt: new Date('2026-10-20T06:00:00.000Z') });
+
+  expect(summary.metrics).toMatchObject({ validCompletedSessions: 1, successfulCorrectionSessions: 0 });
+  expect(summary.achievements.find(item => item.id === 'first-session')?.earned).toBe(true);
+  expect(summary.achievements.find(item => item.id === 'error-hunter')?.earned).toBe(false);
+});
+
+test('failed and incomplete resubmissions are excluded from achievements', () => {
+  const session = evidenceSession(1, '2026-10-20T05:00:00.000Z', { status: 'in_progress', completed_at: null });
+  const initial = evidenceSubmission(1, session.id, 1, 'initial', 'incorrect');
+  const revision = evidenceSubmission(2, session.id, 2, 'revision', 'incorrect', 'needs_improvement');
+  const summary = deriveLearningAchievementSummary({
+    sessions: [session],
+    submissions: [initial, revision],
+    evaluations: [{ session_id: session.id, submission_id: revision.id, status: 'needs_improvement' }],
+  });
+
+  expect(summary.metrics).toMatchObject({ validCompletedSessions: 0, successfulCorrectionSessions: 0, longestStreak: 0 });
+  expect(summary.achievements.every(item => item.earned === false)).toBe(true);
+});
+
+test('multiple revisions in one session produce one successful-correction achievement unit', () => {
+  const session = evidenceSession(1, '2026-10-20T05:00:00.000Z');
+  const initial = evidenceSubmission(1, session.id, 1, 'initial', 'incorrect');
+  const failed = evidenceSubmission(2, session.id, 2, 'revision', 'incorrect', 'needs_improvement');
+  const passed = evidenceSubmission(3, session.id, 3, 'revision', 'correct', 'pass');
+  const duplicatePass = evidenceSubmission(4, session.id, 4, 'revision', 'correct', 'pass');
+  const summary = deriveLearningAchievementSummary({
+    sessions: [session],
+    submissions: [initial, failed, passed, duplicatePass],
+    evaluations: [passed, duplicatePass].map(row => ({ session_id: session.id, submission_id: row.id, status: 'pass' })),
+  });
+
+  expect(summary.metrics.successfulCorrectionSessions).toBe(1);
+  expect(summary.achievements.find(item => item.id === 'error-hunter')).toMatchObject({ current: 1, target: 1, earned: true });
+});
+
+test('seven distinct consecutive completion days use Asia/Ho_Chi_Minh and ignore same-day duplicates', () => {
+  const sessions = Array.from({ length: 7 }, (_, index) => evidenceSession(index + 1, new Date(Date.parse('2026-10-01T17:30:00.000Z') + index * 86_400_000).toISOString()));
+  sessions.push(evidenceSession(8, '2026-10-04T18:00:00.000Z'));
+  sessions.push(evidenceSession(9, '2026-10-09T05:00:00.000Z', { status: 'analysis_unavailable', completed_at: null }));
+  const summary = deriveLearningAchievementSummary({ sessions, generatedAt: new Date('2026-10-08T18:00:00.000Z') });
+
+  expect(summary.timeZone).toBe('Asia/Ho_Chi_Minh');
+  expect(summary.metrics).toMatchObject({ validCompletedSessions: 8, distinctActivityDays: 7, longestStreak: 7 });
+  expect(summary.achievements.find(item => item.id === 'consistency')).toMatchObject({ current: 7, earned: true });
+});
+
+test('ten unique valid completed sessions unlock Critical Thinker and invalid duplicate rows do not count', () => {
+  const sessions = Array.from({ length: 10 }, (_, index) => evidenceSession(index + 1, new Date(Date.parse('2026-09-01T05:00:00.000Z') + index * 2 * 86_400_000).toISOString()));
+  sessions.push({ ...sessions[0] });
+  sessions.push(evidenceSession(11, '2026-09-30T05:00:00.000Z', { completed_at: null }));
+  sessions.push(evidenceSession(12, '2026-09-30T05:00:00.000Z', { started_at: '2026-10-01T05:00:00.000Z' }));
+  const summary = deriveLearningAchievementSummary({ sessions });
+
+  expect(summary.metrics.validCompletedSessions).toBe(10);
+  expect(summary.achievements.find(item => item.id === 'critical-thinker')).toMatchObject({ current: 10, target: 10, earned: true });
 });

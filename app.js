@@ -59,10 +59,12 @@ class EduApp extends HTMLElement {
     this.learningRecordSubmissionId = '';
     this.activeLocalSessionId = '';
     this.remoteLearningSessions = [];
+    this.remoteAchievementSummary = null;
     this.learningRecordsLoaded = false;
     this.learningRecordsLoading = false;
     this.learningRecordsLoadAttempted = false;
     this.learningRecordSyncError = '';
+    this.learningRecordsRefreshQueued = false;
     this.passportSelectedCredentialCode = '';
     this.passportVerificationQuery = '';
     this.passportVerificationResult = null;

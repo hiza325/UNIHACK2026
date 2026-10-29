@@ -35,6 +35,11 @@ export function createLearningRecordsService({ enabled = false, apiBaseUrl = '/a
       const data = await request(`?${query}`);
       return data.sessions;
     },
+    async getOverview({ limit = 100, offset = 0 } = {}) {
+      const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+      const data = await request(`?${query}`);
+      return { sessions: data.sessions, achievementSummary: data.achievementSummary };
+    },
     async getSession(sessionId) {
       const data = await request(`?${new URLSearchParams({ id: sessionId })}`);
       return data.session;

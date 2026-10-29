@@ -327,7 +327,7 @@ export const SUPPORT_FAQ = [
       "gợi ý",
       "tính điểm"
     ],
-    "answer": "Dùng gợi ý không bị trừ điểm. Tuy nhiên, gợi ý mức 2–3 sẽ khiến phiên không còn được tính là \"tự sửa lỗi\".",
+    "answer": "Dùng gợi ý không bị trừ điểm và không tự động làm mất điều kiện \"tự sửa lỗi\". Hệ thống chỉ ghi nhận khi bài ban đầu sai và một lần nộp lại trong cùng phiên được backend đánh giá đạt.",
     "source": {
       "paragraph": 71
     }
@@ -1609,7 +1609,7 @@ export const SUPPORT_FAQ = [
       "First Step",
       "phiên đầu"
     ],
-    "answer": "Bạn hoàn thành phiên học đầu tiên là mở khoá được First Step.",
+    "answer": "Bạn hoàn thành phiên học đầu tiên hợp lệ được backend ghi nhận để mở khoá First Step.",
     "source": {
       "paragraph": 359
     }
@@ -1623,7 +1623,7 @@ export const SUPPORT_FAQ = [
       "Error Hunter",
       "tự sửa lỗi"
     ],
-    "answer": "Bạn cần tự sửa lỗi thành công trong 5 phiên khác nhau mà không dùng gợi ý mức 2 trở lên.",
+    "answer": "Bạn cần có một phiên mà bài ban đầu được đánh giá sai, sau đó nộp lại và được backend đánh giá đạt trong chính phiên đó.",
     "source": {
       "paragraph": 362
     }
@@ -1637,7 +1637,7 @@ export const SUPPORT_FAQ = [
       "Critical Thinker",
       "10 phiên"
     ],
-    "answer": "Bạn hoàn thành 10 phiên học để mở khoá Critical Thinker.",
+    "answer": "Bạn hoàn thành 10 phiên phản biện hợp lệ, không trùng lặp, để mở khoá Critical Thinker.",
     "source": {
       "paragraph": 365
     }
@@ -1651,7 +1651,7 @@ export const SUPPORT_FAQ = [
       "Independent Learner",
       "không gợi ý"
     ],
-    "answer": "Bạn hoàn thành 5 phiên không dùng bất kỳ gợi ý nào để mở khoá Independent Learner.",
+    "answer": "Independent Learner chưa phải huy hiệu hiện có. Profile hiện chỉ hiển thị First Step, Error Hunter, Consistency và Critical Thinker.",
     "source": {
       "paragraph": 368
     }
@@ -1665,7 +1665,7 @@ export const SUPPORT_FAQ = [
       "Comeback Master",
       "tăng điểm"
     ],
-    "answer": "Bạn cần cải thiện điểm ít nhất 5 điểm sau khi nộp lại trong cùng một phiên.",
+    "answer": "Comeback Master chưa phải huy hiệu hiện có. Một lần sửa bài sai thành công hiện được ghi nhận qua Error Hunter.",
     "source": {
       "paragraph": 371
     }
@@ -1679,7 +1679,7 @@ export const SUPPORT_FAQ = [
       "Consistency",
       "7 ngày"
     ],
-    "answer": "Bạn duy trì chuỗi 7 ngày học liên tiếp để mở khoá Consistency.",
+    "answer": "Bạn có hoạt động học tập hợp lệ trong 7 ngày liên tiếp theo múi giờ Asia/Ho_Chi_Minh để mở khoá Consistency; nhiều phiên cùng ngày chỉ tính một ngày.",
     "source": {
       "paragraph": 374
     }
@@ -1693,7 +1693,7 @@ export const SUPPORT_FAQ = [
       "Master of Reasoning",
       "90 điểm"
     ],
-    "answer": "Bạn cần đạt 5 đánh giá từ 90 điểm trở lên để mở khoá Master of Reasoning.",
+    "answer": "Master of Reasoning chưa phải huy hiệu hiện có. Profile hiện chỉ hiển thị bốn thành tựu có bằng chứng learning record.",
     "source": {
       "paragraph": 377
     }

@@ -1,5 +1,5 @@
-/* Profile achievements are derived from stored sessions; issued credentials require persisted on-chain evidence. */
-import { deriveAchievements, issuedCredentials } from '../learning-data.js';
+/* Remote achievements come from backend-derived evidence; issued credentials still require on-chain evidence. */
+import { issuedCredentials } from '../learning-data.js';
 import { svgIcon } from '../icons.js';
 
 export const profileViews = {
@@ -33,7 +33,7 @@ export const profileViews = {
     if (state === 'empty') return `<div class="page profile-page" data-achievement-page-state="empty">${head}${identity}${this.dataStatePanel('empty', { title: t('achievementEmptyTitle'), message: t('achievementEmptyDesc') })}${form}</div>`;
 
     const metrics = this.learningMetrics();
-    const achievements = deriveAchievements(metrics);
+    const achievements = this.learningAchievements();
     const earned = achievements.filter(item => item.status === 'earned').length;
     const passport = this.learningPassportDataState() === 'real' ? this.getLearningPassportSnapshot() : null;
     const credentials = issuedCredentials(passport);

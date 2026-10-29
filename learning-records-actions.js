@@ -1,4 +1,5 @@
 import { createLearningRecordsService } from './learning-records-service.js';
+import { normalizeAchievementSummary } from './learning-data.js';
 
 export const learningRecordActionMethods = {
   configureLearningRecordsService() {
@@ -6,10 +7,12 @@ export const learningRecordActionMethods = {
     const enabled = runtime.enabled === true || (runtime.enabled !== false && this.authProvider === 'remote');
     this.learningRecordsService = createLearningRecordsService({ enabled, apiBaseUrl: runtime.apiBaseUrl || '/api' });
     this.remoteLearningSessions = [];
+    this.remoteAchievementSummary = null;
     this.learningRecordsLoaded = false;
     this.learningRecordsLoading = false;
     this.learningRecordsLoadAttempted = false;
     this.learningRecordSyncError = '';
+    this.learningRecordsRefreshQueued = false;
   },
   currentLearningRecordContext() {
     if (!this.learningRecordsService?.enabled || !this.learningRecordSessionId || !this.learningRecordSubmissionId) return null;
@@ -44,14 +47,21 @@ export const learningRecordActionMethods = {
     }
   },
   async loadLearningRecordHistory({ force = false } = {}) {
-    if (!this.learningRecordsService?.enabled || this.learningRecordsLoading || (this.learningRecordsLoaded && !force)) return;
+    if (!this.learningRecordsService?.enabled || (this.learningRecordsLoaded && !force)) return;
+    if (this.learningRecordsLoading) {
+      if (force) this.learningRecordsRefreshQueued = true;
+      return;
+    }
     this.learningRecordsLoading = true;
     this.learningRecordsLoadAttempted = true;
     this.learningRecordSyncError = '';
     if (['dashboard', 'history', 'analytics', 'profile'].includes(this.view)) this.render();
     try {
-      const sessions = await this.learningRecordsService.listSessions({ limit: 100 });
+      const overview = await this.learningRecordsService.getOverview({ limit: 100 });
+      const sessions = overview?.sessions;
+      const achievementSummary = normalizeAchievementSummary(overview?.achievementSummary);
       if (!Array.isArray(sessions)) throw Object.assign(new Error('Invalid learning record response'), { code: 'LEARNING_RECORD_INVALID_RESPONSE' });
+      if (!achievementSummary) throw Object.assign(new Error('Invalid achievement summary response'), { code: 'LEARNING_RECORD_INVALID_RESPONSE' });
       this.remoteLearningSessions = sessions.map(session => {
         const date = new Date(session.startedAt);
         const isoDate = Number.isNaN(date.getTime()) ? '' : this.localDateKey(date);
@@ -71,7 +81,6 @@ export const learningRecordActionMethods = {
           status,
           recordStatus: session.status,
           score: Number.isFinite(session.latestScore) ? session.latestScore : null,
-          selfDetected: null,
           analysisStatus: session.latestAnalysisStatus || null,
           evaluationStatus: session.latestEvaluationStatus || null,
           startedAt: session.startedAt,
@@ -82,6 +91,7 @@ export const learningRecordActionMethods = {
           isReal: true,
         };
       });
+      this.remoteAchievementSummary = achievementSummary;
       this.learningRecordsLoaded = true;
       this.learningRecordSyncError = '';
     } catch (error) {
@@ -89,6 +99,10 @@ export const learningRecordActionMethods = {
     } finally {
       this.learningRecordsLoading = false;
       if (['dashboard', 'history', 'analytics', 'profile'].includes(this.view)) this.render();
+      if (this.learningRecordsRefreshQueued) {
+        this.learningRecordsRefreshQueued = false;
+        this.loadLearningRecordHistory({ force: true });
+      }
     }
   },
   async resumeLearningSession(sessionId) {

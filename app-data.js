@@ -1,5 +1,5 @@
 import { ADMIN_EMAILS } from './app-config.js';
-import { DISPLAY_TIME_ZONE, learningRecordDataState, passportDataState, summarizeLearningData } from './learning-data.js';
+import { DISPLAY_TIME_ZONE, deriveAchievements, learningRecordDataState, passportDataState, summarizeLearningData } from './learning-data.js';
 
 const ACCOUNT_KEY = 'paradox-accounts';
 
@@ -102,10 +102,12 @@ export const dataMethods = {
     this.learningRecordSubmissionId = '';
     this.activeLocalSessionId = '';
     this.remoteLearningSessions = [];
+    this.remoteAchievementSummary = null;
     this.learningRecordsLoaded = false;
     this.learningRecordsLoading = false;
     this.learningRecordsLoadAttempted = false;
     this.learningRecordSyncError = '';
+    this.learningRecordsRefreshQueued = false;
   },
   async loadUserData() {
     this.resetInMemoryUserData();
@@ -242,6 +244,10 @@ export const dataMethods = {
       todayKey: this.localDateKey(),
       sessionDateKey: session => this.sessionISODate(session),
     });
+  },
+  learningAchievements() {
+    if (this.learningRecordsService?.enabled) return this.remoteAchievementSummary?.achievements || [];
+    return deriveAchievements(this.learningMetrics());
   },
   activitySeries(period) {
     const slots = period === 7 ? 7 : 12;

@@ -45,7 +45,13 @@ export function createLearningRecordsHandler({ storeFactory = createLearningReco
         if (queryValue(req, 'view') === 'evaluations') {
           return res.status(200).json({ evaluations: await service.listEligibleEvaluations(user, options) });
         }
-        return res.status(200).json({ sessions: await service.listSessions(user, { ...options, activeOnly: queryValue(req, 'status') === 'active' }) });
+        const activeOnly = queryValue(req, 'status') === 'active';
+        if (activeOnly) return res.status(200).json({ sessions: await service.listSessions(user, { ...options, activeOnly: true }) });
+        const [sessions, achievementSummary] = await Promise.all([
+          service.listSessions(user, options),
+          service.getAchievementSummary(user),
+        ]);
+        return res.status(200).json({ sessions, achievementSummary });
       }
 
       const body = parseBody(req);

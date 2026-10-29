@@ -1,6 +1,6 @@
 /* Dashboard values come only from the active learning-record and credential sources. */
 import { svgIcon } from '../icons.js';
-import { deriveAchievements, issuedCredentials } from '../learning-data.js';
+import { issuedCredentials } from '../learning-data.js';
 
 export const dashboardViews = {
   dashboardDataState() {
@@ -41,7 +41,7 @@ export const dashboardViews = {
     }
 
     const metrics = this.learningMetrics();
-    const achievements = deriveAchievements(metrics);
+    const achievements = this.learningAchievements();
     const earnedAchievements = achievements.filter(item => item.status === 'earned').length;
     const passportState = this.learningPassportDataState();
     const passport = passportState === 'real' ? this.getLearningPassportSnapshot() : null;
