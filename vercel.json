@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/ai/status",
+      "destination": "/api/debate?aiStatus=1"
+    }
+  ]
+}

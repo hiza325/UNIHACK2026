@@ -52,8 +52,7 @@ Thư viện server-only:
 |---|---|
 | `api/_ai/providers.js` | Catalogue Gemini + AnyRouter: endpoint, request builder, response parser, tên biến môi trường |
 | `api/_ai/gateway.js` | Điều phối retry/fallback/timeout, tổng hợp lỗi, redaction, readiness snapshot |
-| `api/debate.js` | Nghiệp vụ AI Learning: prompt, schema, rubric, proof record |
-| `api/ai/status.js` | Health check `GET /api/ai/status` |
+| `api/debate.js` | Nghiệp vụ AI Learning: prompt, schema, rubric, proof record, và health check `GET /api/ai/status` |
 
 ### 2.1. Catalogue provider
 

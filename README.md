@@ -61,9 +61,8 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | `views/` | Template tách theo khu vực, gồm `admin`, `landing`, `dashboard`, `audit`, `history`, `analytics`, `practice`, `profile`, `about`, `settings`, `sitemap` |
 | `api/auth/` | API đăng ký, OTP, đăng nhập, session cookie và đăng xuất qua Supabase |
 | `api/admin/users.js` | API quản trị người dùng, được bảo vệ bằng role admin phía server |
-| `api/debate.js` | Proxy AI Debate Engine, validation đầu vào/đầu ra và gọi AI Gateway |
+| `api/debate.js` | Proxy AI Debate Engine, validation đầu vào/đầu ra, gọi AI Gateway và health check `/api/ai/status` |
 | `api/_ai/` | AI Gateway server-only: catalogue provider, timeout, retry, fallback Gemini → AnyRouter |
-| `api/ai/status.js` | Health check read-only cho trạng thái cấu hình provider |
 | `debate-ai.js`, `debate-prompt.js` | Client gọi Debate API và system prompt học thuật phía server |
 | `api/learning-records/` | API, service và Supabase store cho phiên học, bài nộp, tương tác và đánh giá |
 | `learning-records-service.js`, `learning-records-actions.js` | Đồng bộ Audit/History với learning-record API cho phiên Supabase thật |

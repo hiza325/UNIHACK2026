@@ -1,6 +1,6 @@
 import { DEBATE_PROMPT } from '../debate-prompt.js';
 import { createHash } from 'node:crypto';
-import { createAiGateway } from './_ai/gateway.js';
+import { createAiGateway, describeAiProviderStatus, resolveAiGatewaySettings, AI_GATEWAY_DEFAULTS } from './_ai/gateway.js';
 import { currentUser } from './auth/_supabase.js';
 import { createLearningRecordService } from './learning-records/_service.js';
 import { createLearningRecordStore } from './learning-records/_store.js';
@@ -248,7 +248,49 @@ export function createDebateHandler({
   storeFactory = createLearningRecordStore,
   recordServiceFactory = createLearningRecordService,
 } = {}) {
+  function isAiStatusRequest(req) {
+    const host = String(req?.headers?.host || 'localhost');
+    let pathname = '';
+    const searchParams = new URLSearchParams();
+    try {
+      const url = new URL(String(req?.url || '/'), `http://${host}`);
+      pathname = url.pathname;
+      for (const [key, value] of url.searchParams) searchParams.append(key, value);
+    } catch {
+      // Fall through to method/path checks below.
+    }
+    if (req?.query?.aiStatus === '1' || req?.query?.aiStatus === 1) return true;
+    if (searchParams.get('aiStatus') === '1') return true;
+    return pathname === '/api/ai/status';
+  }
+
+  function sendAiStatus(res) {
+    res.setHeader('Cache-Control', 'no-store');
+    const settings = resolveAiGatewaySettings();
+    const ai = describeAiProviderStatus();
+    return res.status(200).json({
+      ai,
+      gateway: {
+        timeoutMs: settings.timeoutMs,
+        totalTimeoutMs: settings.totalTimeoutMs,
+        maxRetries: settings.maxRetries,
+        retryDelayMs: settings.retryDelayMs,
+        maxRetryLimit: AI_GATEWAY_DEFAULTS.maxRetryLimit,
+        validation: 'server-side JSON schema',
+        fallback: ai.order.join(' -> '),
+      },
+    });
+  }
+
   return async function handler(req, res) {
+    if (isAiStatusRequest(req)) {
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.setHeader('Allow', 'GET, HEAD');
+        return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });
+      }
+      return sendAiStatus(res);
+    }
+
     if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' }); }
     if (!allowRequest(req)) return res.status(429).json({ error: 'Too many AI analysis requests. Please wait a moment.', code: 'RATE_LIMIT' });
     let recordService;
