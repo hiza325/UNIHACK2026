@@ -1,8 +1,9 @@
 import { Contract, Interface, JsonRpcProvider, Wallet, getAddress, id, isAddress } from 'ethers';
+import { AVALANCHE_FUJI_CONFIG } from '../../avalanche-config.js';
 
-export const AVALANCHE_FUJI_CHAIN_ID = 43113n;
-export const AVALANCHE_FUJI_NETWORK = 'avalanche-fuji';
-export const AVALANCHE_FUJI_EXPLORER_TX = 'https://subnets-test.avax.network/c-chain/tx/';
+export const AVALANCHE_FUJI_CHAIN_ID = BigInt(AVALANCHE_FUJI_CONFIG.chainId);
+export const AVALANCHE_FUJI_NETWORK = AVALANCHE_FUJI_CONFIG.network;
+export const AVALANCHE_FUJI_EXPLORER_TX = `${AVALANCHE_FUJI_CONFIG.explorerBaseUrl}/tx/`;
 
 export const LEARNING_CREDENTIAL_REGISTRY_ABI = Object.freeze([
   'function authorizedIssuers(address) view returns (bool)',
@@ -30,14 +31,17 @@ function serviceError(message, code, status, cause) {
 }
 
 export function avalancheConfig(env = process.env, { requireSigner = false } = {}) {
-  const rpcUrl = String(env.AVALANCHE_FUJI_RPC_URL || '').trim();
-  const contractAddress = String(env.AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS || '').trim();
+  const rpcUrl = String(env.AVALANCHE_FUJI_RPC_URL || AVALANCHE_FUJI_CONFIG.rpcUrl).trim();
+  const contractAddress = String(env.AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS || AVALANCHE_FUJI_CONFIG.contractAddress).trim();
   const privateKey = String(env.AVALANCHE_ISSUER_PRIVATE_KEY || '').trim();
   if (!rpcUrl) throw serviceError('Avalanche Fuji RPC is not configured', 'AVALANCHE_RPC_NOT_CONFIGURED', 503);
   let parsedUrl;
   try { parsedUrl = new URL(rpcUrl); } catch { throw serviceError('Avalanche Fuji RPC URL is invalid', 'AVALANCHE_RPC_INVALID', 503); }
   if (!['https:', 'http:'].includes(parsedUrl.protocol)) throw serviceError('Avalanche Fuji RPC URL is invalid', 'AVALANCHE_RPC_INVALID', 503);
   if (!isAddress(contractAddress) || /^0x0{40}$/i.test(contractAddress)) throw serviceError('Credential registry address is not configured', 'AVALANCHE_CONTRACT_NOT_CONFIGURED', 503);
+  if (getAddress(contractAddress) !== getAddress(AVALANCHE_FUJI_CONFIG.contractAddress)) {
+    throw serviceError('Credential registry address does not match the PARADOX Fuji deployment', 'AVALANCHE_CONTRACT_MISMATCH', 503);
+  }
   if (requireSigner && (!PRIVATE_KEY.test(privateKey) || /^0x0{64}$/i.test(privateKey))) throw serviceError('Avalanche issuer wallet is not configured', 'AVALANCHE_ISSUER_NOT_CONFIGURED', 503);
   return { rpcUrl, contractAddress: getAddress(contractAddress), privateKey };
 }

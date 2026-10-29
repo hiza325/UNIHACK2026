@@ -1,0 +1,19 @@
+{
+  "contract": "LearningCredentialRegistry",
+  "network": "avalanche-fuji",
+  "networkName": "Avalanche Fuji Testnet",
+  "chainId": 43113,
+  "address": "0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b",
+  "deploymentTransactionHash": "0x45c55865fb43bf28a1972597ce4ecedf9d769876344034a9447cd75a6de2d56f",
+  "deployer": "0x35d1dc8183326f3CBc631ED04094765052B365cD",
+  "owner": "0x35d1dc8183326f3CBc631ED04094765052B365cD",
+  "blockNumber": 60163894,
+  "receiptStatus": 1,
+  "runtimeBytecodeHash": "0x23f60c83fb818b19f0dec2fc489db30bb84c611819da7e9a31676c41c31a6710",
+  "artifactRuntimeBytecodeHash": "0x23f60c83fb818b19f0dec2fc489db30bb84c611819da7e9a31676c41c31a6710",
+  "runtimeBytecodeMatchesArtifact": true,
+  "explorerAddressUrl": "https://explorer-test.avax.network/c-chain/address/0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b",
+  "explorerTransactionUrl": "https://explorer-test.avax.network/c-chain/tx/0x45c55865fb43bf28a1972597ce4ecedf9d769876344034a9447cd75a6de2d56f",
+  "deployedAt": "2026-10-28T19:10:21.000Z",
+  "verifiedReadOnlyAt": "2026-10-29T00:23:50.705Z"
+}

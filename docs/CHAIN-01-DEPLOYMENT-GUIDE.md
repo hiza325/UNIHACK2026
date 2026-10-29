@@ -1,5 +1,7 @@
 # CHAIN-01 — Safe Avalanche Fuji Deployment Guide
 
+> **Current status (2026-10-29): already deployed and verified.** Do not follow the broadcast steps for the current PARADOX registry. The active address and transaction are recorded in `avalanche-config.js`, `deployments/avalanche-fuji.json`, and `docs/CHAIN-01-REPORT.md`. This document remains as an operational reference only; deployment is not credential issuance evidence.
+
 ## Current status
 
 **BLOCKED for deployment execution.** The contract and scripts are ready, but the local environment does not currently contain a dedicated Fuji signer and its test AVAX balance has not been verified. No blockchain transaction has been signed or sent.

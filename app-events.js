@@ -15,6 +15,16 @@ export const eventMethods = {
       return;
     }
     if (event.target.closest?.('[data-theme-toggle]')) { this.toggleTheme(); return; }
+    const resumeSession = event.target.closest?.('[data-resume-session]');
+    if (resumeSession) { this.resumeLearningSession(resumeSession.dataset.resumeSession); return; }
+    if (event.target.closest?.('[data-retry-learning-data]')) {
+      this.loadLearningRecordHistory({ force: true });
+      this.loadLearningPassportSnapshot({ force: true });
+      return;
+    }
+    if (event.target.closest?.('[data-retry-learning-records]')) { this.loadLearningRecordHistory({ force: true }); return; }
+    if (event.target.closest?.('[data-retry-passport]')) { this.loadLearningPassportSnapshot({ force: true }); return; }
+    if (event.target.closest?.('[data-retry-verification]')) { this.lookupPassportCredential(this.passportVerificationQuery); return; }
     const more = event.target.closest?.('[data-mobile-more]');
     if (more) { const menu = this.querySelector('#mobile-more-menu'); const open = menu?.hidden; if (menu) menu.hidden = !open; more.setAttribute('aria-expanded', String(open)); return; }
     const route = event.target.closest?.('[data-route]');
@@ -69,6 +79,7 @@ export const eventMethods = {
     if (event.target.id === 'import-history') this.importHistory(event.target.files?.[0]);
   },
   onInput(event) {
+    if (event.target.id === 'passport-code') event.target.setCustomValidity('');
     if (event.target.id === 'history-search') { this.historyPage = 1; this.filterHistory(); }
     if (event.target.id === 'work-text') { this.auditText = event.target.value; this.saveAuditState(); }
     if (event.target.id === 'problem-text') { this.auditProblemText = event.target.value; this.saveAuditState(); }

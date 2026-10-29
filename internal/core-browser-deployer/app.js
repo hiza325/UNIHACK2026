@@ -1,5 +1,6 @@
 import { BrowserProvider, ContractFactory, Interface, formatEther, formatUnits, getAddress, keccak256 } from '/vendor/ethers.min.js';
 import { FUJI_CHAIN_HEX, FUJI_CHAIN_ID, createFujiGuardedProvider, inspectCoreSigningNetwork, normalizeChainId } from '/provider-guard.js';
+import { AVALANCHE_FUJI_CONFIG, avalancheFujiAddressUrl, avalancheFujiTransactionUrl } from '/avalanche-config.js';
 
 const CONFIRMATION_TEXT = 'DEPLOY TO FUJI';
 const REQUIRED_FUNCTIONS = ['owner()', 'authorizedIssuers(address)'];
@@ -441,8 +442,8 @@ async function deployContract() {
     if (owner !== state.address || !ownerAuthorized) throw new Error('Owner/issuer verification thất bại');
 
     const manifest = {
-      contract: 'LearningCredentialRegistry',
-      network: 'avalanche-fuji',
+      contract: AVALANCHE_FUJI_CONFIG.contractName,
+      network: AVALANCHE_FUJI_CONFIG.network,
       chainId: Number(FUJI_CHAIN_ID),
       address,
       deploymentTransactionHash: transaction.hash,
@@ -453,8 +454,8 @@ async function deployContract() {
       runtimeBytecodeHash,
       artifactRuntimeBytecodeHash: state.artifactChecks.runtimeBytecodeHash,
       runtimeBytecodeMatchesArtifact: true,
-      explorerAddressUrl: `https://subnets-test.avax.network/c-chain/address/${address}`,
-      explorerTransactionUrl: `https://subnets-test.avax.network/c-chain/tx/${transaction.hash}`,
+      explorerAddressUrl: avalancheFujiAddressUrl(address),
+      explorerTransactionUrl: avalancheFujiTransactionUrl(transaction.hash),
       deployedAt: new Date().toISOString(),
       signer: 'core-eip-1193',
     };

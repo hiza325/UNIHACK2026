@@ -1,37 +1,29 @@
-/* analytics views — extracted from app-views.js. Methods are merged into viewMethods. */
-import { demo } from '../demo.js';
+/* Analytics reports measured values only; it does not infer rankings, strengths, or weaknesses. */
 export const analyticsViews = {
   viewAnalytics() {
-    const t = k => this.t(k);
+    const t = key => this.t(key);
+    const state = this.learningDataState();
+    const head = this.viewHead(t('pageAnalytics'), 'anaSub');
+    if (state === 'loading') return `<div class="page analytics-page" data-analytics-state="loading">${head}${this.dataStatePanel('loading')}</div>`;
+    if (state === 'error') return `<div class="page analytics-page" data-analytics-state="error">${head}${this.dataStatePanel('error', { retry: 'data-retry-learning-records' })}</div>`;
+    if (state === 'empty') return `<div class="page analytics-page" data-analytics-state="empty">${head}${this.dataStatePanel('empty', { title: t('anaEmptyTitle'), message: t('anaEmptyDesc') })}</div>`;
+
     const period = this.chartPeriod || 30;
     const metrics = this.learningMetrics();
     const series = this.activitySeries(period);
-    const labels = period === 7 ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] : series.values.map((_, i) => String(i + 1));
-    const chart = this.barChartMarkup(series, labels, { title: t('anaWeekly'), chartClass: 'big-chart', labelsClass: 'big-chart-labels' });
-    const practiceTotal = demo[this.lang].challenges.length;
-    const practiceProgress = practiceTotal ? Math.round(this.practiceSolved.length / practiceTotal * 100) : 0;
-    const masteryProgress = metrics.sessions.length ? Math.round(metrics.mastered / metrics.sessions.length * 100) : 0;
-    const skillValues = [metrics.accuracy, metrics.average, practiceProgress, masteryProgress];
-    const skillRows = skillValues.map((value, i) => `<div class="skill-row"><div class="skill-top"><span>${t('skill' + (i + 1))}</span><span>${value}%</span></div><div class="skill-track" role="progressbar" aria-label="${t('skill' + (i + 1))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${value}"><span style="width:${value}%"></span></div></div>`).join('');
-    return `<div class="page">
-      ${this.viewHead(t('pageAnalytics'), 'anaSub')}
-      <div class="period-row">${[[7, 'ana7'], [30, 'ana30'], [90, 'ana90']].map(([p, k]) => `<button class="chip ${period === p ? 'active' : ''}" data-chart-period="${p}" aria-pressed="${period === p}">${t(k)}</button>`).join('')}</div>
+    const chart = this.barChartMarkup(series, series.labels, { title: t('anaWeekly'), chartClass: 'big-chart', labelsClass: 'big-chart-labels' });
+    return `<div class="page analytics-page" data-analytics-state="${state}">
+      ${head}
+      <div class="data-view-heading">${this.dataSourceBadge(state)}<span>${state === 'demo' ? t('dataDemoNotice') : t('dataRealNotice')}</span></div>
+      <div class="period-row">${[[7, 'ana7'], [30, 'ana30'], [90, 'ana90']].map(([value, key]) => `<button class="chip ${period === value ? 'active' : ''}" data-chart-period="${value}" aria-pressed="${period === value}">${t(key)}</button>`).join('')}</div>
       <div class="stat-grid">
-        ${this.statCard(t('accuracy'), `${metrics.accuracy}%`)}
         ${this.statCard(t('anaScore'), metrics.average, '/100')}
-        ${this.statCard(t('anaSessions'), metrics.sessions.length, '')}
-        ${this.statCard(t('streak'), metrics.streak, this.lang === 'en' ? 'days' : this.lang === 'jp' ? '日' : 'ngày')}
+        ${this.statCard(t('anaSessions'), metrics.sessions.length)}
+        ${this.statCard(t('histCompletedCount'), metrics.completed, `/${metrics.sessions.length}`)}
+        ${this.statCard(t('streak'), metrics.streak, this.lang === 'en' ? ' days' : this.lang === 'jp' ? '日' : ' ngày')}
       </div>
-      <div class="analytics-grid">
-        <section class="card chart-card"><div class="panel-head"><div><h2 class="panel-title">${t('anaWeekly')}</h2><p class="panel-sub">${t('anaWeeklySub')}</p></div><span class="plan-tag">${t('thisWeek')}</span></div>${chart}</section>
-        <section class="card skills-card"><div class="panel-head"><div><h2 class="panel-title">${t('anaSkills')}</h2><p class="panel-sub">${t('anaSkillsSub')}</p></div></div><div class="skill-list">${skillRows}</div></section>
-      </div>
-      <h2 class="section-title">${t('anaInsights')}</h2>
-      <div class="insight-grid">
-        <article class="card insight-card strong"><span class="eyebrow">${t('anaStrength')}</span><p>${t('anaStrengthDesc').replace('{value}', String(metrics.accuracy))}</p></article>
-        <article class="card insight-card focus"><span class="eyebrow">${t('anaFocus')}</span><p>${t('anaFocusDesc')}</p></article>
-        <article class="card insight-card tip"><span class="eyebrow">${t('anaTip')}</span><p>${t('anaTipDesc')}</p></article>
-      </div>
+      <section class="card chart-card"><div class="panel-head"><div><h2 class="panel-title">${t('anaWeekly')}</h2><p class="panel-sub">${t('anaWeeklySub')}</p></div><span class="plan-tag">${t('dataMeasured')}</span></div>${chart}</section>
+      <section class="card analytics-coverage"><h2>${t('anaCoverageTitle')}</h2><p>${t('anaCoverageDesc').replace('{scored}', String(metrics.scoredSessionCount)).replace('{total}', String(metrics.sessions.length))}</p>${metrics.accuracy === null ? `<p>${t('anaNoSelfDetection')}</p>` : `<p>${t('accuracy')}: <strong>${metrics.accuracy}%</strong></p>`}</section>
     </div>`;
   },
 };

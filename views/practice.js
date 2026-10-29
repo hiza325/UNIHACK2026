@@ -21,8 +21,9 @@ export const practiceViews = {
         <button class="ghost-button" data-challenge="${i}">${done ? t('pracSolved') : t('pracStart')} ↗</button>
       </article>`;
     }).join('');
-    return `<div class="page">
+    return `<div class="page" data-practice-state="demo">
       ${this.viewHead(t('pagePractice'), 'pracSub')}
+      <div class="data-view-heading">${this.dataSourceBadge('demo')}<span>${t('practiceDemoNotice')}</span></div>
       <section class="card daily-card">
         <div><span class="eyebrow">${t('pracDaily')}</span><h2>${t('pracDailyTitle')}</h2><p>${t('pracDailyDesc')}</p></div>
         <div class="daily-side"><span class="difficulty">${t('difficulty')}</span><button class="primary-button" data-challenge="0">${t('pracStart')} ↗</button></div>

@@ -12,7 +12,7 @@
 - **Backend:** 12 Vercel Node.js Serverless Functions trong `api/`; helper có tiền tố `_` không phải function độc lập.
 - **Authentication/database:** Supabase Auth + Supabase PostgreSQL/PostgREST. Phiên remote dùng access/refresh cookie `HttpOnly`, `Secure`, `SameSite=Strict`.
 - **AI:** proxy server-side tới AnyRouter Chat Completions, model mặc định `anyrouter/free`. Không có Gemini SDK hoặc endpoint Gemini trong repository.
-- **Blockchain:** Solidity 0.8.28, Hardhat 3, Ethers v6; code chỉ chấp nhận Avalanche Fuji chain ID `43113`. Không có deployment manifest/contract address thực tế trong repository hoặc `.env` local.
+- **Blockchain:** Solidity 0.8.28, Hardhat 3, Ethers v6; code chỉ chấp nhận Avalanche Fuji chain ID `43113`. Cập nhật sau audit: deployment đã được xác minh tại `0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b`; xem `docs/CHAIN-01-REPORT.md`.
 - **Lưu trữ trình duyệt:** `localStorage` cho tài khoản demo, settings, practice và history fallback; IndexedDB `paradox-learning/state` cho state AI Audit.
 - **File:** người dùng chỉ chọn file và lưu metadata/tên file trong state; byte file không được upload hay gửi vào AI.
 
@@ -40,7 +40,7 @@ flowchart LR
     end
 
     AR[AnyRouter]
-    FUJI[Avalanche Fuji<br/>CHƯA DEPLOY CONTRACT]
+    FUJI[Avalanche Fuji<br/>LearningCredentialRegistry DEPLOYED]
 
     U --> FE
     FE --> LS
@@ -76,7 +76,7 @@ sequenceDiagram
     A-->>API: Authoritative user/role/status
     API->>D: Service-role query có learner filter
     API->>AI: Prompt server-side, key không gửi browser
-    Note over API,C: Gateway/ABI tồn tại nhưng contract chưa deploy
+    Note over API,C: Gateway/ABI dùng deployment Fuji đã xác minh read-only
     API-->>B: Dữ liệu đã chuẩn hóa
 ```
 
@@ -214,7 +214,7 @@ RLS cho Learning Records chỉ cho authenticated đọc bản ghi của chính m
 
 ### 5.2 Tình trạng triển khai thực tế
 
-- Không có `deployments/avalanche-fuji.json`.
+- Có manifest công khai tại `deployments/avalanche-fuji.json`; không chứa private key.
 - `.env` local không có ba biến Avalanche.
 - Không có contract address có thể kiểm tra bytecode.
 - Không có transaction hash thật được kiểm tra trong audit.

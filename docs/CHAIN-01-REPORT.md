@@ -1,213 +1,89 @@
 # PARADOX AI — CHAIN-01 Verification Report
 
-**Ngày kiểm tra:** 2026-10-28
-**Commit nền được kiểm tra:** `9bb07e1`
-**Trạng thái CHAIN-01:** **BLOCKED**
+**Cập nhật:** 2026-10-29
 
-> `BLOCKED` được dùng đúng theo tiêu chí nghiệm thu: RPC Fuji hoạt động nhưng repository và environment hiện không có contract address thật để thực hiện `eth_getCode`. Compile/test thành công không được xem là bằng chứng triển khai on-chain.
+**Trạng thái CHAIN-01:** **PASS**
 
-## 1. Network và Chain ID thực tế
+> Báo cáo này thay thế snapshot `BLOCKED` ngày 2026-10-28. Các kiểm tra cập nhật chỉ đọc RPC công khai; không ký, phát hành credential, deploy lại hoặc gửi giao dịch.
 
-| Thuộc tính | Kết quả |
+## 1. Deployment đã xác minh
+
+| Thuộc tính | Giá trị |
 |---|---|
-| Network mục tiêu | Avalanche Fuji C-Chain |
-| Chain ID yêu cầu | `43113` |
-| Chain ID RPC trả về | `43113` (`0xa869`) |
-| Kết luận network | PASS — không kết nối nhầm mạng |
-| RPC client quan sát được | AvalancheGo `1.15.2` |
-| Block mới nhất tại thời điểm kiểm tra | `60158636` |
+| Contract | `LearningCredentialRegistry` |
+| Network | Avalanche Fuji Testnet / C-Chain |
+| Chain ID | `43113` (`0xa869`) |
+| Contract address | `0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b` |
+| Deployment transaction | `0x45c55865fb43bf28a1972597ce4ecedf9d769876344034a9447cd75a6de2d56f` |
+| Block | `60163894` |
+| Receipt status | `1` — success |
+| Deployer / owner | `0x35d1dc8183326f3CBc631ED04094765052B365cD` |
+| Deployed at | `2026-10-28T19:10:21.000Z` |
 
-## 2. RPC được sử dụng
+- [Contract trên Fuji Explorer](https://explorer-test.avax.network/c-chain/address/0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b)
+- [Deployment transaction trên Fuji Explorer](https://explorer-test.avax.network/c-chain/tx/0x45c55865fb43bf28a1972597ce4ecedf9d769876344034a9447cd75a6de2d56f)
+
+Explorer là Fuji Testnet Explorer, không phải Avalanche Mainnet.
+
+## 2. Bằng chứng read-only
+
+RPC:
 
 ```text
 https://api.avax-test.network/ext/bc/C/rpc
 ```
 
-Các JSON-RPC call read-only đã thực hiện:
-
-- `eth_chainId`: thành công, trả `0xa869`.
-- `eth_blockNumber`: thành công.
-- `web3_clientVersion`: thành công.
-- `eth_getCode`: **chưa thể thực hiện**, vì không có địa chỉ contract được cấu hình.
-
-RPC không phát sinh giao dịch, không ký dữ liệu và không thay đổi trạng thái chain.
-
-## 3. Smart Contract
-
-| Thuộc tính | Kết quả |
-|---|---|
-| Contract name | `LearningCredentialRegistry` |
-| Source | `contracts/LearningCredentialRegistry.sol` |
-| Solidity | `0.8.28` |
-| EVM target | `paris` |
-| Optimizer | Bật, 200 runs |
-| Deployment bytecode | 2,494 bytes |
-| Runtime bytecode artifact | 2,322 bytes |
-| Runtime bytecode hash artifact | `0x23f60c83fb818b19f0dec2fc489db30bb84c611819da7e9a31676c41c31a6710` |
-
-Contract lưu credential/evidence hash, issuer, timestamp và trạng thái revoke; không lưu bài làm hoặc PII. Deployer trở thành `owner` và issuer được ủy quyền. Ownership transfer là quy trình hai bước.
-
-## 4. Contract address và `eth_getCode`
+Kết quả kiểm tra ngày 2026-10-29:
 
 | Kiểm tra | Kết quả |
 |---|---|
-| `AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS` trong `.env` | Không có |
-| `AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS` trong `.env.staging` | Không có |
-| `deployments/avalanche-fuji.json` | Không tồn tại |
-| Contract address xác minh được | **Không có** |
-| Kết quả `eth_getCode` | **NOT_EXECUTED — thiếu address** |
-| Bytecode trên Fuji | **Chưa thể kết luận** |
+| `eth_chainId` | `43113` — PASS |
+| `eth_getCode` | Có runtime bytecode, `2322` bytes — PASS |
+| Runtime bytecode hash | `0x23f60c83fb818b19f0dec2fc489db30bb84c611819da7e9a31676c41c31a6710` |
+| Artifact runtime bytecode hash | `0x23f60c83fb818b19f0dec2fc489db30bb84c611819da7e9a31676c41c31a6710` |
+| Bytecode match | PASS |
+| Receipt contract address | Khớp address cấu hình — PASS |
+| `owner()` | `0x35d1dc8183326f3CBc631ED04094765052B365cD` |
+| `pendingOwner()` | Zero address |
+| `authorizedIssuers(owner)` | `true` — PASS |
 
-Không tự tạo địa chỉ hoặc transaction hash giả. Vì thiếu address nên trạng thái là `BLOCKED`, không phải `FAIL`. `FAIL` chỉ phù hợp khi có một địa chỉ cấu hình hợp lệ và Fuji RPC trả `0x` cho `eth_getCode` tại địa chỉ đó.
+Manifest công khai đã được ghi tại `deployments/avalanche-fuji.json`. Metadata dùng chung nằm tại `avalanche-config.js`.
 
-## 5. Deployment transaction
+## 3. Compile và unit tests
 
-| Thuộc tính | Kết quả |
+| Lệnh | Kết quả |
 |---|---|
-| Deployment transaction hash | Không có |
-| Receipt | Không có |
-| Block number triển khai | Không có |
-| Deployer/owner on-chain | Chưa có |
-| Fuji Explorer transaction link | Không có |
-| Fuji Explorer address link | Không có |
+| `npm run contract:build` | PASS — không có thay đổi contract cần compile lại |
+| `npm run contract:test` | PASS — `8/8` |
+| `npm run contract:verify:fuji` | PASS — chain, receipt, bytecode và ABI reads |
 
-Không có transaction nào được gửi trong lần kiểm tra này.
+ABI/runtime vẫn lấy từ `artifacts/contracts/LearningCredentialRegistry.sol/LearningCredentialRegistry.json`. Không thay đổi Solidity contract hoặc `hardhat.config.ts` trong giai đoạn UI này.
 
-## 6. Compile
+## 4. Ranh giới bằng chứng
 
-**Kết quả: PASS**
+Deployment thành công **không** chứng minh mọi Certificate đã được phát hành.
 
-Lệnh:
+Một credential chỉ được giao diện báo **Verified on Avalanche** khi đồng thời có:
 
-```text
-npx hardhat build --force
-```
+1. Bản ghi credential cụ thể.
+2. Network `avalanche-fuji`, Chain ID `43113` và đúng contract address.
+3. On-chain credential tồn tại.
+4. Evidence hash khớp dữ liệu đã lưu.
+5. Credential chưa bị revoke và `isCredentialValid` trả `true`.
+6. Kết quả kiểm tra đến từ Avalanche, có transaction hash phát hành đúng định dạng.
 
-Bằng chứng:
+Các mã Demo không phải credential thật. Lỗi RPC không được chuyển thành “không tồn tại” hoặc “đã xác minh”.
 
-```text
-Compiled 2 Solidity files with solc 0.8.28 (evm target: paris)
-```
+## 5. An toàn vận hành
 
-Artifact được tạo tại `artifacts/contracts/LearningCredentialRegistry.sol/LearningCredentialRegistry.json`. ABI artifact có 29 entries. ABI tối thiểu trong `api/credentials/_avalanche.js` gồm 7 function và cả 7 đều khớp artifact.
+- Mainnet `43114` vẫn bị chain guard từ chối.
+- API dùng address deployment cố định; environment trỏ sang address khác sẽ bị từ chối.
+- Issuer private key không nằm trong cấu hình dùng chung hoặc manifest.
+- Deployment script từ chối ghi đè manifest hiện có nếu không có override tường minh.
+- Verify UI là read-only; không kết nối ví, ký hoặc gửi transaction.
 
-## 7. Unit tests
+## 6. Kết luận
 
-**Kết quả: PASS — 8 PASS / 0 FAIL**
+**CHAIN-01: PASS** cho deployment registry và bằng chứng read-only.
 
-Lệnh:
-
-```text
-npm run contract:test
-```
-
-Phạm vi được test:
-
-- Deployer là owner và authorized issuer.
-- Owner thêm/xóa issuer.
-- Issuer phát hành và xác minh credential.
-- Issuer revoke credential.
-- Chặn account không được ủy quyền.
-- Chặn duplicate credential/evidence.
-- Chặn hash rỗng, credential không tồn tại và revoke lần hai.
-- Two-step ownership transfer và owner luôn giữ issuer authorization.
-
-## 8. Dependencies và cấu hình
-
-| Thành phần | Phiên bản/trạng thái |
-|---|---|
-| Node.js | `v24.18.0` (project yêu cầu `>=22.12`) |
-| npm | `11.16.0` |
-| Hardhat | `3.21.1` |
-| ethers | `6.17.0` |
-| Hardhat config | `hardhat.config.ts` |
-| Fuji chain guard runtime | Bắt buộc `43113` trong `api/credentials/_avalanche.js` |
-| Fuji chain guard deploy | Bắt buộc `43113` trong deployment script |
-
-Không cần cài dependency mới.
-
-## 9. Deployment readiness
-
-Script hiện có: `scripts/deploy-learning-credential-registry.mjs`.
-
-Script đã có sẵn các kiểm tra:
-
-- RPC và chain ID phải là Fuji `43113`.
-- Private key phải là 32-byte non-zero key.
-- Ví phải có Fuji AVAX.
-- Chờ receipt thành công.
-- Kiểm tra deployer được authorized issuer.
-- Ghi manifest gồm address, transaction hash, chain ID và block number.
-
-Trong lần chuẩn bị CHAIN-01 này, script được gia cố thêm nhưng **không được chạy deploy**:
-
-- Hỗ trợ file secret riêng qua `AVALANCHE_ENV_FILE`.
-- Chặn ghi đè manifest/deploy lại ngoài ý muốn, trừ khi đặt rõ `AVALANCHE_ALLOW_REDEPLOY=1`.
-- Có preflight read-only (`npm run contract:preflight:fuji`) để kiểm tra RPC, signer, balance, constructor và gas mà không ký/gửi transaction.
-- Yêu cầu xác nhận broadcast tường minh qua `AVALANCHE_DEPLOY_CONFIRM`.
-- Dùng RPC timeout 20 giây và receipt timeout 10 phút.
-- Ghi pending journal ngay sau broadcast để chặn deploy trùng và hỗ trợ phục hồi nếu timeout.
-- Xác minh `eth_getCode` sau receipt.
-- So khớp runtime bytecode hash với artifact.
-- Xác minh owner và issuer authorization trước khi ghi manifest.
-- Ghi explorer URLs và bytecode hashes vào manifest.
-
-Đã thêm script read-only:
-
-```text
-npm run contract:verify:fuji
-```
-
-Script lấy address từ environment, manifest hoặc receipt của pending transaction; kiểm tra chain ID, `eth_getCode`, runtime bytecode hash, ABI reads (`owner`, `pendingOwner`, `authorizedIssuers`) và deployment receipt nếu có. Chạy ở trạng thái hiện tại trả đúng:
-
-```json
-{
-  "status": "BLOCKED",
-  "message": "AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS is missing or invalid",
-  "chainId": 43113,
-  "rpcReachable": true
-}
-```
-
-## 10. Lỗi và điều kiện còn thiếu
-
-1. Chưa có dedicated Fuji deployment.
-2. Chưa có contract address để gọi `eth_getCode`.
-3. Chưa có deployment manifest/transaction receipt.
-4. Chưa có dedicated Fuji issuer wallet được cấu hình trong environment an toàn.
-5. Chưa có Fuji AVAX balance được xác minh cho issuer wallet.
-6. Chưa thể kiểm tra owner/issuer authorization on-chain.
-7. Chưa có explorer evidence.
-
-## 11. Bước tiếp theo cần người dùng thực hiện
-
-1. Tạo **ví testnet riêng** chỉ dùng cho Fuji; không tái sử dụng ví Mainnet hoặc ví cá nhân.
-2. Lưu private key ngoài Git, ví dụ trong `.env.avalanche-fuji` đã được `.gitignore` bao phủ. Không gửi private key vào chat.
-3. Cấu hình cục bộ:
-
-   ```text
-   AVALANCHE_FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
-   AVALANCHE_ISSUER_PRIVATE_KEY=<FUJI-ONLY-SECRET>
-   ```
-
-4. Gửi **public wallet address** tới Fuji faucet và nạp đủ test AVAX cho gas.
-5. Xác nhận rõ ràng trước khi chạy deployment transaction.
-6. Sau deploy thành công, dùng address từ manifest để cấu hình `AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS`, rồi chạy `npm run contract:verify:fuji`.
-7. Chỉ nâng CHAIN-01 thành PASS khi verifier xác nhận chain `43113`, bytecode thật, artifact match và ABI reads thành công.
-
-Hướng dẫn thao tác đầy đủ: `docs/CHAIN-01-DEPLOYMENT-GUIDE.md`.
-
-## 12. Kết luận
-
-**CHAIN-01: BLOCKED**
-
-- RPC Fuji: PASS.
-- Chain ID: PASS (`43113`).
-- Compile: PASS.
-- Solidity tests: PASS (`8/8`).
-- ABI compatibility: PASS ở mức artifact/code.
-- Contract address: thiếu.
-- `eth_getCode`: chưa thể chạy.
-- Fuji deployment evidence: thiếu.
-
-Đã dừng ở bước chuẩn bị theo yêu cầu. Không deploy, không ký, không gửi transaction và không yêu cầu private key qua chat.
+Điều này cho phép chuyển sang đánh giá **CHAIN-02** ở mức tích hợp credential. CHAIN-02 vẫn cần kiểm thử end-to-end với một credential được phát hành hợp lệ; không được dùng deployment transaction thay thế issuance evidence.

@@ -1,5 +1,7 @@
-export const FUJI_CHAIN_ID = 43113n;
-export const FUJI_CHAIN_HEX = '0xa869';
+import { AVALANCHE_FUJI_CONFIG } from '../../avalanche-config.js';
+
+export const FUJI_CHAIN_ID = BigInt(AVALANCHE_FUJI_CONFIG.chainId);
+export const FUJI_CHAIN_HEX = AVALANCHE_FUJI_CONFIG.chainIdHex;
 
 export function normalizeChainId(value) {
   try { return BigInt(value); } catch { return null; }

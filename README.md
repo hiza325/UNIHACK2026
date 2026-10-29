@@ -342,8 +342,8 @@ Hai route `#/passport` và `#/verify` cung cấp hồ sơ năng lực, tiến đ
 - `LEARNING_PASSPORT_API_INTERFACE` mô tả route lấy Passport, phát hành, xác minh và thu hồi.
 - `createCredentialDraftFromAiEvaluation()` chuyển proof record thành bản nháp chứng nhận ở trạng thái `unverified`.
 - `AVALANCHE_CREDENTIAL_INTERFACE` chỉ chứa Avalanche Fuji (`43113`), Explorer và chữ ký hàm registry.
-- Trạng thái `verified` chỉ được hiển thị khi có Transaction Hash hợp lệ và kết quả kiểm tra thật với `verification.source = "avalanche"`, `checked = true`, `valid = true`.
-- Nút Avalanche Explorer chỉ hoạt động khi Transaction Hash đúng định dạng 32-byte và network nằm trong danh sách hỗ trợ.
+- Trạng thái `verified` chỉ được hiển thị khi đúng Fuji `43113`, đúng registry address, credential tồn tại, Transaction Hash phát hành hợp lệ và kết quả kiểm tra thật có `verification.source = "avalanche"`, `checked = true`, `valid = true`.
+- Liên kết Avalanche Explorer chỉ xuất hiện khi Transaction Hash đúng định dạng 32-byte và metadata khớp cấu hình Fuji dùng chung; mã Demo không tạo link Explorer.
 - Credential `manual-test` bắt buộc dùng mã `PXP-TEST-*`, `isTest: true` và được gắn nhãn **CHỨNG NHẬN KIỂM THỬ**. Payload có `source: "mock"` bị backend từ chối.
 
 ### Smart contract
@@ -381,19 +381,19 @@ AVALANCHE_FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
 AVALANCHE_ISSUER_PRIVATE_KEY=0x...
 ```
 
-Deploy:
+Deployment hiện đã tồn tại; **không chạy lại lệnh deploy** nếu không có quyết định redeploy riêng. Script sẽ từ chối ghi đè manifest mặc định:
 
 ```bash
 npm run contract:deploy:fuji
 ```
 
-Script kiểm tra RPC trả đúng chain ID `43113`, kiểm tra số dư Fuji AVAX, deploy, xác minh issuer và chỉ sau receipt thành công mới tạo `deployments/avalanche-fuji.json`. Sau đó thêm địa chỉ thật:
+Runtime/API dùng address đã xác minh:
 
 ```env
-AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS=0x...
+AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS=0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b
 ```
 
-Không có cấu hình hoặc code path Avalanche Mainnet. Tại thời điểm tài liệu này được cập nhật, contract **chưa được deploy**, vì vậy chưa có contract address hay transaction hash thật để công bố.
+Không có cấu hình hoặc code path Avalanche Mainnet. `LearningCredentialRegistry` đã được xác minh read-only trên Fuji `43113` tại `0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b`; deployment transaction là `0x45c55865fb43bf28a1972597ce4ecedf9d769876344034a9447cd75a6de2d56f`. Xem manifest `deployments/avalanche-fuji.json` và `docs/CHAIN-01-REPORT.md`. Deployment không phải bằng chứng mọi credential đã được phát hành.
 
 ### Điều hướng nhanh
 

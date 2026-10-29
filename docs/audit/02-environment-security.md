@@ -138,7 +138,7 @@ Rủi ro:
 
 ### Critical
 
-1. **Avalanche chưa deploy:** không address, manifest, bytecode hoặc transaction thật; không đáp ứng tiêu chí tích hợp chain thực tế.
+1. **Cập nhật sau audit:** Avalanche Fuji registry đã deploy và có manifest/bytecode/receipt được xác minh read-only; từng credential vẫn cần issuance evidence riêng.
 
 ### High
 

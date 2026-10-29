@@ -8,6 +8,8 @@ export const learningRecordActionMethods = {
     this.remoteLearningSessions = [];
     this.learningRecordsLoaded = false;
     this.learningRecordsLoading = false;
+    this.learningRecordsLoadAttempted = false;
+    this.learningRecordSyncError = '';
   },
   currentLearningRecordContext() {
     if (!this.learningRecordsService?.enabled || !this.learningRecordSessionId || !this.learningRecordSubmissionId) return null;
@@ -44,34 +46,87 @@ export const learningRecordActionMethods = {
   async loadLearningRecordHistory({ force = false } = {}) {
     if (!this.learningRecordsService?.enabled || this.learningRecordsLoading || (this.learningRecordsLoaded && !force)) return;
     this.learningRecordsLoading = true;
+    this.learningRecordsLoadAttempted = true;
+    this.learningRecordSyncError = '';
+    if (['dashboard', 'history', 'analytics', 'profile'].includes(this.view)) this.render();
     try {
       const sessions = await this.learningRecordsService.listSessions({ limit: 100 });
+      if (!Array.isArray(sessions)) throw Object.assign(new Error('Invalid learning record response'), { code: 'LEARNING_RECORD_INVALID_RESPONSE' });
       this.remoteLearningSessions = sessions.map(session => {
         const date = new Date(session.startedAt);
         const isoDate = Number.isNaN(date.getTime()) ? '' : this.localDateKey(date);
-        const mastered = session.latestEvaluationStatus === 'pass' || (session.status === 'completed' && session.latestAnalysisStatus === 'correct');
-        const needs = session.status === 'analysis_unavailable' || session.latestAnalysisStatus === 'incorrect' || session.latestEvaluationStatus === 'needs_improvement';
+        const status = session.status === 'completed'
+          ? 'completed'
+          : session.status === 'abandoned'
+            ? 'abandoned'
+            : session.status === 'analysis_unavailable'
+              ? 'error'
+              : 'progress';
         return {
           id: session.id,
-          date: Number.isNaN(date.getTime()) ? '' : `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`,
+          date: Number.isNaN(date.getTime()) ? '' : this.formatDisplayDate(date, { day: '2-digit', month: '2-digit', year: 'numeric' }),
           isoDate,
           title: session.title,
           skill: session.subject,
-          status: mastered ? 'mastered' : needs ? 'needs' : 'progress',
-          score: Number.isFinite(session.latestScore) ? session.latestScore : mastered ? 85 : 50,
-          selfDetected: false,
+          status,
+          recordStatus: session.status,
+          score: Number.isFinite(session.latestScore) ? session.latestScore : null,
+          selfDetected: null,
+          analysisStatus: session.latestAnalysisStatus || null,
+          evaluationStatus: session.latestEvaluationStatus || null,
           startedAt: session.startedAt,
+          completedAt: session.completedAt || null,
+          updatedAt: session.updatedAt || null,
           minutes: Math.max(0, Math.round(Number(session.durationSeconds || 0) / 60)),
-          source: 'supabase',
+          source: 'backend',
+          isReal: true,
         };
       });
       this.learningRecordsLoaded = true;
       this.learningRecordSyncError = '';
-      if (['dashboard', 'history', 'analytics', 'profile'].includes(this.view)) this.render();
     } catch (error) {
       this.learningRecordSyncError = error.code || 'LEARNING_RECORD_SYNC_FAILED';
     } finally {
       this.learningRecordsLoading = false;
+      if (['dashboard', 'history', 'analytics', 'profile'].includes(this.view)) this.render();
+    }
+  },
+  async resumeLearningSession(sessionId) {
+    const session = this.getSessions().find(item => item.id === sessionId);
+    if (!session || !['in_progress', 'analysis_unavailable'].includes(session.recordStatus || (session.status === 'progress' ? 'in_progress' : ''))) {
+      this.showToast(this.t('dashResumeUnavailable'));
+      return;
+    }
+    try {
+      if (this.learningRecordsService?.enabled) {
+        const detail = await this.learningRecordsService.getSession(sessionId);
+        if (!detail || !Array.isArray(detail.submissions)) throw new Error('Invalid learning session response');
+        const latest = detail.submissions.at(-1);
+        this.learningRecordSessionId = detail.id;
+        this.learningRecordSubmissionId = latest?.id || '';
+        this.auditProblemText = String(detail.problem || '');
+        this.auditText = String(latest?.solution || '');
+        const analyzed = [...detail.submissions].reverse().find(item => item.analysis)?.analysis || null;
+        this.auditResult = analyzed;
+        this.debateSession = {
+          revisionCount: Math.max(0, detail.submissions.length - 1),
+          hintLevel: Math.max(0, ...((detail.interactions || []).filter(item => item.mode === 'hint').map(item => Number(item.hintLevel) || 0))),
+          hints: (detail.interactions || []).filter(item => item.mode === 'hint' && item.role === 'assistant').slice(-3).map(item => ({ level: item.hintLevel, content: item.content })),
+          attempts: detail.submissions.filter(item => item.analysis).slice(-10).map(item => ({ solution: item.solution, analysis: item.analysis, at: item.analysisCompletedAt || item.submittedAt })),
+          conversation: (detail.interactions || []).filter(item => item.mode === 'discussion').slice(-40).map(item => ({ role: item.role, text: item.content })),
+        };
+        this.auditMessages = [];
+        this.step = 0;
+      } else {
+        this.activeLocalSessionId = session.id;
+        if (typeof session.problemText === 'string') this.auditProblemText = session.problemText;
+        if (typeof session.solutionText === 'string') this.auditText = session.solutionText;
+        if (!this.auditProblemText && !this.auditText) throw new Error('Local session detail is unavailable');
+      }
+      this.saveAuditState();
+      this.navigate('audit');
+    } catch {
+      this.showToast(this.t('dashResumeError'));
     }
   },
 };

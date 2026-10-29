@@ -2,9 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Contract, FetchRequest, JsonRpcProvider, getAddress, isAddress, keccak256 } from 'ethers';
+import { AVALANCHE_FUJI_CONFIG, avalancheFujiAddressUrl, avalancheFujiTransactionUrl } from '../avalanche-config.js';
 
-const FUJI_CHAIN_ID = 43113n;
-const OFFICIAL_FUJI_RPC = 'https://api.avax-test.network/ext/bc/C/rpc';
+const FUJI_CHAIN_ID = BigInt(AVALANCHE_FUJI_CONFIG.chainId);
+const OFFICIAL_FUJI_RPC = AVALANCHE_FUJI_CONFIG.rpcUrl;
 const RPC_TIMEOUT_MS = 20_000;
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 let provider;
@@ -52,8 +53,8 @@ async function main() {
   const manifest = await optionalJson(join(root, 'deployments', 'avalanche-fuji.json'));
   const pending = await optionalJson(join(root, 'deployments', 'avalanche-fuji.pending.local.json'));
   const rpcUrl = String(process.env.AVALANCHE_FUJI_RPC_URL || OFFICIAL_FUJI_RPC).trim();
-  let configuredAddress = String(process.env.AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS || manifest?.address || '').trim();
-  const deploymentTransactionHash = manifest?.deploymentTransactionHash || pending?.deploymentTransactionHash || null;
+  let configuredAddress = String(process.env.AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS || manifest?.address || AVALANCHE_FUJI_CONFIG.contractAddress).trim();
+  const deploymentTransactionHash = manifest?.deploymentTransactionHash || pending?.deploymentTransactionHash || AVALANCHE_FUJI_CONFIG.deploymentTransactionHash;
 
   const rpcRequest = new FetchRequest(rpcUrl);
   rpcRequest.timeout = RPC_TIMEOUT_MS;
@@ -103,7 +104,7 @@ async function main() {
       address,
       bytecodePresent: false,
       ethGetCode: '0x',
-      explorerAddressUrl: `https://subnets-test.avax.network/c-chain/address/${address}`,
+      explorerAddressUrl: avalancheFujiAddressUrl(address),
     }, null, 2));
     process.exitCode = 1;
     return;
@@ -135,7 +136,7 @@ async function main() {
 
   console.log(JSON.stringify({
     status: verificationPassed ? 'PASS' : 'FAIL',
-    network: 'avalanche-fuji',
+    network: AVALANCHE_FUJI_CONFIG.network,
     chainId: Number(network.chainId),
     address,
     bytecodePresent: true,
@@ -152,9 +153,9 @@ async function main() {
     addressSource: process.env.AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS
       ? 'environment'
       : manifest?.address ? 'manifest' : pending?.deploymentTransactionHash ? 'pending-transaction-receipt' : 'unknown',
-    explorerAddressUrl: `https://subnets-test.avax.network/c-chain/address/${address}`,
+    explorerAddressUrl: avalancheFujiAddressUrl(address),
     explorerTransactionUrl: deploymentTransactionHash
-      ? `https://subnets-test.avax.network/c-chain/tx/${deploymentTransactionHash}`
+      ? avalancheFujiTransactionUrl(deploymentTransactionHash)
       : null,
   }, null, 2));
   if (!verificationPassed) process.exitCode = 1;

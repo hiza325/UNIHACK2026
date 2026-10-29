@@ -2,8 +2,9 @@ import { readFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ContractFactory, FetchRequest, JsonRpcProvider, Wallet, formatEther, getAddress, isAddress, keccak256 } from 'ethers';
+import { AVALANCHE_FUJI_CONFIG, avalancheFujiAddressUrl, avalancheFujiTransactionUrl } from '../avalanche-config.js';
 
-const FUJI_CHAIN_ID = 43113n;
+const FUJI_CHAIN_ID = BigInt(AVALANCHE_FUJI_CONFIG.chainId);
 const RPC_TIMEOUT_MS = 20_000;
 const RECEIPT_TIMEOUT_MS = 10 * 60_000;
 const DEPLOY_CONFIRMATION = 'DEPLOY_LEARNING_CREDENTIAL_REGISTRY_TO_FUJI';
@@ -115,7 +116,7 @@ async function main() {
 
   console.log(JSON.stringify({
     status: 'PREFLIGHT_READY',
-    network: 'avalanche-fuji',
+    network: AVALANCHE_FUJI_CONFIG.network,
     chainId: Number(network.chainId),
     deployer: wallet.address,
     balanceAvax: formatEther(balance),
@@ -143,7 +144,7 @@ async function main() {
   await writeFile(pendingPath, `${JSON.stringify({
     status: 'PENDING',
     contract: 'LearningCredentialRegistry',
-    network: 'avalanche-fuji',
+    network: AVALANCHE_FUJI_CONFIG.network,
     chainId: Number(FUJI_CHAIN_ID),
     deploymentTransactionHash: deploymentTransaction.hash,
     deployer: wallet.address,
@@ -166,7 +167,7 @@ async function main() {
 
   const manifest = {
     contract: 'LearningCredentialRegistry',
-    network: 'avalanche-fuji',
+    network: AVALANCHE_FUJI_CONFIG.network,
     chainId: Number(FUJI_CHAIN_ID),
     address: contractAddress,
     deploymentTransactionHash: deploymentTransaction.hash,
@@ -177,8 +178,8 @@ async function main() {
     runtimeBytecodeHash,
     artifactRuntimeBytecodeHash,
     runtimeBytecodeMatchesArtifact: true,
-    explorerAddressUrl: `https://subnets-test.avax.network/c-chain/address/${contractAddress}`,
-    explorerTransactionUrl: `https://subnets-test.avax.network/c-chain/tx/${deploymentTransaction.hash}`,
+    explorerAddressUrl: avalancheFujiAddressUrl(contractAddress),
+    explorerTransactionUrl: avalancheFujiTransactionUrl(deploymentTransaction.hash),
     deployedAt: new Date().toISOString(),
   };
   await mkdir(dirname(outputPath), { recursive: true });

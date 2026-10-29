@@ -75,10 +75,11 @@ test.describe('auth', () => {
     await expect(page.locator('.sidebar')).toBeVisible();
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('paradox-session'))?.email)).toBe(SESSION.email);
     await expect(page.locator('.nav-count')).toHaveText('00');
-    await expect(page.locator('section[aria-label^="Tự phát hiện lỗi"]')).toHaveAttribute('aria-label', 'Tự phát hiện lỗi: 0%');
-    await expect(page.locator('.plan-card [role="progressbar"]')).toHaveAttribute('aria-valuenow', '10');
-    await expect(page.locator('.plan-foot')).toContainText('10 / 10');
-    await expect(page.locator('.plan-foot')).toContainText('100%');
+    await expect(page.locator('[data-dashboard-state="empty"]')).toBeVisible();
+    await expect(page.locator('[data-continue-state="empty"]')).toContainText('Tạo phiên học đầu tiên');
+    await expect(page.locator('.dashboard-stats')).toHaveCount(0);
+    await expect(page.locator('.plan-card')).toContainText('Chưa có API hạn mức');
+    await expect(page.locator('.plan-card [role="progressbar"]')).toHaveCount(0);
     expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), userKey('audit-sessions'))).toEqual([]);
     expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), userKey('practice'))).toEqual([]);
 
@@ -197,8 +198,8 @@ test.describe('app shell', () => {
     await seedSession(page);
     await page.goto('/#/dashboard');
     const toggle = page.locator('[data-theme-toggle]').first();
-    await expect(page.locator('.continue-step')).toHaveText('01 / 07');
-    await expect(page.locator('.continue-progress')).toHaveAttribute('aria-valuenow', '1');
+    await expect(page.locator('[data-dashboard-state="empty"]')).toBeVisible();
+    await expect(page.locator('[data-continue-state="empty"]')).toBeVisible();
 
     await toggle.click();
     await expect(page.locator('body')).toHaveClass(/dark/);

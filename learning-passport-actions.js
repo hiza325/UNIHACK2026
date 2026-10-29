@@ -1,4 +1,4 @@
-import { createLearningPassportService } from './learning-passport-service.js';
+import { createLearningPassportService, getCredentialVerificationState, isCertificateCode } from './learning-passport-service.js';
 
 export const learningPassportActionMethods = {
   configureLearningPassportService() {
@@ -6,26 +6,31 @@ export const learningPassportActionMethods = {
     const mode = runtime.mode === 'api' || (runtime.mode !== 'mock' && this.authProvider === 'remote') ? 'api' : 'mock';
     this.learningPassportService = createLearningPassportService({ mode, apiBaseUrl: runtime.apiBaseUrl || '/api' });
     this.passportSnapshot = null;
+    this.passportLoading = false;
     this.passportLoadAttempted = false;
     this.passportError = '';
   },
   getLearningPassportSnapshot() {
-    return this.passportSnapshot || this.learningPassportService.getSnapshot(this.user, this.lang);
+    if (this.learningPassportService.mode === 'mock') return this.learningPassportService.getSnapshot(this.user, this.lang);
+    return this.passportSnapshot;
   },
   async loadLearningPassportSnapshot({ force = false } = {}) {
     if (this.learningPassportService.mode !== 'api' || this.passportLoading || (this.passportLoadAttempted && !force)) return;
     this.passportLoading = true;
     this.passportLoadAttempted = true;
     this.passportError = '';
+    if (['dashboard', 'profile', 'passport'].includes(this.view)) this.render();
     try {
       const passport = await this.learningPassportService.fetchPassport();
-      if (!passport?.source?.isReal || !Array.isArray(passport.credentials)) throw new Error('Invalid Learning Passport response');
+      if (!passport?.source?.isReal || !Array.isArray(passport.skills) || !Array.isArray(passport.assessments) || !Array.isArray(passport.credentials)) {
+        throw new Error('Invalid Learning Passport response');
+      }
       this.passportSnapshot = passport;
     } catch (error) {
       this.passportError = error.message || 'Learning Passport API unavailable';
     } finally {
       this.passportLoading = false;
-      if (this.view === 'passport') this.render();
+      if (['dashboard', 'profile', 'passport'].includes(this.view)) this.render();
     }
   },
   findLearningPassportCredential(code) {
@@ -54,12 +59,22 @@ export const learningPassportActionMethods = {
     this.passportVerificationQuery = normalized;
     this.passportVerificationResult = this.learningPassportService.mode === 'mock' && normalized ? this.findLearningPassportCredential(normalized) : null;
     this.passportVerificationSearched = false;
+    this.passportVerificationState = this.passportVerificationResult ? 'demo' : 'idle';
+    this.passportVerificationErrorCode = '';
     this.closePassportCredential();
     this.navigate('verify');
     if (normalized && this.learningPassportService.mode === 'api') this.lookupPassportCredential(normalized);
   },
   async searchPassportCredential(form) {
-    const value = String(new FormData(form).get('certificateCode') || '').trim().toUpperCase().slice(0, 64);
+    const input = form.elements.certificateCode;
+    const value = String(new FormData(form).get('certificateCode') || '').trim().toUpperCase().slice(0, 80);
+    if (!isCertificateCode(value)) {
+      input?.setCustomValidity(this.t('passportInvalidCode'));
+      input?.reportValidity();
+      input?.focus();
+      return;
+    }
+    input?.setCustomValidity('');
     this.passportVerificationQuery = value;
     this.passportVerificationSearched = true;
     if (this.learningPassportService.mode === 'api') {
@@ -67,23 +82,29 @@ export const learningPassportActionMethods = {
       return;
     }
     this.passportVerificationResult = value ? this.findLearningPassportCredential(value) : null;
+    this.passportVerificationState = this.passportVerificationResult ? 'demo' : 'not-found';
+    this.passportVerificationErrorCode = '';
     this.render();
-    requestAnimationFrame(() => this.querySelector('#passport-verification-result, #passport-verify-empty')?.focus());
+    requestAnimationFrame(() => this.querySelector('#passport-verification-result, #passport-verification-state')?.focus());
   },
   async lookupPassportCredential(code) {
-    this.passportLoading = true;
-    this.passportError = '';
+    const normalized = String(code || '').trim().toUpperCase();
+    if (!isCertificateCode(normalized)) return;
+    this.passportVerificationQuery = normalized;
+    this.passportVerificationState = 'checking';
+    this.passportVerificationErrorCode = '';
     this.passportVerificationSearched = true;
     this.render();
     try {
-      this.passportVerificationResult = await this.learningPassportService.verifyCredential(code);
+      this.passportVerificationResult = await this.learningPassportService.verifyCredential(normalized);
+      this.passportVerificationState = getCredentialVerificationState(this.passportVerificationResult);
     } catch (error) {
       this.passportVerificationResult = null;
-      if (error.status !== 404) this.passportError = error.message || 'Credential verification unavailable';
+      this.passportVerificationState = error.status === 404 ? 'not-found' : 'network-error';
+      this.passportVerificationErrorCode = String(error.code || 'PASSPORT_VERIFY_ERROR');
     } finally {
-      this.passportLoading = false;
       if (this.view === 'verify') this.render();
-      requestAnimationFrame(() => this.querySelector('#passport-verification-result, #passport-verify-empty')?.focus());
+      requestAnimationFrame(() => this.querySelector('#passport-verification-result, #passport-verification-state')?.focus());
     }
   },
 };

@@ -2,7 +2,8 @@
 export const cardViews = {
   learningMetricCards(metrics) {
     const dayUnit = this.lang === 'en' ? 'DAYS' : this.lang === 'jp' ? '日' : 'NGÀY';
-    return `<div class="right-duo">${this.metricCard(this.t('accuracy'), metrics.accuracy, '%', this.t('accuracyDesc'), 'spark')}${this.metricCard(this.t('streak'), String(metrics.streak).padStart(2, '0'), dayUnit, this.t('streakDesc'), 'check')}</div>`;
+    const accuracyDescription = metrics.accuracy === null ? this.t('dataMetricUnavailable') : this.t('accuracyDesc');
+    return `<div class="right-duo">${this.metricCard(this.t('accuracy'), metrics.accuracy, '%', accuracyDescription, 'spark')}${this.metricCard(this.t('streak'), String(metrics.streak).padStart(2, '0'), dayUnit, this.t('streakDesc'), 'check')}</div>`;
   },
   sourceCard() {
     const items = [['◉', 'source1', 'source1type'], ['ƒ', 'source2', 'source2type'], ['⌘', 'source3', 'source3type']];
@@ -20,19 +21,23 @@ export const cardViews = {
     return `<div class="${chartClass}" role="img" aria-label="${this.escape(accessibleLabel)}">${bars}</div><table class="sr-only"><caption>${this.escape(title)}</caption><tbody>${rows}</tbody></table><div class="${labelsClass}" aria-hidden="true">${labelSpans}</div>`;
   },
   weeklyChartMarkup() {
-    return this.barChartMarkup(this.activitySeries(7), ['M', 'T', 'W', 'T', 'F', 'S', 'S'], { title: this.t('progress') });
+    const series = this.activitySeries(7);
+    return this.barChartMarkup(series, series.labels, { title: this.t('progress') });
   },
   auditStepsMarkup() {
     return this.t('stepLabels').map((label, index) => `<div class="step ${index < this.step ? 'done' : ''} ${index === this.step ? 'active' : ''}" role="listitem" ${index === this.step ? 'aria-current="step"' : ''}><span class="step-num" aria-hidden="true">${index < this.step ? '✓' : index + 1}</span><span class="step-name">${label}</span></div>`).join('');
   },
   sessionRow(s, compact = false) {
-    const statusKey = 'status' + s.status.charAt(0).toUpperCase() + s.status.slice(1);
+    const status = String(s.status || 'progress');
+    const statusKey = 'status' + status.charAt(0).toUpperCase() + status.slice(1);
+    const resumable = ['in_progress', 'analysis_unavailable'].includes(s.recordStatus || (status === 'progress' ? 'in_progress' : ''));
+    const score = Number.isFinite(s.score) ? `${s.score}<small>/100</small>` : '<span class="score-unavailable">—</span>';
     return `<div class="session-row ${compact ? 'compact' : ''}" data-session-status="${s.status}" data-session-subject="${this.escape(s.skill)}" data-session-date="${this.escape(this.sessionISODate(s))}" data-search="${this.escape((s.title + ' ' + s.skill).toLowerCase())}">
-      <div class="session-main"><span class="session-title">${this.escape(s.title)}</span><span class="session-date">${s.date} · ${this.escape(s.skill)}</span></div>
+      <div class="session-main"><span class="session-title">${this.escape(s.title)}</span><span class="session-date">${this.escape(this.sessionDisplayDate(s))} · ${this.escape(s.skill)}</span></div>
       ${compact ? '' : `<span class="session-skill">${this.escape(s.skill)}</span>`}
-      <span class="session-score">${s.score}<small>/100</small></span>
-      <span class="status ${s.status}">${this.t(statusKey)}</span>
-      <button class="row-action" data-route="audit">${this.t('histOpen')} ↗</button>
+      <span class="session-score">${score}</span>
+      <span class="status ${status}">${this.t(statusKey)}</span>
+      ${resumable ? `<button class="row-action" type="button" data-resume-session="${this.escape(s.id)}">${this.t('histOpen')} ↗</button>` : '<span class="row-action-placeholder" aria-hidden="true">—</span>'}
     </div>`;
   },
   formatBytes(bytes) {

@@ -140,7 +140,7 @@ Chỉ chuyển khi đạt tối thiểu:
 - [ ] Contract review/test plan được phê duyệt.
 - [ ] Có change approval riêng trước mọi Fuji deploy/transaction.
 
-Để đạt CHAIN-01 sau đó cần contract Fuji có bytecode, chain ID 43113, ABI read calls tương thích và ít nhất một transaction test được xác minh read-only từ receipt/Explorer.
+Cập nhật sau Phase 0: CHAIN-01 đã đạt với contract Fuji có bytecode, chain ID 43113, ABI read calls tương thích và deployment receipt/Explorer được xác minh read-only. Xem `docs/CHAIN-01-REPORT.md`.
 
 ## 7. Trạng thái nghiệm thu Giai đoạn 0
 

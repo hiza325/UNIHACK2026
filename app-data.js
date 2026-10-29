@@ -1,4 +1,5 @@
 import { ADMIN_EMAILS } from './app-config.js';
+import { DISPLAY_TIME_ZONE, learningRecordDataState, passportDataState, summarizeLearningData } from './learning-data.js';
 
 const ACCOUNT_KEY = 'paradox-accounts';
 
@@ -91,15 +92,19 @@ export const dataMethods = {
     this.passportVerificationQuery = '';
     this.passportVerificationResult = null;
     this.passportVerificationSearched = false;
+    this.passportVerificationState = 'idle';
+    this.passportVerificationErrorCode = '';
     this.passportSnapshot = null;
     this.passportLoading = false;
     this.passportLoadAttempted = false;
     this.passportError = '';
     this.learningRecordSessionId = '';
     this.learningRecordSubmissionId = '';
+    this.activeLocalSessionId = '';
     this.remoteLearningSessions = [];
     this.learningRecordsLoaded = false;
     this.learningRecordsLoading = false;
+    this.learningRecordsLoadAttempted = false;
     this.learningRecordSyncError = '';
   },
   async loadUserData() {
@@ -143,6 +148,7 @@ export const dataMethods = {
     };
     this.learningRecordSessionId = typeof state.learningRecordSessionId === 'string' ? state.learningRecordSessionId : '';
     this.learningRecordSubmissionId = typeof state.learningRecordSubmissionId === 'string' ? state.learningRecordSubmissionId : '';
+    this.activeLocalSessionId = typeof state.activeLocalSessionId === 'string' ? state.activeLocalSessionId : '';
     if (this.auditResult && this.auditText && !this.debateSession.attempts.length) {
       this.debateSession.attempts.push({ solution: this.auditText, analysis: this.auditResult, at: new Date().toISOString() });
     }
@@ -162,12 +168,13 @@ export const dataMethods = {
       messages: this.auditMessages.slice(-60),
       learningRecordSessionId: this.learningRecordSessionId,
       learningRecordSubmissionId: this.learningRecordSubmissionId,
+      activeLocalSessionId: this.activeLocalSessionId,
       files: { problem: this.files.problem[0] || null, work: this.files.work[0] || null }
     };
     try { this.auditDB.transaction('state', 'readwrite').objectStore('state').put(state, this.userStorageKey('audit-state')); } catch { /* IndexedDB may be unavailable in private mode. */ }
   },
   getSessions() {
-    if (this.learningRecordsService?.enabled && this.learningRecordsLoaded) return this.remoteLearningSessions;
+    if (this.learningRecordsService?.enabled) return this.remoteLearningSessions;
     const saved = this.readJSON(this.userStorageKey('audit-sessions'), []);
     const seen = new Set();
     return saved.filter(item => {
@@ -177,90 +184,149 @@ export const dataMethods = {
       return true;
     });
   },
+  learningDataState() {
+    return learningRecordDataState({
+      enabled: Boolean(this.learningRecordsService?.enabled),
+      loading: this.learningRecordsLoading,
+      attempted: this.learningRecordsLoadAttempted,
+      loaded: this.learningRecordsLoaded,
+      error: this.learningRecordSyncError,
+      sessions: this.getSessions(),
+    });
+  },
+  learningPassportDataState() {
+    return passportDataState({
+      mode: this.learningPassportService?.mode || 'mock',
+      loading: this.passportLoading,
+      attempted: this.passportLoadAttempted,
+      error: this.passportError,
+      snapshot: this.passportSnapshot,
+    });
+  },
+  displayTimeZone() { return DISPLAY_TIME_ZONE; },
   localDateKey(date = new Date()) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+      timeZone: DISPLAY_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(date).filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  },
+  formatDisplayDate(value, options = {}) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const locale = this.lang === 'jp' ? 'ja-JP' : this.lang === 'en' ? 'en-GB' : 'vi-VN';
+    return new Intl.DateTimeFormat(locale, { timeZone: DISPLAY_TIME_ZONE, ...options }).format(date);
+  },
+  currentDateLabel() {
+    return this.formatDisplayDate(new Date(), { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  },
+  sessionDisplayDate(session) {
+    if (session?.startedAt) return this.formatDisplayDate(session.startedAt, { day: '2-digit', month: '2-digit', year: 'numeric' });
+    if (session?.isoDate) return this.formatDisplayDate(`${session.isoDate}T12:00:00Z`, { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return String(session?.date || '—');
   },
   sessionISODate(session) {
     if (session.isoDate) return session.isoDate;
+    if (session.startedAt) {
+      const date = new Date(session.startedAt);
+      if (!Number.isNaN(date.getTime())) return this.localDateKey(date);
+    }
     const [day, month] = String(session.date || '').split('/').map(Number);
     if (!day || !month) return '';
-    return `${new Date().getFullYear()}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return `${this.localDateKey().slice(0, 4)}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   },
   learningMetrics() {
-    const sessions = this.getSessions();
-    const average = sessions.length ? Math.round(sessions.reduce((sum, item) => sum + Number(item.score || 0), 0) / sessions.length) : 0;
-    const mastered = sessions.filter(item => item.status === 'mastered').length;
-    const selfDetected = sessions.filter(item => item.selfDetected === true).length;
-    const accuracy = sessions.length ? Math.round(selfDetected / sessions.length * 100) : 0;
-    const dates = new Set([
-      ...sessions.map(item => this.sessionISODate(item)),
-      ...this.practiceActivity.map(item => item.isoDate)
-    ].filter(Boolean));
-    let cursor = new Date();
-    cursor.setHours(0, 0, 0, 0);
-    const todayKey = this.localDateKey(cursor);
-    if (!dates.has(todayKey)) cursor.setDate(cursor.getDate() - 1);
-    let streak = 0;
-    while (dates.has(this.localDateKey(cursor))) {
-      streak += 1;
-      cursor.setDate(cursor.getDate() - 1);
-    }
-    return { sessions, average, mastered, accuracy, streak };
+    const demoMode = !this.learningRecordsService?.enabled;
+    return summarizeLearningData(this.getSessions(), {
+      practiceActivity: this.practiceActivity,
+      includePractice: demoMode,
+      todayKey: this.localDateKey(),
+      sessionDateKey: session => this.sessionISODate(session),
+    });
   },
   activitySeries(period) {
     const slots = period === 7 ? 7 : 12;
     const values = Array(slots).fill(0);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    const now = Date.parse(`${this.localDateKey()}T00:00:00Z`);
     const activities = [
-      ...this.getSessions().map(item => ({ isoDate: this.sessionISODate(item), minutes: Number(item.minutes || 0) })),
-      ...this.practiceActivity
+      ...this.getSessions().map(item => ({ isoDate: this.sessionISODate(item), minutes: Number.isFinite(item.minutes) ? item.minutes : 0 })),
+      ...(!this.learningRecordsService?.enabled ? this.practiceActivity : [])
     ];
     activities.forEach(item => {
-      const date = new Date(`${item.isoDate}T00:00:00`);
-      if (Number.isNaN(date.getTime())) return;
+      const date = Date.parse(`${item.isoDate}T00:00:00Z`);
+      if (!Number.isFinite(date)) return;
       const daysAgo = Math.floor((now - date) / 86400000);
       if (daysAgo < 0 || daysAgo >= period) return;
       const chronologicalDay = period - 1 - daysAgo;
       const index = Math.min(slots - 1, Math.floor(chronologicalDay / (period / slots)));
-      values[index] += Number(item.minutes || 3);
+      values[index] += Number.isFinite(item.minutes) ? item.minutes : 0;
     });
     const max = Math.max(...values, 1);
-    return { values, heights: values.map(value => value ? Math.max(12, Math.round(value / max * 100)) : 4) };
+    const locale = this.lang === 'jp' ? 'ja-JP' : this.lang === 'en' ? 'en-GB' : 'vi-VN';
+    const labels = values.map((_, index) => {
+      const chronologicalDay = Math.floor(index * (period / slots));
+      const date = new Date(now - (period - 1 - chronologicalDay) * 86_400_000);
+      return new Intl.DateTimeFormat(locale, period === 7
+        ? { timeZone: 'UTC', weekday: 'short' }
+        : { timeZone: 'UTC', day: '2-digit', month: '2-digit' }).format(date);
+    });
+    return { values, labels, heights: values.map(value => value ? Math.max(12, Math.round(value / max * 100)) : 4) };
   },
   recordAuditSession(text) {
     const subjectKeys = { math: 'setSubjectMath', algebra: 'setSubjectAlgebra', code: 'setSubjectCode' };
     const source = this.files.problem[0]?.name || String(text || '').split(/\r?\n/)[0].slice(0, 54) || this.t('sessionTitle');
     const now = new Date();
     const sessions = this.readJSON(this.userStorageKey('audit-sessions'), []);
+    const id = `audit-${now.getTime()}`;
     sessions.unshift({
-      id: `audit-${now.getTime()}`,
+      id,
       date: `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`,
       isoDate: this.localDateKey(now),
       title: source,
       skill: this.t(subjectKeys[this.settings.subject] || 'setSubjectMath'),
       status: 'progress',
-      score: 50,
-      selfDetected: false,
+      recordStatus: 'in_progress',
+      score: null,
+      selfDetected: null,
+      problemText: this.auditProblemText,
+      solutionText: this.auditText,
       startedAt: now.toISOString(),
       minutes: 0
     });
+    this.activeLocalSessionId = id;
     localStorage.setItem(this.userStorageKey('audit-sessions'), JSON.stringify(sessions.slice(0, 100)));
   },
   updateAuditProgress(step) {
     const sessions = this.readJSON(this.userStorageKey('audit-sessions'), []);
     if (!sessions.length) return;
-    sessions[0].score = Math.min(95, 50 + step * 8);
-    sessions[0].status = step >= 5 ? 'mastered' : 'progress';
-    const startedAt = new Date(sessions[0].startedAt || Date.now()).getTime();
-    sessions[0].minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
+    const session = sessions.find(item => item.id === this.activeLocalSessionId) || sessions[0];
+    const startedAt = new Date(session.startedAt || Date.now()).getTime();
+    session.minutes = Math.max(0, Math.round((Date.now() - startedAt) / 60000));
+    session.lastStep = Number.isInteger(step) ? Math.max(0, Math.min(6, step)) : null;
+    localStorage.setItem(this.userStorageKey('audit-sessions'), JSON.stringify(sessions));
+  },
+  updateLocalSessionFromAnalysis(result) {
+    if (this.learningRecordsService?.enabled) return;
+    const sessions = this.readJSON(this.userStorageKey('audit-sessions'), []);
+    const session = sessions.find(item => item.id === this.activeLocalSessionId) || sessions[0];
+    if (!session) return;
+    const completed = result?.status === 'correct';
+    session.analysisStatus = result?.status || null;
+    session.problemText = this.auditProblemText;
+    session.solutionText = this.auditText;
+    session.status = completed ? 'completed' : 'progress';
+    session.recordStatus = completed ? 'completed' : 'in_progress';
+    session.score = Number.isFinite(result?.evaluation?.score) ? result.evaluation.score : null;
+    session.completedAt = completed ? new Date().toISOString() : null;
+    const startedAt = new Date(session.startedAt || Date.now()).getTime();
+    session.minutes = Math.max(0, Math.round((Date.now() - startedAt) / 60000));
     localStorage.setItem(this.userStorageKey('audit-sessions'), JSON.stringify(sessions));
   },
   markCurrentSessionSelfDetected() {
     const key = this.userStorageKey('audit-sessions');
     const sessions = this.readJSON(key, []);
     if (!sessions.length) return;
-    sessions[0].selfDetected = true;
+    const session = sessions.find(item => item.id === this.activeLocalSessionId) || sessions[0];
+    session.selfDetected = true;
     localStorage.setItem(key, JSON.stringify(sessions));
   },
   filterHistory() {
@@ -295,6 +361,7 @@ export const dataMethods = {
     if (next) next.disabled = this.historyPage === pages;
   },
   exportHistory() {
+    if (['loading', 'error'].includes(this.learningDataState())) { this.showToast(this.t('dataExportUnavailable')); return; }
     const payload = { sessions: this.getSessions(), exportedAt: new Date().toISOString(), version: 1 };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -311,15 +378,18 @@ export const dataMethods = {
       const source = Array.isArray(parsed) ? parsed : parsed.sessions;
       if (!Array.isArray(source)) throw new Error('Invalid sessions');
       const sessions = source.map((item, index) => {
-        if (!item || typeof item.title !== 'string' || !Number.isFinite(Number(item.score))) throw new Error('Invalid session');
+        const validStatuses = ['needs', 'mastered', 'progress', 'completed', 'error', 'abandoned'];
+        const score = item?.score === null || item?.score === undefined ? null : Number(item.score);
+        if (!item || typeof item.title !== 'string' || !validStatuses.includes(item.status) || (score !== null && !Number.isFinite(score))) throw new Error('Invalid session');
         return {
           id: item.id || `import-${Date.now()}-${index}`,
           date: String(item.date || ''),
           isoDate: /^\d{4}-\d{2}-\d{2}$/.test(String(item.isoDate || '')) ? item.isoDate : '',
           title: item.title.slice(0, 160),
           skill: String(item.skill || this.t('setSubjectMath')).slice(0, 80),
-          status: ['needs', 'mastered', 'progress'].includes(item.status) ? item.status : 'progress',
-          score: Math.max(0, Math.min(100, Math.round(Number(item.score))))
+          status: item.status,
+          recordStatus: typeof item.recordStatus === 'string' ? item.recordStatus : null,
+          score: score === null ? null : Math.max(0, Math.min(100, Math.round(score)))
         };
       });
       localStorage.setItem(this.userStorageKey('audit-sessions'), JSON.stringify(sessions.slice(0, 100)));
@@ -331,6 +401,7 @@ export const dataMethods = {
     }
   },
   exportData() {
+    if (['loading', 'error'].includes(this.learningDataState())) { this.showToast(this.t('dataExportUnavailable')); return; }
     const payload = { user: this.user, settings: this.settings, practice: this.practiceSolved, sessions: this.getSessions(), exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

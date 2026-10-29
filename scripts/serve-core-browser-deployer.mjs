@@ -12,6 +12,7 @@ const ROUTES = new Map([
   ['/', { path: join(uiRoot, 'index.html'), type: 'text/html; charset=utf-8' }],
   ['/app.js', { path: join(uiRoot, 'app.js'), type: 'text/javascript; charset=utf-8' }],
   ['/provider-guard.js', { path: join(uiRoot, 'provider-guard.js'), type: 'text/javascript; charset=utf-8' }],
+  ['/avalanche-config.js', { path: join(root, 'avalanche-config.js'), type: 'text/javascript; charset=utf-8' }],
   ['/styles.css', { path: join(uiRoot, 'styles.css'), type: 'text/css; charset=utf-8' }],
   ['/vendor/ethers.min.js', { path: ethersBundlePath, type: 'text/javascript; charset=utf-8' }],
 ]);

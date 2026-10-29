@@ -465,7 +465,7 @@ export const actionMethods = {
     if (mode === 'analyze') {
       this.auditResult = null;
       this.debateSession = { revisionCount: 0, hintLevel: 0, hints: [], attempts: [], conversation: [] };
-      this.recordAuditSession(`${problem}\n${solution}`);
+      if (!this.learningRecordsService?.enabled) this.recordAuditSession(`${problem}\n${solution}`);
     }
     const activeSession = this.ensureDebateSession();
     this.saveAuditState();
@@ -491,6 +491,7 @@ export const actionMethods = {
         result.comparison = { ...result.comparison, previousSolution: previousAttempt.solution, currentSolution: solution };
       }
       this.auditResult = result;
+      this.updateLocalSessionFromAnalysis(result);
       activeSession.attempts.push({ solution, analysis: result, at: new Date().toISOString() });
       activeSession.attempts = activeSession.attempts.slice(-10);
       activeSession.conversation.push({ role: 'assistant', text: result.summary });

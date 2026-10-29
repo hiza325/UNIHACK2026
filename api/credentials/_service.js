@@ -1,4 +1,5 @@
 import { AVALANCHE_FUJI_CHAIN_ID, AVALANCHE_FUJI_NETWORK, createAvalancheGateway, credentialIdFromCode, normalizeEvidenceHash } from './_avalanche.js';
+import { AVALANCHE_FUJI_CONFIG } from '../../avalanche-config.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CREDENTIAL_CODE = /^PXP-[A-Z0-9-]{4,76}$/;
@@ -90,11 +91,12 @@ export function toPublicCredential(row) {
     revokeTransactionHash: row.revoke_tx_hash || null,
     network: AVALANCHE_FUJI_NETWORK,
     chainId: Number(AVALANCHE_FUJI_CHAIN_ID),
-    contractAddress: row.contract_address || null,
+    contractAddress: row.contract_address || AVALANCHE_FUJI_CONFIG.contractAddress,
     transactionStatus: row.blockchain_status,
     verification: {
       checked: Boolean(row.verification_checked_at),
       valid: verified,
+      exists: verified || revoked ? true : null,
       source: row.verification_checked_at ? 'avalanche' : null,
       checkedAt: row.verification_checked_at || null,
     },
@@ -114,7 +116,7 @@ export function buildLearningPassport(user, rows) {
     id: `avalanche-skill-${index + 1}`,
     name,
     description: 'Verified from an issued Proof of Learning credential.',
-    score: scores.length ? Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length) : 100,
+    score: scores.length ? Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length) : null,
     progress: 100,
     achieved: true,
     evidenceCount: scores.length || 1,
@@ -125,11 +127,11 @@ export function buildLearningPassport(user, rows) {
   return {
     schemaVersion: 'paradox-learning-passport-v1',
     passportId: `PLP-${String(user.id).replace(/-/g, '').slice(0, 12).toUpperCase()}`,
-    source: { type: 'avalanche', isReal: true, label: 'AVALANCHE FUJI', network: AVALANCHE_FUJI_NETWORK, chainId: Number(AVALANCHE_FUJI_CHAIN_ID) },
+    source: { type: 'avalanche', isReal: true, label: 'AVALANCHE FUJI TESTNET', network: AVALANCHE_FUJI_NETWORK, chainId: Number(AVALANCHE_FUJI_CHAIN_ID), contractAddress: AVALANCHE_FUJI_CONFIG.contractAddress },
     learner: { id: user.id, displayName: user.name, email: user.email, level: 'Proof of Learning', cohort: 'Avalanche Fuji' },
     summary: {
-      overallScore: scored.length ? Math.round(scored.reduce((sum, value) => sum + value, 0) / scored.length) : 0,
-      progress: qualifying.length ? 100 : 0,
+      overallScore: scored.length ? Math.round(scored.reduce((sum, value) => sum + value, 0) / scored.length) : null,
+      progress: qualifying.length ? 100 : null,
       completedAssessments: qualifying.length,
       learningHours: null,
     },
@@ -283,7 +285,10 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     } else if (onchain.valid) {
       patch = { ...patch, blockchain_status: 'confirmed', onchain_valid: true, issued_at: isoFromUnix(onchain.issuedAt), issuer_address: onchain.issuer, failure_code: null, failure_message: null };
     }
-    return toPublicCredential(await store.updateCredential(row.id, patch));
+    const credential = toPublicCredential(await store.updateCredential(row.id, patch));
+    credential.verification.exists = Boolean(onchain.exists);
+    credential.verification.revoked = Boolean(onchain.revoked);
+    return credential;
   }
 
   return {

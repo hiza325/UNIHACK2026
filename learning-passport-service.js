@@ -1,4 +1,5 @@
 import { createMockLearningPassport } from './learning-passport-mock.js';
+import { AVALANCHE_FUJI_CONFIG, avalancheFujiTransactionUrl, isEvmTransactionHash } from './avalanche-config.js';
 
 export const LEARNING_PASSPORT_API_INTERFACE = Object.freeze({
   schemaVersion: 'paradox-learning-passport-v1',
@@ -16,8 +17,17 @@ export const LEARNING_PASSPORT_API_INTERFACE = Object.freeze({
 export const AVALANCHE_CREDENTIAL_INTERFACE = Object.freeze({
   interfaceVersion: 'paradox-avalanche-credential-v1',
   contractAddressEnvironmentVariable: 'AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS',
+  contractName: AVALANCHE_FUJI_CONFIG.contractName,
+  contractAddress: AVALANCHE_FUJI_CONFIG.contractAddress,
+  deploymentTransactionHash: AVALANCHE_FUJI_CONFIG.deploymentTransactionHash,
   supportedNetworks: [
-    { id: 'avalanche-fuji', chainId: 43113, explorerTransactionBaseUrl: 'https://subnets-test.avax.network/c-chain/tx/' },
+    {
+      id: AVALANCHE_FUJI_CONFIG.network,
+      name: AVALANCHE_FUJI_CONFIG.networkName,
+      chainId: AVALANCHE_FUJI_CONFIG.chainId,
+      contractAddress: AVALANCHE_FUJI_CONFIG.contractAddress,
+      explorerBaseUrl: AVALANCHE_FUJI_CONFIG.explorerBaseUrl,
+    },
   ],
   readMethods: [
     { name: 'getCredential', inputs: ['bytes32 credentialId'], outputs: ['bytes32 evidenceHash', 'address issuer', 'uint64 issuedAt', 'uint64 revokedAt'] },
@@ -30,22 +40,33 @@ export const AVALANCHE_CREDENTIAL_INTERFACE = Object.freeze({
 });
 
 const STATUS_VALUES = new Set(['unverified', 'pending', 'verified', 'revoked']);
-const CERTIFICATE_CODE = /^PXP-\d{4}-[A-Z0-9]{3,8}-\d{4}$/;
-const TRANSACTION_HASH = /^0x[a-fA-F0-9]{64}$/;
+const CERTIFICATE_CODE = /^PXP-[A-Z0-9-]{4,76}$/;
 
 export function isCertificateCode(value) {
   return CERTIFICATE_CODE.test(String(value || '').trim().toUpperCase());
 }
 
 export function isAvalancheTransactionHash(value) {
-  return TRANSACTION_HASH.test(String(value || '').trim());
+  return isEvmTransactionHash(value);
+}
+
+export function isExpectedFujiCredential(credential) {
+  return credential?.source === 'avalanche'
+    && credential.network === AVALANCHE_FUJI_CONFIG.network
+    && Number(credential.chainId) === AVALANCHE_FUJI_CONFIG.chainId
+    && String(credential.contractAddress || '').toLowerCase() === AVALANCHE_FUJI_CONFIG.contractAddress.toLowerCase();
 }
 
 export function hasActualAvalancheVerification(credential) {
-  return credential?.verification?.source === 'avalanche'
+  return credential?.status === 'verified'
+    && credential.transactionStatus === 'confirmed'
+    && isExpectedFujiCredential(credential)
+    && credential?.verification?.source === 'avalanche'
     && credential.verification.checked === true
     && credential.verification.valid === true
-    && isAvalancheTransactionHash(credential.transactionHash);
+    && credential.verification.exists === true
+    && isAvalancheTransactionHash(credential.issueTransactionHash)
+    && credential.transactionHash === credential.issueTransactionHash;
 }
 
 export function getCredentialDisplayStatus(credential) {
@@ -55,9 +76,20 @@ export function getCredentialDisplayStatus(credential) {
 }
 
 export function getAvalancheExplorerUrl(credential) {
-  if (!isAvalancheTransactionHash(credential?.transactionHash)) return null;
-  const network = AVALANCHE_CREDENTIAL_INTERFACE.supportedNetworks.find(item => item.id === credential.network);
-  return network ? `${network.explorerTransactionBaseUrl}${credential.transactionHash}` : null;
+  if (!isExpectedFujiCredential(credential) || !isAvalancheTransactionHash(credential?.transactionHash)) return null;
+  return avalancheFujiTransactionUrl(credential.transactionHash);
+}
+
+export function getCredentialVerificationState(credential) {
+  if (!credential) return 'not-found';
+  if (credential.source === 'mock') return 'demo';
+  if (hasActualAvalancheVerification(credential)) return 'valid';
+  const checkedOnExpectedContract = isExpectedFujiCredential(credential)
+    && credential.verification?.source === 'avalanche'
+    && credential.verification.checked === true;
+  if (checkedOnExpectedContract && credential.verification?.exists === false) return 'unissued';
+  if (checkedOnExpectedContract && credential.verification?.exists === true && (credential.status === 'revoked' || credential.verification.revoked === true)) return 'revoked';
+  return 'unavailable';
 }
 
 export function createCredentialDraftFromAiEvaluation(payload = {}) {
