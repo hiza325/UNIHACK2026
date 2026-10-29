@@ -257,6 +257,69 @@ test('Debate handler returns a clear 502 and no fabricated analysis when all pro
   expect(serialised).not.toContain('test-anyrouter-key');
 });
 
+test('Debate handler logs a safe phase and request id for unexpected failures', async () => {
+  const logs = [];
+  const logger = {
+    error(entry) { logs.push(entry); },
+    warn(entry) { logs.push(entry); },
+    log(entry) { logs.push(entry); },
+  };
+  const privateMessage = 'PRIVATE_LEARNER_SOLUTION must never enter logs';
+  const handler = createDebateHandler({
+    analysisFactory: async () => { throw new Error(privateMessage); },
+    logger,
+  });
+  let responseStatus = 200;
+  let responseBody;
+  const headers = {};
+  const response = {
+    setHeader(name, value) { headers[name] = value; return this; },
+    status(status) { responseStatus = status; return this; },
+    json(body) { responseBody = body; return this; },
+  };
+
+  await handler({
+    method: 'POST',
+    headers: { 'x-forwarded-for': '203.0.113.94' },
+    body: { problem: 'Synthetic diagnostic problem', solution: privateMessage },
+  }, response);
+
+  expect(responseStatus).toBe(500);
+  expect(responseBody).toMatchObject({ code: 'INTERNAL_ERROR', requestId: expect.any(String) });
+  expect(headers['X-AI-Request-Id']).toBe(responseBody.requestId);
+  expect(logs).toHaveLength(1);
+  expect(logs[0]).toMatchObject({
+    event: 'ai_debate_failed', requestId: responseBody.requestId, phase: 'ai_gateway', status: 500, code: 'INTERNAL_ERROR', mode: 'analyze',
+  });
+  expect(JSON.stringify(logs)).not.toContain(privateMessage);
+});
+
+test('Debate handler assigns auth-specific codes instead of reporting auth failures as invalid input', async () => {
+  const handler = createDebateHandler({
+    sessionResolver: async () => { throw Object.assign(new Error('Authentication required'), { status: 401 }); },
+    logger: null,
+  });
+  let responseStatus = 200;
+  let responseBody;
+  const response = {
+    setHeader() { return this; },
+    status(status) { responseStatus = status; return this; },
+    json(body) { responseBody = body; return this; },
+  };
+
+  await handler({
+    method: 'POST',
+    headers: { 'x-forwarded-for': '203.0.113.95' },
+    body: {
+      problem: 'Synthetic authorization problem', solution: 'Synthetic solution',
+      learningRecord: { sessionId: 'session-id', submissionId: 'submission-id' },
+    },
+  }, response);
+
+  expect(responseStatus).toBe(401);
+  expect(responseBody).toMatchObject({ code: 'AUTH_REQUIRED', requestId: expect.any(String) });
+});
+
 test('Debate API rate-limits repeated requests from one client', async () => {
   const request = { method: 'POST', headers: { 'x-forwarded-for': '203.0.113.84' }, body: {} };
   const invoke = async () => {

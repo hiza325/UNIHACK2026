@@ -229,6 +229,31 @@ test('Aggregated errors never leak any provider API key', async () => {
   expect(serialised).toContain('[redacted]');
 });
 
+test('Gateway diagnostics identify provider failures without logging secrets or learner content', async () => {
+  const logs = [];
+  const logger = { warn(entry) { logs.push(entry); } };
+  const privateInput = 'PRIVATE_LEARNER_SOLUTION_2_PLUS_2';
+  const recorder = createRecorder(() => httpError(503, `provider failed for ${privateInput} using ${GEMINI_KEY}`));
+  const gateway = createAiGateway({
+    env: { ...ALL_ENV, GEMINI_MODEL: GEMINI_KEY, ANYROUTER_LEARNING_MODEL: ANYROUTER_KEY },
+    fetcher: recorder.fetcher,
+    maxRetries: 0,
+    retryDelayMs: 0,
+    logger,
+  });
+
+  await expect(gateway.complete({ systemPrompt: 'PRIVATE_SYSTEM_PROMPT', userPrompt: privateInput })).rejects.toMatchObject({ code: 'UPSTREAM_ERROR' });
+
+  expect(logs.filter(entry => entry.event === 'ai_gateway_attempt_failed')).toHaveLength(2);
+  expect(logs.map(entry => entry.provider).filter(Boolean)).toEqual(['gemini', 'anyrouter']);
+  expect(logs.at(-1)).toMatchObject({ event: 'ai_gateway_failed', code: 'UPSTREAM_ERROR', status: 502 });
+  const serialised = JSON.stringify(logs);
+  expect(serialised).not.toContain(privateInput);
+  expect(serialised).not.toContain('PRIVATE_SYSTEM_PROMPT');
+  expect(serialised).not.toContain(GEMINI_KEY);
+  expect(serialised).not.toContain(ANYROUTER_KEY);
+});
+
 test('Readiness diagnostics expose only provider names and booleans', () => {
   const unconfigured = describeAiProviderStatus({ env: {} });
   expect(unconfigured).toMatchObject({

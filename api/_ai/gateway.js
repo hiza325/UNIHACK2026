@@ -35,6 +35,21 @@ function defaultSleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function defaultDiagnosticLogger(env) {
+  return env?.VERCEL === '1' || env?.NODE_ENV === 'production' ? console : null;
+}
+
+function logGatewayDiagnostic(logger, event, details = {}) {
+  if (!logger) return;
+  const write = typeof logger.warn === 'function' ? logger.warn : logger.log;
+  if (typeof write !== 'function') return;
+  try {
+    write.call(logger, { event, ...details });
+  } catch {
+    // Diagnostics must never interrupt an AI request.
+  }
+}
+
 function toInteger(value, fallback, min, max) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -171,11 +186,13 @@ export function createAiGateway({
   retryDelayMs,
   sleep = defaultSleep,
   now = Date.now,
+  logger,
 } = {}) {
   if (typeof fetcher !== 'function') throw new TypeError('AI gateway requires a fetch implementation');
   const entries = resolveAiProviders({ env, providers, providerOrder });
   const settings = resolveAiGatewaySettings({ env, timeoutMs, totalTimeoutMs, maxRetries, retryDelayMs });
   const maxAttemptsPerProvider = settings.maxRetries + 1;
+  const diagnosticLogger = logger === undefined ? defaultDiagnosticLogger(env) : logger;
 
   const status = () => describeAiProviderStatus({ env, providers, providerOrder });
 
@@ -277,6 +294,9 @@ export function createAiGateway({
     if (typeof systemPrompt !== 'string' || !systemPrompt.trim()) throw new TypeError('systemPrompt is required');
     if (typeof userPrompt !== 'string' || !userPrompt.trim()) throw new TypeError('userPrompt is required');
     if (!entries.some(entry => entry.configured)) {
+      logGatewayDiagnostic(diagnosticLogger, 'ai_gateway_not_configured', {
+        providers: entries.map(entry => ({ provider: entry.provider.id, configured: entry.configured })),
+      });
       throw gatewayError('NOT_CONFIGURED', 'No AI provider is configured', { status: 503, details: status() });
     }
 
@@ -350,13 +370,19 @@ export function createAiGateway({
         } catch (error) {
           const failure = classifyFailure(error, entry);
           failures.push(failure);
-          trace.push({
+          const attemptTrace = {
             provider: entry.provider.id,
             model: entry.model,
             attempt,
             code: failure.code,
             retryable: failure.retryable,
             durationMs: now() - attemptStartedAt,
+          };
+          trace.push(attemptTrace);
+          logGatewayDiagnostic(diagnosticLogger, 'ai_gateway_attempt_failed', {
+            ...attemptTrace,
+            model: redact(attemptTrace.model, env),
+            upstreamStatus: Number(failure.details?.httpStatus) || null,
           });
           if (!failure.retryable || attempt >= maxAttemptsPerProvider) break;
           const delay = Math.min(settings.retryDelayMs * 2 ** (attempt - 1), AI_GATEWAY_DEFAULTS.maxDelayMs);
@@ -365,7 +391,21 @@ export function createAiGateway({
       }
     }
 
-    throw aggregateFailure(failures, trace);
+    const aggregate = aggregateFailure(failures, trace);
+    logGatewayDiagnostic(diagnosticLogger, 'ai_gateway_failed', {
+      code: aggregate.code,
+      status: aggregate.status,
+      durationMs: now() - startedAt,
+      attempts: trace.map(item => ({
+        provider: item.provider,
+        model: redact(item.model, env),
+        attempt: item.attempt,
+        code: item.code,
+        retryable: item.retryable,
+        durationMs: item.durationMs,
+      })),
+    });
+    throw aggregate;
   }
 
   return Object.freeze({

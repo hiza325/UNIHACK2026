@@ -25,9 +25,9 @@ function validateClientAnalysis(value, mode) {
   return value;
 }
 
-async function executeRequest(payload) {
+async function executeRequest(payload, { timeoutMs = 30000 } = {}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(DEBATE_ENDPOINT, {
       method: 'POST',
@@ -39,6 +39,8 @@ async function executeRequest(payload) {
     if (!response.ok) {
       const error = new Error(data.error || 'AI analysis failed');
       error.code = data.code || 'REQUEST_FAILED';
+      error.status = response.status;
+      error.requestId = data.requestId || response.headers.get('x-ai-request-id') || '';
       throw error;
     }
     return validateClientAnalysis(data.analysis, payload.mode || 'analyze');
@@ -54,13 +56,13 @@ async function executeRequest(payload) {
   }
 }
 
-export function requestDebateAnalysis(payload) {
+export function requestDebateAnalysis(payload, options = {}) {
   const key = JSON.stringify(payload);
   const cached = analysisCache.get(key);
   if ((payload.mode || 'analyze') === 'analyze' && cached && cached.expiresAt > Date.now()) return Promise.resolve(clone(cached.value));
   if (cached) analysisCache.delete(key);
   if (pendingRequests.has(key)) return pendingRequests.get(key).then(clone);
-  const request = executeRequest(payload).then(result => {
+  const request = executeRequest(payload, options).then(result => {
     if ((payload.mode || 'analyze') === 'analyze') {
       const now = Date.now();
       for (const [cachedKey, entry] of analysisCache) if (entry.expiresAt <= now) analysisCache.delete(cachedKey);

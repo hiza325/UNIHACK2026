@@ -427,9 +427,11 @@ export const actionMethods = {
   debateErrorText(error) {
     if (error?.code === 'NOT_CONFIGURED') return this.t('debateNotConfigured');
     if (error?.code === 'TIMEOUT') return this.t('debateTimeout');
-    if (error?.code === 'INVALID_INPUT') return this.t('debateInvalidInput');
+    if (error?.code === 'AUTH_REQUIRED' || error?.status === 401) return this.t('authSessionExpired');
+    if (error?.code === 'FORBIDDEN' || error?.status === 403) return this.t('debateForbidden');
+    if (error?.code === 'INVALID_INPUT' || error?.status === 400) return this.t('debateInvalidInput');
     if (error?.code === 'INVALID_OUTPUT') return this.t('debateInvalidOutput');
-    if (error?.code === 'RATE_LIMIT') return this.t('debateRateLimit');
+    if (error?.code === 'RATE_LIMIT' || error?.status === 429) return this.t('debateRateLimit');
     return this.t('debateApiError');
   },
   updateDebateResult() {

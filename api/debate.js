@@ -1,5 +1,5 @@
 import { DEBATE_PROMPT } from '../debate-prompt.js';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createAiGateway, describeAiProviderStatus, resolveAiGatewaySettings, AI_GATEWAY_DEFAULTS } from './_ai/gateway.js';
 import { currentUser } from './auth/_supabase.js';
 import { createLearningRecordService } from './learning-records/_service.js';
@@ -14,6 +14,29 @@ const RUBRIC_VERSION = 'paradox-rubric-v1';
 const requestWindows = new Map();
 const RATE_LIMIT = 15;
 const RATE_WINDOW_MS = 60 * 1000;
+
+function defaultDiagnosticLogger(env = process.env) {
+  return env.VERCEL === '1' || env.NODE_ENV === 'production' ? console : null;
+}
+
+function logDebateDiagnostic(logger, level, event, details = {}) {
+  if (!logger) return;
+  const write = typeof logger[level] === 'function' ? logger[level] : logger.log;
+  if (typeof write !== 'function') return;
+  try {
+    write.call(logger, { event, ...details });
+  } catch {
+    // Logging must never alter the API response.
+  }
+}
+
+function defaultErrorCode(status) {
+  if (status === 400) return 'INVALID_INPUT';
+  if (status === 401) return 'AUTH_REQUIRED';
+  if (status === 403) return 'FORBIDDEN';
+  if (status === 429) return 'RATE_LIMIT';
+  return status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_FAILED';
+}
 
 function allowRequest(req, now = Date.now()) {
   const forwarded = String(req.headers?.['x-forwarded-for'] || '').split(',')[0].trim();
@@ -247,6 +270,7 @@ export function createDebateHandler({
   sessionResolver = currentUser,
   storeFactory = createLearningRecordStore,
   recordServiceFactory = createLearningRecordService,
+  logger = defaultDiagnosticLogger(),
 } = {}) {
   function isAiStatusRequest(req) {
     const host = String(req?.headers?.host || 'localhost');
@@ -292,15 +316,28 @@ export function createDebateHandler({
     }
 
     if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' }); }
-    if (!allowRequest(req)) return res.status(429).json({ error: 'Too many AI analysis requests. Please wait a moment.', code: 'RATE_LIMIT' });
+    const requestId = randomUUID();
+    const startedAt = Date.now();
+    res.setHeader('X-AI-Request-Id', requestId);
+    if (!allowRequest(req)) {
+      logDebateDiagnostic(logger, 'warn', 'ai_debate_failed', {
+        requestId, phase: 'rate_limit', status: 429, code: 'RATE_LIMIT', durationMs: Date.now() - startedAt,
+      });
+      return res.status(429).json({ error: 'Too many AI analysis requests. Please wait a moment.', code: 'RATE_LIMIT', requestId });
+    }
     let recordService;
     let authorizedRecord;
     let normalizedInput;
+    let phase = 'parse_request';
+    let hasLearningRecord = false;
     try {
       const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      phase = 'validate_input';
       normalizedInput = normalizeDebatePayload(payload);
       const recordContext = payload?.learningRecord;
+      hasLearningRecord = Boolean(recordContext?.sessionId || recordContext?.submissionId);
       if (recordContext?.sessionId || recordContext?.submissionId) {
+        phase = 'authorize_learning_record';
         if (!recordContext.sessionId || !recordContext.submissionId) throw inputError('Complete learning record context is required');
         const session = await sessionResolver(req, res);
         recordService = recordServiceFactory({ store: storeFactory() });
@@ -311,10 +348,12 @@ export function createDebateHandler({
           input: normalizedInput,
         });
       }
+      phase = 'ai_gateway';
       const produced = await analysisFactory(payload);
       const analysis = produced?.analysis || produced;
       const meta = produced?.meta || null;
       if (authorizedRecord) {
+        phase = 'persist_learning_record';
         await recordService.recordAiResult({
           authorized: authorizedRecord,
           input: normalizedInput,
@@ -322,13 +361,23 @@ export function createDebateHandler({
           model: analysis.proofRecord?.model || meta?.model || 'ai-gateway',
         });
       }
+      logDebateDiagnostic(logger, 'log', 'ai_debate_completed', {
+        requestId,
+        mode: normalizedInput.mode,
+        status: 200,
+        provider: meta?.provider || null,
+        attempts: Number(meta?.attempts) || null,
+        fallbackUsed: meta?.fallbackUsed === true,
+        durationMs: Date.now() - startedAt,
+        hasLearningRecord,
+      });
       return res.status(200).json({ analysis, ...(meta ? { meta } : {}) });
     } catch (error) {
       if (authorizedRecord && recordService && normalizedInput) {
         await recordService.recordAiFailure({ authorized: authorizedRecord, input: normalizedInput, error }).catch(() => {});
       }
       const status = error instanceof SyntaxError ? 400 : Number(error.status) || 500;
-      const code = error.code || (status >= 500 ? 'INTERNAL_ERROR' : 'INVALID_INPUT');
+      const code = error.code || defaultErrorCode(status);
       const message = status < 500
         ? error.message
         : code === 'NOT_CONFIGURED'
@@ -337,7 +386,17 @@ export function createDebateHandler({
             ? 'AI analysis timed out'
             : 'AI analysis is temporarily unavailable';
       const details = error?.details && typeof error.details === 'object' ? { details: error.details } : {};
-      return res.status(status).json({ error: message, code, ...details });
+      logDebateDiagnostic(logger, status >= 500 ? 'error' : 'warn', 'ai_debate_failed', {
+        requestId,
+        phase,
+        mode: normalizedInput?.mode || 'unknown',
+        status,
+        code,
+        errorName: String(error?.name || 'Error').slice(0, 80),
+        durationMs: Date.now() - startedAt,
+        hasLearningRecord,
+      });
+      return res.status(status).json({ error: message, code, requestId, ...details });
     }
   };
 }
