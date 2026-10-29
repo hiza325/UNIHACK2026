@@ -485,10 +485,11 @@ export const actionMethods = {
         previousAnalysis: mode === 'resubmit' ? previousAttempt.analysis : null,
         conversation: activeSession.conversation,
         previousHints: activeSession.hints,
-        attemptNumber: mode === 'resubmit' ? activeSession.revisionCount + 2 : 1,
+        attemptNumber: mode === 'resubmit' ? (this.learningRecordPendingRevision?.attemptNumber || activeSession.revisionCount + 2) : 1,
         ...(learningRecord ? { learningRecord } : {}),
       });
       if (mode === 'resubmit') {
+        if (this.learningRecordPendingRevision?.submissionId === learningRecord?.submissionId) this.learningRecordPendingRevision = null;
         activeSession.revisionCount += 1;
         result.comparison = { ...result.comparison, previousSolution: previousAttempt.solution, currentSolution: solution };
       }

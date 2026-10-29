@@ -310,7 +310,16 @@ export function createLearningRecordService({ store, now = () => new Date() } = 
     const submission = await ownSubmission(submissionId, session.id, learnerId);
     if (String(submission.solution_text).trim() !== String(input.solution).trim()) throw recordError('Solution does not match the stored submission', 'LEARNING_RECORD_MISMATCH', 409);
     if (ANALYSIS_MODES.has(input.mode) && submission.analysis_state === 'analyzed') {
-      throw recordError('Learning submission was already analyzed', 'LEARNING_SUBMISSION_ALREADY_ANALYZED', 409);
+      if (!submission.ai_analysis || typeof submission.ai_analysis !== 'object') {
+        throw recordError('Learning submission was already analyzed', 'LEARNING_SUBMISSION_ALREADY_ANALYZED', 409);
+      }
+      return {
+        session,
+        submission,
+        learnerId,
+        storedAnalysis: submission.ai_analysis,
+        persistenceRequired: session.status !== 'completed',
+      };
     }
     return { session, submission, learnerId };
   }
@@ -342,44 +351,57 @@ export function createLearningRecordService({ store, now = () => new Date() } = 
     } else {
       interactions.push({ mode: 'analysis', role: 'assistant', content: result.summary });
     }
-    await store.insertInteractions(interactions.filter(item => item.content).map(item => ({
+    let interactionRows = interactions.filter(item => item.content).map(item => ({
       session_id: session.id,
       submission_id: submission.id,
       learner_id: learnerId,
       metadata: {},
       ...item,
-    })));
+    }));
+    if (ANALYSIS_MODES.has(input.mode) && interactionRows.length) {
+      const existingInteractions = await store.listInteractions(session.id, learnerId);
+      if (existingInteractions.some(item => item.submission_id === submission.id && item.mode === 'analysis' && item.role === 'assistant')) {
+        interactionRows = [];
+      }
+    }
+    await store.insertInteractions(interactionRows);
 
     let evaluation = null;
     if (input.mode === 'resubmit' && result.evaluation) {
-      const proof = result.proofRecord;
-      const eligible = result.status === 'correct'
-        && result.evaluation.status === 'pass'
-        && result.evaluation.evidenceSufficient === true
-        && proof?.schemaVersion === 'paradox-proof-of-learning-v1'
-        && /^[0-9a-f]{64}$/i.test(String(proof.contentHash || ''));
-      const credentialId = eligible ? credentialCode(submission.id, completedAt) : null;
-      const evaluationRow = await store.insertEvaluation({
-        session_id: session.id,
-        submission_id: submission.id,
-        learner_id: learnerId,
-        rubric_version: result.evaluation.rubricVersion,
-        score: result.evaluation.score,
-        status: result.evaluation.status,
-        comment: result.evaluation.comment,
-        criteria: result.evaluation.criteria,
-        corrected_issues: result.evaluation.correctedIssues,
-        remaining_issues: result.evaluation.remainingIssues,
-        proof_record: proof || null,
-        credential_eligible: eligible,
-        credential_id: credentialId,
-        credential_id_hash: credentialId ? credentialIdFromCode(credentialId) : null,
-        credential_hash: eligible ? `0x${proof.contentHash.toLowerCase()}` : null,
-        credential_status: eligible ? 'eligible' : 'not_eligible',
-        verification_status: 'unverified',
-        evaluated_at: completedAt,
-      });
-      evaluation = publicLearningEvaluation(evaluationRow);
+      const existingEvaluation = (await store.listEvaluations(session.id, learnerId))
+        .find(item => item.submission_id === submission.id);
+      if (existingEvaluation) {
+        evaluation = publicLearningEvaluation(existingEvaluation);
+      } else {
+        const proof = result.proofRecord;
+        const eligible = result.status === 'correct'
+          && result.evaluation.status === 'pass'
+          && result.evaluation.evidenceSufficient === true
+          && proof?.schemaVersion === 'paradox-proof-of-learning-v1'
+          && /^[0-9a-f]{64}$/i.test(String(proof.contentHash || ''));
+        const credentialId = eligible ? credentialCode(submission.id, completedAt) : null;
+        const evaluationRow = await store.insertEvaluation({
+          session_id: session.id,
+          submission_id: submission.id,
+          learner_id: learnerId,
+          rubric_version: result.evaluation.rubricVersion,
+          score: result.evaluation.score,
+          status: result.evaluation.status,
+          comment: result.evaluation.comment,
+          criteria: result.evaluation.criteria,
+          corrected_issues: result.evaluation.correctedIssues,
+          remaining_issues: result.evaluation.remainingIssues,
+          proof_record: proof || null,
+          credential_eligible: eligible,
+          credential_id: credentialId,
+          credential_id_hash: credentialId ? credentialIdFromCode(credentialId) : null,
+          credential_hash: eligible ? `0x${proof.contentHash.toLowerCase()}` : null,
+          credential_status: eligible ? 'eligible' : 'not_eligible',
+          verification_status: 'unverified',
+          evaluated_at: completedAt,
+        });
+        evaluation = publicLearningEvaluation(evaluationRow);
+      }
     }
 
     const completed = ANALYSIS_MODES.has(input.mode)

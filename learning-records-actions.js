@@ -13,6 +13,7 @@ export const learningRecordActionMethods = {
     this.learningRecordsLoadAttempted = false;
     this.learningRecordSyncError = '';
     this.learningRecordsRefreshQueued = false;
+    this.learningRecordPendingRevision = null;
   },
   currentLearningRecordContext() {
     if (!this.learningRecordsService?.enabled || !this.learningRecordSessionId || !this.learningRecordSubmissionId) return null;
@@ -21,6 +22,15 @@ export const learningRecordActionMethods = {
   async prepareLearningRecord(mode, problem, solution, previousAttempt) {
     if (!this.learningRecordsService?.enabled) return null;
     try {
+      if (mode === 'analyze') this.learningRecordPendingRevision = null;
+      const pending = this.learningRecordPendingRevision;
+      if (mode === 'resubmit'
+        && pending?.sessionId === this.learningRecordSessionId
+        && pending.solution.trim() === solution.trim()) {
+        this.learningRecordSubmissionId = pending.submissionId;
+        this.saveAuditState();
+        return this.currentLearningRecordContext();
+      }
       if (mode === 'analyze' || !this.learningRecordSessionId) {
         const initialSolution = mode === 'resubmit' && previousAttempt ? previousAttempt.solution : solution;
         const created = await this.learningRecordsService.createSession({
@@ -34,14 +44,51 @@ export const learningRecordActionMethods = {
         if (mode === 'resubmit') {
           const revision = await this.learningRecordsService.createSubmission(created.session.id, solution);
           this.learningRecordSubmissionId = revision.id;
+          this.learningRecordPendingRevision = {
+            sessionId: created.session.id,
+            submissionId: revision.id,
+            solution,
+            attemptNumber: revision.attemptNumber,
+          };
         }
       } else if (mode === 'resubmit') {
         const revision = await this.learningRecordsService.createSubmission(this.learningRecordSessionId, solution);
         this.learningRecordSubmissionId = revision.id;
+        this.learningRecordPendingRevision = {
+          sessionId: this.learningRecordSessionId,
+          submissionId: revision.id,
+          solution,
+          attemptNumber: revision.attemptNumber,
+        };
       }
       this.saveAuditState();
       return this.currentLearningRecordContext();
     } catch (error) {
+      if (mode === 'resubmit' && this.learningRecordSessionId) {
+        try {
+          const detail = await this.learningRecordsService.getSession(this.learningRecordSessionId);
+          const latest = Array.isArray(detail?.submissions) ? detail.submissions.at(-1) : null;
+          const recoverable = latest?.type === 'revision'
+            && String(latest.solution || '').trim() === solution.trim()
+            && (['pending_analysis', 'analysis_failed'].includes(latest.analysisState)
+              || (detail.status !== 'completed'
+                && latest.analysis?.status === 'correct'
+                && latest.analysis?.evaluation?.status === 'pass'));
+          if (recoverable) {
+            this.learningRecordSubmissionId = latest.id;
+            this.learningRecordPendingRevision = {
+              sessionId: detail.id,
+              submissionId: latest.id,
+              solution,
+              attemptNumber: latest.attemptNumber,
+            };
+            this.saveAuditState();
+            return this.currentLearningRecordContext();
+          }
+        } catch {
+          // Preserve the original submission creation error below.
+        }
+      }
       this.learningRecordSyncError = error.code || 'LEARNING_RECORD_SYNC_FAILED';
       throw error;
     }
@@ -116,8 +163,20 @@ export const learningRecordActionMethods = {
         const detail = await this.learningRecordsService.getSession(sessionId);
         if (!detail || !Array.isArray(detail.submissions)) throw new Error('Invalid learning session response');
         const latest = detail.submissions.at(-1);
+        const latestNeedsRetry = latest?.type === 'revision' && (
+          ['pending_analysis', 'analysis_failed'].includes(latest.analysisState)
+          || (detail.status !== 'completed'
+            && latest.analysis?.status === 'correct'
+            && latest.analysis?.evaluation?.status === 'pass')
+        );
         this.learningRecordSessionId = detail.id;
         this.learningRecordSubmissionId = latest?.id || '';
+        this.learningRecordPendingRevision = latestNeedsRetry ? {
+          sessionId: detail.id,
+          submissionId: latest.id,
+          solution: String(latest.solution || ''),
+          attemptNumber: latest.attemptNumber,
+        } : null;
         this.auditProblemText = String(detail.problem || '');
         this.auditText = String(latest?.solution || '');
         const analyzed = [...detail.submissions].reverse().find(item => item.analysis)?.analysis || null;
@@ -126,7 +185,7 @@ export const learningRecordActionMethods = {
           revisionCount: Math.max(0, detail.submissions.length - 1),
           hintLevel: Math.max(0, ...((detail.interactions || []).filter(item => item.mode === 'hint').map(item => Number(item.hintLevel) || 0))),
           hints: (detail.interactions || []).filter(item => item.mode === 'hint' && item.role === 'assistant').slice(-3).map(item => ({ level: item.hintLevel, content: item.content })),
-          attempts: detail.submissions.filter(item => item.analysis).slice(-10).map(item => ({ solution: item.solution, analysis: item.analysis, at: item.analysisCompletedAt || item.submittedAt })),
+          attempts: detail.submissions.filter(item => item.analysis && item.id !== this.learningRecordPendingRevision?.submissionId).slice(-10).map(item => ({ solution: item.solution, analysis: item.analysis, at: item.analysisCompletedAt || item.submittedAt })),
           conversation: (detail.interactions || []).filter(item => item.mode === 'discussion').slice(-40).map(item => ({ role: item.role, text: item.content })),
         };
         this.auditMessages = [];

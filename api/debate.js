@@ -348,6 +348,32 @@ export function createDebateHandler({
           input: normalizedInput,
         });
       }
+      if (authorizedRecord?.storedAnalysis) {
+        const analysis = authorizedRecord.storedAnalysis;
+        if (authorizedRecord.persistenceRequired) {
+          phase = 'persist_learning_record';
+          await recordService.recordAiResult({
+            authorized: authorizedRecord,
+            input: normalizedInput,
+            result: analysis,
+            model: analysis.proofRecord?.model || authorizedRecord.submission.analysis_model || 'ai-gateway',
+          });
+        } else {
+          phase = 'replay_learning_record';
+        }
+        logDebateDiagnostic(logger, 'log', 'ai_debate_completed', {
+          requestId,
+          mode: normalizedInput.mode,
+          status: 200,
+          provider: null,
+          attempts: 0,
+          fallbackUsed: false,
+          replayedLearningRecord: true,
+          durationMs: Date.now() - startedAt,
+          hasLearningRecord,
+        });
+        return res.status(200).json({ analysis });
+      }
       phase = 'ai_gateway';
       const produced = await analysisFactory(payload);
       const analysis = produced?.analysis || produced;
@@ -373,7 +399,7 @@ export function createDebateHandler({
       });
       return res.status(200).json({ analysis, ...(meta ? { meta } : {}) });
     } catch (error) {
-      if (authorizedRecord && recordService && normalizedInput) {
+      if (phase === 'ai_gateway' && authorizedRecord && recordService && normalizedInput) {
         await recordService.recordAiFailure({ authorized: authorizedRecord, input: normalizedInput, error }).catch(() => {});
       }
       const status = error instanceof SyntaxError ? 400 : Number(error.status) || 500;

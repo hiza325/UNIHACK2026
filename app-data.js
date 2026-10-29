@@ -100,6 +100,7 @@ export const dataMethods = {
     this.passportError = '';
     this.learningRecordSessionId = '';
     this.learningRecordSubmissionId = '';
+    this.learningRecordPendingRevision = null;
     this.activeLocalSessionId = '';
     this.remoteLearningSessions = [];
     this.remoteAchievementSummary = null;
@@ -150,6 +151,18 @@ export const dataMethods = {
     };
     this.learningRecordSessionId = typeof state.learningRecordSessionId === 'string' ? state.learningRecordSessionId : '';
     this.learningRecordSubmissionId = typeof state.learningRecordSubmissionId === 'string' ? state.learningRecordSubmissionId : '';
+    const pendingRevision = state.learningRecordPendingRevision;
+    this.learningRecordPendingRevision = pendingRevision
+      && typeof pendingRevision.sessionId === 'string'
+      && typeof pendingRevision.submissionId === 'string'
+      && typeof pendingRevision.solution === 'string'
+      ? {
+          sessionId: pendingRevision.sessionId,
+          submissionId: pendingRevision.submissionId,
+          solution: pendingRevision.solution,
+          attemptNumber: Math.max(2, Number(pendingRevision.attemptNumber) || 2),
+        }
+      : null;
     this.activeLocalSessionId = typeof state.activeLocalSessionId === 'string' ? state.activeLocalSessionId : '';
     if (this.auditResult && this.auditText && !this.debateSession.attempts.length) {
       this.debateSession.attempts.push({ solution: this.auditText, analysis: this.auditResult, at: new Date().toISOString() });
@@ -170,6 +183,7 @@ export const dataMethods = {
       messages: this.auditMessages.slice(-60),
       learningRecordSessionId: this.learningRecordSessionId,
       learningRecordSubmissionId: this.learningRecordSubmissionId,
+      learningRecordPendingRevision: this.learningRecordPendingRevision,
       activeLocalSessionId: this.activeLocalSessionId,
       files: { problem: this.files.problem[0] || null, work: this.files.work[0] || null }
     };

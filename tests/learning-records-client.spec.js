@@ -202,3 +202,83 @@ test('successful correction refreshes backend achievements without F5 and surviv
   await expect(page.locator('[data-achievement-status="earned"]')).toHaveCount(2);
   await expect(page.locator('.achievement-tile').filter({ hasText: 'Người tự sửa lỗi' })).toHaveAttribute('data-achievement-status', 'earned');
 });
+
+test('failed Resubmit preserves the revision and retries the same submission safely', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('paradox-session', JSON.stringify({ id: '11111111-1111-4111-8111-111111111111', name: 'Retry Learner', email: 'retry@example.com' }));
+    window.PARADOX_LEARNING_RECORDS_CONFIG = { enabled: true, apiBaseUrl: '/api' };
+  });
+  const revisionId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  let revisionCreates = 0;
+  let resubmitCalls = 0;
+  const resubmitContexts = [];
+  const resubmitAttempts = [];
+
+  await page.route('**/api/learning-records*', async route => {
+    const request = route.request();
+    if (request.method() === 'POST') {
+      const body = request.postDataJSON();
+      if (body.action === 'createSession') {
+        await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({
+          session: { id: SESSION_ID, title: 'Solve 2x = 8', subject: 'Algebra', problem: 'Solve 2x = 8', status: 'in_progress', startedAt: '2026-10-28T10:00:00.000Z' },
+          submission: { id: SUBMISSION_ID, sessionId: SESSION_ID, attemptNumber: 1, type: 'initial', solution: 'x = 6', analysisState: 'pending_analysis' },
+        }) });
+      } else {
+        revisionCreates += 1;
+        await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({
+          submission: { id: revisionId, sessionId: SESSION_ID, attemptNumber: 2, type: 'revision', solution: 'x = 4', analysisState: 'pending_analysis' },
+        }) });
+      }
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      sessions: [{ id: SESSION_ID, title: 'Solve 2x = 8', subject: 'Algebra', status: 'in_progress', latestAnalysisStatus: 'incorrect', startedAt: '2026-10-28T10:00:00.000Z', durationSeconds: 60 }],
+      achievementSummary: achievementSummary({ completed: 0, corrections: 0, streak: 0 }),
+    }) });
+  });
+  await page.route('**/api/debate', async route => {
+    const body = route.request().postDataJSON();
+    if (body.mode === 'analyze') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ analysis: {
+        status: 'incorrect', summary: 'x = 6 is incorrect.', confidence: 0.98, issues: [{ category: 'knowledge' }], strengths: [], nextQuestion: '', reply: '', hint: null,
+      } }) });
+      return;
+    }
+    resubmitCalls += 1;
+    resubmitContexts.push(body.learningRecord);
+    resubmitAttempts.push(body.attemptNumber);
+    if (resubmitCalls === 1) {
+      await route.fulfill({ status: 502, contentType: 'application/json', headers: { 'X-AI-Request-Id': 'persist-request-1' }, body: JSON.stringify({
+        error: 'AI analysis is temporarily unavailable', code: 'LEARNING_RECORD_DATABASE_ERROR', requestId: 'persist-request-1',
+      }) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ analysis: {
+      status: 'correct', summary: 'The revision is correct.', confidence: 0.99, issues: [], strengths: [], nextQuestion: '', reply: '', hint: null,
+      comparison: { summary: 'Corrected.', improvements: ['Fixed division.'], remainingIssues: [] },
+      evaluation: { status: 'pass', score: 100, criteria: { knowledgeAccuracy: {}, reasoningLogic: {}, solutionCompleteness: {}, errorRemediation: {} } },
+    } }) });
+  });
+
+  await page.goto('/#/audit');
+  await page.fill('#problem-text', 'Solve 2x = 8');
+  await page.fill('#work-text', 'x = 6');
+  await page.locator('#start-audit').click();
+  await expect(page.locator('[data-resubmit]')).toBeVisible();
+  await page.fill('#work-text', 'x = 4');
+  await page.locator('[data-resubmit]').click();
+  await expect(page.locator('.message-error')).toBeVisible();
+  await expect(page.locator('#work-text')).toHaveValue('x = 4');
+
+  await page.reload();
+  await expect(page.locator('#work-text')).toHaveValue('x = 4');
+  await expect(page.locator('[data-resubmit]')).toBeVisible();
+  await page.locator('[data-resubmit]').click();
+  await expect(page.locator('.debate-result')).toContainText('The revision is correct.');
+  expect(revisionCreates).toBe(1);
+  expect(resubmitContexts).toEqual([
+    { sessionId: SESSION_ID, submissionId: revisionId },
+    { sessionId: SESSION_ID, submissionId: revisionId },
+  ]);
+  expect(resubmitAttempts).toEqual([2, 2]);
+});

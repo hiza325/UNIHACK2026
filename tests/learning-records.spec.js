@@ -16,8 +16,9 @@ function createMemoryStore() {
   let sessionIndex = 0;
   let submissionIndex = 0;
   let evaluationIndex = 0;
+  const failures = { evaluation: 0, sessionUpdate: 0 };
   return {
-    sessions, submissions, interactions, evaluations,
+    sessions, submissions, interactions, evaluations, failures,
     async insertSession(record) {
       sessionIndex += 1;
       const id = `${String(sessionIndex).padStart(8, '0')}-aaaa-4aaa-8aaa-aaaaaaaaaaaa`;
@@ -26,6 +27,10 @@ function createMemoryStore() {
       return { ...row };
     },
     async updateSession(id, learnerId, patch) {
+      if (failures.sessionUpdate > 0) {
+        failures.sessionUpdate -= 1;
+        throw Object.assign(new Error('Session update failed'), { code: 'LEARNING_RECORD_DATABASE_ERROR', status: 502 });
+      }
       const row = sessions.find(item => item.id === id && item.learner_id === learnerId);
       if (!row) return null;
       Object.assign(row, patch, { updated_at: '2026-10-28T10:05:00.000Z' });
@@ -55,6 +60,10 @@ function createMemoryStore() {
     },
     async listInteractions(sessionId, learnerId) { return interactions.filter(item => item.session_id === sessionId && item.learner_id === learnerId); },
     async insertEvaluation(record) {
+      if (failures.evaluation > 0) {
+        failures.evaluation -= 1;
+        throw Object.assign(new Error('Evaluation write failed'), { code: 'LEARNING_RECORD_DATABASE_ERROR', status: 502 });
+      }
       if (evaluations.some(item => item.submission_id === record.submission_id)) throw Object.assign(new Error('Duplicate evaluation'), { code: 'LEARNING_RECORD_CONFLICT', status: 409 });
       evaluationIndex += 1;
       const row = { id: `${String(evaluationIndex).padStart(8, '0')}-cccc-4ccc-8ccc-cccccccccccc`, created_at: '2026-10-28T10:03:00.000Z', ...record };
@@ -126,7 +135,124 @@ test('learning records persist sessions, revisions, analysis and reloadable hist
   expect(achievements.metrics).toMatchObject({ validCompletedSessions: 1, successfulCorrectionSessions: 1 });
   expect(achievements.achievements.filter(item => item.earned).map(item => item.id)).toEqual(['first-session', 'error-hunter']);
   await expect(service.authorizeAiRequest({ sessionId: created.session.id, submissionId: revision.id, userId: LEARNER.id, input: revisionInput }))
-    .rejects.toMatchObject({ code: 'LEARNING_SUBMISSION_ALREADY_ANALYZED', status: 409 });
+    .resolves.toMatchObject({ storedAnalysis: { status: 'correct' }, persistenceRequired: false });
+});
+
+test('resubmit persistence retry reuses stored AI output without duplicate evaluation or interaction', async () => {
+  const store = createMemoryStore();
+  const service = createLearningRecordService({ store, now: () => new Date('2026-10-28T10:05:00.000Z') });
+  const created = await service.createSession({ problem: 'Solve 2x = 8', initialSolution: 'x = 6' }, LEARNER);
+  const initialInput = { mode: 'analyze', problem: 'Solve 2x = 8', solution: 'x = 6', question: '', hintLevel: 0 };
+  const initialAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: created.submission.id, userId: LEARNER.id, input: initialInput });
+  await service.recordAiResult({ authorized: initialAuthorization, input: initialInput, result: { status: 'incorrect', summary: 'Incorrect.', issues: [{ category: 'knowledge' }] }, model: 'test-model' });
+  const revision = await service.createSubmission({ sessionId: created.session.id, solution: 'x = 4' }, LEARNER);
+  const revisionInput = { mode: 'resubmit', problem: 'Solve 2x = 8', solution: 'x = 4', question: '', hintLevel: 0 };
+  const authorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: revision.id, userId: LEARNER.id, input: revisionInput });
+
+  store.failures.evaluation = 1;
+  await expect(service.recordAiResult({ authorized: authorization, input: revisionInput, result: passingResult(), model: 'test-model' }))
+    .rejects.toMatchObject({ code: 'LEARNING_RECORD_DATABASE_ERROR', status: 502 });
+  expect(store.submissions.find(item => item.id === revision.id)).toMatchObject({ analysis_state: 'analyzed', ai_analysis: { evaluation: { status: 'pass' } } });
+  expect(store.evaluations).toHaveLength(0);
+
+  const retryAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: revision.id, userId: LEARNER.id, input: revisionInput });
+  expect(retryAuthorization).toMatchObject({ storedAnalysis: { evaluation: { status: 'pass' } }, persistenceRequired: true });
+  await service.recordAiResult({ authorized: retryAuthorization, input: revisionInput, result: retryAuthorization.storedAnalysis, model: 'test-model' });
+
+  expect(store.submissions.filter(item => item.session_id === created.session.id)).toHaveLength(2);
+  expect(store.interactions.filter(item => item.submission_id === revision.id && item.mode === 'analysis')).toHaveLength(1);
+  expect(store.evaluations.filter(item => item.submission_id === revision.id)).toHaveLength(1);
+  expect(store.sessions[0]).toMatchObject({ status: 'completed', latest_evaluation_status: 'pass' });
+});
+
+test('resubmit retry completes the session without duplicating an evaluation already persisted', async () => {
+  const store = createMemoryStore();
+  const service = createLearningRecordService({ store, now: () => new Date('2026-10-28T10:06:00.000Z') });
+  const created = await service.createSession({ problem: 'Solve 2x = 8', initialSolution: 'x = 6' }, LEARNER);
+  const revision = await service.createSubmission({ sessionId: created.session.id, solution: 'x = 4' }, LEARNER);
+  const input = { mode: 'resubmit', problem: 'Solve 2x = 8', solution: 'x = 4', question: '', hintLevel: 0 };
+  const authorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: revision.id, userId: LEARNER.id, input });
+
+  store.failures.sessionUpdate = 1;
+  await expect(service.recordAiResult({ authorized: authorization, input, result: passingResult(), model: 'test-model' }))
+    .rejects.toMatchObject({ code: 'LEARNING_RECORD_DATABASE_ERROR', status: 502 });
+  expect(store.evaluations.filter(item => item.submission_id === revision.id)).toHaveLength(1);
+
+  const retryAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: revision.id, userId: LEARNER.id, input });
+  await service.recordAiResult({ authorized: retryAuthorization, input, result: retryAuthorization.storedAnalysis, model: 'test-model' });
+
+  expect(store.interactions.filter(item => item.submission_id === revision.id && item.mode === 'analysis')).toHaveLength(1);
+  expect(store.evaluations.filter(item => item.submission_id === revision.id)).toHaveLength(1);
+  expect(store.sessions[0]).toMatchObject({ status: 'completed', latest_evaluation_status: 'pass' });
+});
+
+test('Debate handler classifies database persistence failure after AI success without marking AI failure', async () => {
+  let failureCalls = 0;
+  const logs = [];
+  const handler = createDebateHandler({
+    analysisFactory: async () => ({ analysis: passingResult(), meta: { provider: 'gemini', attempts: 1 } }),
+    sessionResolver: async () => ({ user: LEARNER }),
+    storeFactory: () => ({}),
+    recordServiceFactory: () => ({
+      async authorizeAiRequest() { return { session: { id: 'session' }, submission: { id: 'submission' }, learnerId: LEARNER.id }; },
+      async recordAiResult() { throw Object.assign(new Error('Database write failed'), { code: 'LEARNING_RECORD_DATABASE_ERROR', status: 502 }); },
+      async recordAiFailure() { failureCalls += 1; },
+    }),
+    logger: { error(entry) { logs.push(entry); }, warn(entry) { logs.push(entry); }, log(entry) { logs.push(entry); } },
+  });
+  const response = apiResponse();
+  await handler({
+    method: 'POST',
+    headers: { 'x-forwarded-for': '203.0.113.210' },
+    body: {
+      mode: 'resubmit', problem: 'Solve 2x = 8', solution: 'x = 4', previousSolution: 'x = 6',
+      learningRecord: { sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', submissionId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
+    },
+  }, response);
+
+  expect(response.statusCode).toBe(502);
+  expect(response.payload).toMatchObject({ code: 'LEARNING_RECORD_DATABASE_ERROR', requestId: expect.any(String) });
+  expect(failureCalls).toBe(0);
+  expect(logs.at(-1)).toMatchObject({ event: 'ai_debate_failed', phase: 'persist_learning_record', status: 502, code: 'LEARNING_RECORD_DATABASE_ERROR' });
+});
+
+test('Debate handler recovers stored analysis without another provider request', async () => {
+  const storedAnalysis = passingResult();
+  let providerCalls = 0;
+  let persistenceCalls = 0;
+  const handler = createDebateHandler({
+    analysisFactory: async () => { providerCalls += 1; throw new Error('Provider must not be called'); },
+    sessionResolver: async () => ({ user: LEARNER }),
+    storeFactory: () => ({}),
+    recordServiceFactory: () => ({
+      async authorizeAiRequest() {
+        return {
+          session: { id: 'session' },
+          submission: { id: 'submission', analysis_model: 'gemini/test' },
+          learnerId: LEARNER.id,
+          storedAnalysis,
+          persistenceRequired: true,
+        };
+      },
+      async recordAiResult({ result }) { persistenceCalls += 1; expect(result).toEqual(storedAnalysis); },
+      async recordAiFailure() { throw new Error('must not mark stored analysis as failed'); },
+    }),
+    logger: null,
+  });
+  const response = apiResponse();
+  await handler({
+    method: 'POST',
+    headers: { 'x-forwarded-for': '203.0.113.211' },
+    body: {
+      mode: 'resubmit', problem: 'Solve 2x = 8', solution: 'x = 4', previousSolution: 'x = 6',
+      learningRecord: { sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', submissionId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
+    },
+  }, response);
+
+  expect(response.statusCode).toBe(200);
+  expect(response.payload.analysis).toEqual(storedAnalysis);
+  expect(providerCalls).toBe(0);
+  expect(persistenceCalls).toBe(1);
 });
 
 test('learning record ownership is enforced and input cannot self-assign a passing evaluation or achievement', async () => {

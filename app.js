@@ -57,6 +57,7 @@ class EduApp extends HTMLElement {
     this.learningRecordsService = createLearningRecordsService({ enabled: false, apiBaseUrl: '/api' });
     this.learningRecordSessionId = '';
     this.learningRecordSubmissionId = '';
+    this.learningRecordPendingRevision = null;
     this.activeLocalSessionId = '';
     this.remoteLearningSessions = [];
     this.remoteAchievementSummary = null;
