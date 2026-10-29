@@ -2,14 +2,31 @@ import { expect, test } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import { AVALANCHE_FUJI_CONFIG } from '../avalanche-config.js';
 import {
+  CERTIFICATE_CODE_HTML_PATTERN,
   createCredentialDraftFromAiEvaluation,
   getAvalancheExplorerUrl,
   getCredentialDisplayStatus,
   isAvalancheTransactionHash,
+  isCertificateCode,
 } from '../learning-passport-service.js';
 
 const SESSION = { id: 'learner-passport-test', name: 'Passport Learner', email: 'passport@example.com' };
 const validTransactionHash = `0x${'ab'.repeat(32)}`;
+const CERTIFICATE_CODE_CASES = [
+  { value: 'PXP-2026-ALG-0001', valid: true, label: 'valid canonical code' },
+  { value: 'pxp-2026-alg-0001', valid: true, label: 'valid lowercase code' },
+  { value: '  PXP-2026-ALG-0001  ', valid: true, label: 'valid surrounding whitespace' },
+  { value: 'PXP-ABCD', valid: true, label: 'valid minimum length' },
+  { value: `PXP-${'A'.repeat(76)}`, valid: true, label: 'valid maximum length' },
+  { value: 'CRED-2026-ALG-0001', valid: false, label: 'wrong prefix' },
+  { value: 'PXP-2026_ALG-0001', valid: false, label: 'invalid underscore' },
+  { value: 'PXP-2026 ALG-0001', valid: false, label: 'invalid space inside code' },
+  { value: 'PXP-2026.ALG-0001', valid: false, label: 'invalid dot' },
+  { value: 'PXP-ABC', valid: false, label: 'too short' },
+  { value: `PXP-${'A'.repeat(77)}`, valid: false, label: 'too long' },
+  { value: '', valid: false, label: 'empty' },
+  { value: '   ', valid: false, label: 'whitespace only' },
+];
 
 function seedSession(page) {
   return page.addInitScript(user => localStorage.setItem('paradox-session', JSON.stringify(user)), SESSION);
@@ -40,6 +57,14 @@ test('Learning Passport guards verified status and maps AI proof records without
 
   const draft = createCredentialDraftFromAiEvaluation({ learnerId: 'learner-1', sessionId: 'session-1', proofRecord: { contentHash: 'a'.repeat(64), score: 88, rubricVersion: 'paradox-rubric-v1', model: 'test-model' } });
   expect(draft).toMatchObject({ status: 'unverified', assessmentScore: 88, transactionHash: null, network: null });
+});
+
+test('Certificate code pattern is v-flag compatible and matches isCertificateCode', () => {
+  const browserPattern = new RegExp(`^(?:${CERTIFICATE_CODE_HTML_PATTERN})$`, 'v');
+  for (const testCase of CERTIFICATE_CODE_CASES) {
+    expect(isCertificateCode(testCase.value), `isCertificateCode: ${testCase.label}`).toBe(testCase.valid);
+    expect(browserPattern.test(testCase.value), `HTML pattern: ${testCase.label}`).toBe(testCase.valid);
+  }
 });
 
 test('Learning Passport presents labelled mock data, credential details, and safe verification states', async ({ page }) => {
@@ -88,6 +113,39 @@ test('Learning Passport and verification views are responsive and accessible on 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
     expect(await highImpactViolations(page), `axe violations on mobile ${route}`).toEqual([]);
   }
+});
+
+test('Verify certificate pattern stays valid and silent on desktop and mobile', async ({ page }) => {
+  await seedSession(page);
+  const patternErrors = [];
+  page.on('console', message => {
+    if (message.type() === 'error' && message.text().includes('Pattern attribute value')) patternErrors.push(message.text());
+  });
+
+  for (const viewport of [
+    { name: 'desktop', width: 1280, height: 800 },
+    { name: 'mobile', width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto('/#/verify');
+    const input = page.locator('#passport-code');
+    await expect(input).toBeVisible();
+    await expect(input).toHaveAttribute('pattern', CERTIFICATE_CODE_HTML_PATTERN);
+
+    const pattern = await input.getAttribute('pattern');
+    expect(() => new RegExp(`^(?:${pattern})$`, 'v'), `${viewport.name} pattern compiles with v flag`).not.toThrow();
+
+    for (const testCase of CERTIFICATE_CODE_CASES) {
+      await input.evaluate((element, value) => {
+        element.value = value;
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+      }, testCase.value);
+      const nativeValid = await input.evaluate(element => element.checkValidity());
+      expect(nativeValid, `${viewport.name} native validity: ${testCase.label}`).toBe(testCase.valid);
+    }
+  }
+
+  expect(patternErrors, 'browser must not log invalid Pattern attribute errors').toEqual([]);
 });
 
 test('Learning Passport loads persisted Fuji status and verifies through the credential API', async ({ page }) => {
@@ -167,7 +225,7 @@ test('Verify distinguishes checking, not found, unissued, and network error with
 
   await page.goto('/#/verify');
   const input = page.locator('#passport-code');
-  await input.fill('invalid');
+  await input.fill('ABCDEFGH');
   await page.locator('#passport-verify-form button[type="submit"]').click();
   await expect(input).toBeFocused();
   expect(await input.evaluate(element => element.checkValidity())).toBe(false);

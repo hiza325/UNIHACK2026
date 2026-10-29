@@ -40,7 +40,13 @@ export const AVALANCHE_CREDENTIAL_INTERFACE = Object.freeze({
 });
 
 const STATUS_VALUES = new Set(['unverified', 'pending', 'verified', 'revoked']);
-const CERTIFICATE_CODE = /^PXP-[A-Z0-9-]{4,76}$/;
+
+// HTML `pattern` is compiled with the Unicode `v` flag in modern browsers. In
+// that mode a literal hyphen inside a character class must be escaped, and the
+// pattern is implicitly anchored. Export the exact source used by the browser
+// so the UI and isCertificateCode() cannot drift apart.
+export const CERTIFICATE_CODE_HTML_PATTERN = '\\s*[Pp][Xx][Pp]-[A-Za-z0-9\\-]{4,76}\\s*';
+const CERTIFICATE_CODE = new RegExp(`^${CERTIFICATE_CODE_HTML_PATTERN}$`);
 
 export function isCertificateCode(value) {
   return CERTIFICATE_CODE.test(String(value || '').trim().toUpperCase());
