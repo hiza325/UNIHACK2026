@@ -10,7 +10,9 @@ export const passportViews = {
     return this.formatDisplayDate(date, { day: '2-digit', month: '2-digit', year: 'numeric' });
   },
   passportStatusMarkup(credential) {
-    const status = getCredentialDisplayStatus(credential);
+    const revoked = credential.status === 'revoked' || ['revoked', 'revoke_pending'].includes(credential.transactionStatus) || credential.revokedAt || credential.verification?.revoked;
+    const displayStatus = getCredentialDisplayStatus(credential);
+    const status = revoked ? 'revoked' : (credential.isTest || credential.source === 'mock') && displayStatus === 'verified' ? 'unverified' : displayStatus;
     const labels = { unverified: 'passportStatusUnverified', pending: 'passportStatusPending', verified: 'passportStatusVerified', revoked: 'passportStatusRevoked' };
     return `<span class="credential-status ${status}">${this.t(labels[status])}</span>`;
   },
@@ -50,6 +52,9 @@ export const passportViews = {
     </div>`;
   },
   passportCredentialDetailMarkup(credential) {
+    if (credential.source === 'avalanche' && !credential.isTest && credential.snapshot?.version === 1) {
+      credential = { ...credential, skill: credential.snapshot.subject, issuedAt: credential.snapshot.issuedAt };
+    }
     const t = key => this.t(key);
     const actualVerification = hasActualAvalancheVerification(credential);
     const dataBadge = credential.isTest ? t('passportTestBadge') : credential.source === 'mock' ? t('passportMockBadge') : '';

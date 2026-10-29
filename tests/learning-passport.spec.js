@@ -181,7 +181,10 @@ test('Learning Passport loads persisted Fuji status and verifies through the cre
   await page.goto('/#/passport');
   await expect(page.locator('.passport-data-notice.live')).toContainText('FUJI TESTNET');
   await expect(page.locator('.credential-row')).toContainText('CHỨNG NHẬN KIỂM THỬ');
-  await expect(page.locator('.credential-status.verified')).toBeVisible();
+  // A manual-test credential remains preview-only in the certificate UI,
+  // even if its test evidence has a confirmed chain response.
+  await expect(page.locator('.credential-status.verified')).toHaveCount(0);
+  await expect(page.locator('.credential-status.unverified')).toBeVisible();
 
   await page.locator('[data-certificate-details]').click();
   await page.locator('[data-verify-certificate]').click();

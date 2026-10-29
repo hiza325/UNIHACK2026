@@ -41,6 +41,16 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
   const filters = values => `?${new URLSearchParams(values).toString()}`;
 
   return {
+    async findLearnerName(learnerId) {
+      const response = await fetcher(`${config.url}/auth/v1/admin/users/${encodeURIComponent(learnerId)}`, {
+        headers: { apikey: config.serviceKey, Authorization: `Bearer ${config.serviceKey}` },
+      });
+      if (!response.ok) throw storeError('Learner profile could not be read', 'LEARNER_PROFILE_UNAVAILABLE', 503);
+      const user = await response.json();
+      if (user?.id !== learnerId) throw storeError('Learner profile mismatch', 'LEARNER_PROFILE_MISMATCH', 409);
+      // No email-derived fallback: absence of an explicit profile name blocks issuance.
+      return user.user_metadata?.full_name || user.user_metadata?.name || null;
+    },
     async findByCode(code) {
       return request('learning_credentials', {
         query: filters({ select: '*', credential_code: `eq.${code}`, limit: '1' }),
@@ -56,6 +66,10 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
       return request('learning_credentials', { method: 'POST', body: record, single: true });
     },
     async updateCredential(id, patch) {
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message']);
+      if (Object.keys(patch).some(key => !allowed.has(key))) {
+        throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
+      }
       return request('learning_credentials', {
         method: 'PATCH', query: filters({ id: `eq.${id}` }), body: patch, single: true,
       });

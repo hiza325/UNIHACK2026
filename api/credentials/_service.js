@@ -3,6 +3,8 @@ import { AVALANCHE_FUJI_CONFIG } from '../../avalanche-config.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CREDENTIAL_CODE = /^PXP-[A-Z0-9-]{4,76}$/;
+// Versioned server policy: the rubric assesses reasoning, not a client-selected course.
+const SUBJECT_BY_RUBRIC = Object.freeze({ 'paradox-rubric-v1': 'Critical thinking and reasoning' });
 
 function credentialError(message, code, status, cause) {
   return Object.assign(new Error(message, cause ? { cause } : undefined), { code, status });
@@ -51,7 +53,7 @@ export function normalizeCredentialIssueInput(body = {}, actor = {}) {
     evidenceHash: normalizeEvidenceHash(body.evidenceHash || body.proofRecord?.contentHash),
     proofRecord: body.proofRecord && typeof body.proofRecord === 'object' ? body.proofRecord : null,
     title: text(body.title, 160, 'title'),
-    skill: text(body.skill, 120, 'skill'),
+    skill: isTest ? text(body.skill, 120, 'skill') : null,
     assessmentScore: score,
     source,
     isTest,
@@ -78,6 +80,16 @@ export function toPublicCredential(row) {
   const transactionHash = row.revoke_tx_hash || row.issue_tx_hash || null;
   return {
     id: row.id,
+    snapshot: row.snapshot_version === 1 ? {
+      version: row.snapshot_version,
+      credentialId: row.id,
+      certificateCode: row.credential_code,
+      recipientName: row.recipient_name_snapshot,
+      subject: row.subject_snapshot,
+      capturedAt: row.snapshot_captured_at,
+      issuedAt: row.issued_at || null,
+      evaluationId: row.evaluation_id,
+    } : null,
     code: row.credential_code,
     name: row.title,
     skill: row.skill,
@@ -165,7 +177,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
 
     const dbProof = evaluation.proof_record;
     if (!dbProof || typeof dbProof !== 'object') throw credentialError('Learning evaluation has no proof record', 'LEARNING_EVALUATION_PROOF_MISSING', 409);
-    if (dbProof.isMock === true || dbProof.source === 'mock') throw credentialError('Mock evidence cannot be issued', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
+    if ([evaluation, submission, session, dbProof, input.proofRecord, input].some(record => record && (record.isMock === true || record.isDemo === true || record.isTest === true || ['mock', 'demo', 'manual-test'].includes(record.source)))) throw credentialError('Mock evidence cannot be issued', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
     if (dbProof.schemaVersion !== 'paradox-proof-of-learning-v1' || dbProof.evidenceSufficient !== true || dbProof.status !== 'pass') {
       throw credentialError('Learning evaluation proof is not eligible', 'LEARNING_EVALUATION_PROOF_INELIGIBLE', 409);
     }
@@ -180,6 +192,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     }
 
     return {
+      subject: SUBJECT_BY_RUBRIC[evaluation.rubric_version] || null,
       evidenceHash: normalizeEvidenceHash(dbProof.contentHash),
       assessmentScore: Number.isFinite(dbProof.score) ? Math.max(0, Math.min(100, Math.round(dbProof.score))) : input.assessmentScore,
     };
@@ -187,8 +200,11 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
 
   async function issue(body, actor) {
     const input = normalizeCredentialIssueInput(body, actor);
+    let verifiedEvidence;
     if (input.source === 'ai-evaluation') {
+      if (body.isDemo === true || body.isTest === true) throw credentialError('Demo evidence cannot be issued', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
       const verified = await verifyAiEvidence(input, input.learnerId);
+      verifiedEvidence = verified;
       input.evidenceHash = verified.evidenceHash;
       input.assessmentScore = verified.assessmentScore;
     }
@@ -207,10 +223,28 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     }
 
     let credential = existing;
+    let snapshot = {};
+    if (input.source === 'ai-evaluation') {
+      if (existing) {
+        if (existing.snapshot_version !== 1 || !existing.recipient_name_snapshot || !existing.subject_snapshot || !existing.snapshot_captured_at) {
+          throw credentialError('Legacy credential has no immutable snapshot; issuance retry is blocked', 'CREDENTIAL_SNAPSHOT_MISSING', 409);
+        }
+        if (existing.evaluation_id !== input.evaluationId) throw credentialError('Retry evaluation differs from snapshot', 'CREDENTIAL_RETRY_MISMATCH', 409);
+        input.skill = existing.subject_snapshot;
+      } else {
+        if (!verifiedEvidence.subject) throw credentialError('Evaluation rubric has no approved certificate subject', 'CREDENTIAL_SUBJECT_UNSUPPORTED', 409);
+        if (!store.findLearnerName) throw credentialError('Learner profile reader is unavailable', 'LEARNER_PROFILE_UNAVAILABLE', 503);
+        const name = text(await store.findLearnerName(input.learnerId), 200, 'recipient name').normalize('NFC');
+        input.skill = verifiedEvidence.subject;
+        snapshot = { recipient_name_snapshot: name, subject_snapshot: input.skill, snapshot_version: 1,
+          snapshot_captured_at: new Date().toISOString(), evaluation_id: input.evaluationId };
+      }
+    }
     let transaction;
     try {
       if (!credential) {
         credential = await store.insertCredential({
+          ...snapshot,
           learner_id: input.learnerId,
           credential_code: input.credentialCode,
           credential_id_hash: input.credentialIdHash,
