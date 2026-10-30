@@ -2,7 +2,7 @@ import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import { emailProvider, formatSender } from './_mail.js';
 import { guardOtpSend, guardOtpVerify } from './_rate-limit.js';
 import { processPasswordReset } from './_password-reset.js';
-import { supabaseRequest } from './_supabase.js';
+import { noStore, supabaseRequest } from './_supabase.js';
 import { verifySuspensionAppealToken } from './_suspension.js';
 
 const OTP_LIFETIME_MS = 10 * 60 * 1000;
@@ -149,6 +149,7 @@ export async function processOtpRequest(payload, options = {}) {
 }
 
 export default async function handler(req, res) {
+  noStore(res);
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });

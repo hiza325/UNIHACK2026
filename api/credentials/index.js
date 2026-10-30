@@ -1,4 +1,4 @@
-import { currentUser, parseBody, publicUser, requireAdmin } from '../auth/_supabase.js';
+import { currentUser, noStore, parseBody, publicUser, requireAdmin } from '../auth/_supabase.js';
 import { createCredentialService } from './_service.js';
 import { createCredentialStore } from './_store.js';
 import { createLearningRecordStore } from '../learning-records/_store.js';
@@ -24,6 +24,7 @@ function sendCredentialError(res, error) {
 
 export function createCredentialsHandler({ storeFactory = createCredentialStore, serviceFactory = createCredentialService, learningRecordStoreFactory = () => { try { return createLearningRecordStore(); } catch { return null; } } } = {}) {
   return async function credentialsHandler(req, res) {
+    noStore(res);
     if (!['GET', 'POST'].includes(req.method)) {
       res.setHeader('Allow', 'GET, POST');
       return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });

@@ -1,6 +1,7 @@
-import { clearSession, currentUser, sendError, supabaseRequest } from './_supabase.js';
+import { clearSession, currentUser, noStore, sendError, supabaseRequest } from './_supabase.js';
 
 export default async function handler(req, res) {
+  noStore(res);
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'Method not allowed' }); }
   try {
     const { accessToken } = await currentUser(req, res);

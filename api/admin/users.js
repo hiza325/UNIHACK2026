@@ -1,8 +1,9 @@
-import { publicUser, requireAdmin, sendError, supabaseRequest } from '../auth/_supabase.js';
+import { noStore, publicUser, requireAdmin, sendError, supabaseRequest } from '../auth/_supabase.js';
 
 const SUSPENSION_REASONS = new Set(['account_sharing', 'account_information_dispute', 'policy_violation', 'abusive_behavior', 'other']);
 
 export default async function handler(req, res) {
+  noStore(res);
   if (!['GET', 'PATCH'].includes(req.method)) { res.setHeader('Allow', 'GET, PATCH'); return res.status(405).json({ error: 'Method not allowed' }); }
   try {
     await requireAdmin(req, res);
