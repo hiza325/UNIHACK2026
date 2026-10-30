@@ -463,3 +463,210 @@ test('credential and learning-record APIs return no-store auth errors without up
     restoreEnv(previousEnv);
   }
 });
+
+
+test('admin users endpoint rejects anonymous requests with 401 SESSION_INVALID', async () => {
+  const originalFetch = global.fetch;
+  const previousEnv = snapshotEnv();
+  useTestAuthEnv();
+  global.fetch = async () => {
+    throw new Error('unexpected upstream call for anonymous admin request');
+  };
+
+  try {
+    const response = responseRecorder();
+    await adminUsersHandler({ method: 'GET', headers: {} }, response);
+
+    expect(response.statusCode).toBe(401);
+    expect(response.payload).toEqual({ error: 'Session is invalid or has expired', code: 'SESSION_INVALID' });
+    expect(response.payload.users).toBeUndefined();
+    expect(response.headers['Cache-Control']).toBe('private, no-store');
+  } finally {
+    global.fetch = originalFetch;
+    restoreEnv(previousEnv);
+  }
+});
+
+test('admin users endpoint returns 200 for a verified admin', async () => {
+  const originalFetch = global.fetch;
+  const previousEnv = snapshotEnv();
+  useTestAuthEnv();
+  const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (String(url).endsWith('/auth/v1/user')) {
+      return jsonResponse({ id: 'admin-id', email: 'admin@example.com', user_metadata: { full_name: 'Admin' } });
+    }
+    if (String(url).endsWith('/auth/v1/admin/users/admin-id')) {
+      return jsonResponse({ id: 'admin-id', email: 'admin@example.com', user_metadata: { full_name: 'Admin' } });
+    }
+    if (String(url).includes('/auth/v1/admin/users?')) {
+      return jsonResponse({ users: [{ id: 'user-id', email: 'user@example.com', created_at: '2026-01-01T00:00:00.000Z' }] });
+    }
+    return new Response('{}', { status: 404 });
+  };
+
+  try {
+    const response = responseRecorder();
+    await adminUsersHandler({ method: 'GET', headers: { cookie: 'paradox-access=admin-token' } }, response);
+
+    expect(response.statusCode).toBe(200);
+    expect(Array.isArray(response.payload.users)).toBe(true);
+    expect(response.payload.users).toHaveLength(1);
+    expect(response.payload.users[0].email).toBe('user@example.com');
+    expect(response.headers['Cache-Control']).toBe('private, no-store');
+    expect(calls.some(call => String(call.url).includes('/auth/v1/admin/users?') && String(call.options?.headers?.apikey || '') === 'service-key')).toBe(true);
+  } finally {
+    global.fetch = originalFetch;
+    restoreEnv(previousEnv);
+  }
+});
+
+test('admin users endpoint rejects a valid student with 403 and no user list', async () => {
+  const originalFetch = global.fetch;
+  const previousEnv = snapshotEnv();
+  useTestAuthEnv();
+  const calls = [];
+  global.fetch = async (url) => {
+    calls.push(String(url));
+    if (String(url).endsWith('/auth/v1/user')) {
+      return jsonResponse({ id: 'student-id', email: 'student@example.com', user_metadata: { full_name: 'Student' } });
+    }
+    if (String(url).endsWith('/auth/v1/admin/users/student-id')) {
+      return jsonResponse({ id: 'student-id', email: 'student@example.com', user_metadata: { full_name: 'Student' }, app_metadata: {} });
+    }
+    if (String(url).includes('/auth/v1/admin/users?')) {
+      return jsonResponse({ users: [{ id: 'leaked-id', email: 'leaked@example.com', created_at: '2026-01-01T00:00:00.000Z' }] });
+    }
+    return new Response('{}', { status: 404 });
+  };
+
+  try {
+    const response = responseRecorder();
+    await adminUsersHandler({ method: 'GET', headers: { cookie: 'paradox-access=student-token' } }, response);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.payload.error).toBe('Administrator access required');
+    expect(response.payload.users).toBeUndefined();
+    expect(calls.some(url => url.includes('/auth/v1/admin/users?'))).toBe(false);
+    expect(response.headers['Cache-Control']).toBe('private, no-store');
+  } finally {
+    global.fetch = originalFetch;
+    restoreEnv(previousEnv);
+  }
+});
+
+test('admin users endpoint returns ACCOUNT_SUSPENDED for a suspended account', async () => {
+  const originalFetch = global.fetch;
+  const previousEnv = snapshotEnv();
+  useTestAuthEnv();
+  global.fetch = async (url) => {
+    if (String(url).endsWith('/auth/v1/user')) {
+      return jsonResponse({ id: 'suspended-id', email: 'student@example.com' });
+    }
+    if (String(url).endsWith('/auth/v1/admin/users/suspended-id')) {
+      return jsonResponse({
+        id: 'suspended-id', email: 'student@example.com',
+        banned_until: '2099-01-01T00:00:00.000Z',
+        app_metadata: { suspension_reason: 'policy_violation' },
+      });
+    }
+    return new Response('{}', { status: 404 });
+  };
+
+  try {
+    const response = responseRecorder();
+    await adminUsersHandler({ method: 'GET', headers: { cookie: 'paradox-access=suspended-token' } }, response);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.payload.code).toBe('ACCOUNT_SUSPENDED');
+    expect(response.payload.suspensionReason).toBe('policy_violation');
+    expect(response.payload.users).toBeUndefined();
+    expect(response.headers['Cache-Control']).toBe('private, no-store');
+  } finally {
+    global.fetch = originalFetch;
+    restoreEnv(previousEnv);
+  }
+});
+
+test('admin users endpoint returns 503 when the auth service is unavailable', async () => {
+  const originalFetch = global.fetch;
+  const previousEnv = snapshotEnv();
+  useTestAuthEnv();
+
+  // Case 1: authoritative ban lookup fails upstream.
+  global.fetch = async (url) => {
+    if (String(url).endsWith('/auth/v1/user')) {
+      return jsonResponse({ id: 'student-id', email: 'student@example.com' });
+    }
+    if (String(url).endsWith('/auth/v1/admin/users/student-id')) {
+      return jsonResponse({ msg: 'database connection failed' }, 500);
+    }
+    return new Response('{}', { status: 404 });
+  };
+
+  try {
+    const upstreamFailure = responseRecorder();
+    await adminUsersHandler({ method: 'GET', headers: { cookie: 'paradox-access=student-token' } }, upstreamFailure);
+    expect(upstreamFailure.statusCode).toBe(503);
+    expect(upstreamFailure.payload).toEqual({
+      error: 'Authentication service is temporarily unavailable',
+      code: 'AUTH_SERVICE_UNAVAILABLE',
+    });
+    expect(upstreamFailure.payload.users).toBeUndefined();
+    expect(upstreamFailure.headers['Cache-Control']).toBe('private, no-store');
+    expect(JSON.stringify(upstreamFailure.payload)).not.toMatch(/database/i);
+
+    // Case 2: service role key is unavailable.
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    global.fetch = async (url) => {
+      if (String(url).endsWith('/auth/v1/user')) {
+        return jsonResponse({ id: 'student-id', email: 'student@example.com' });
+      }
+      return new Response('{}', { status: 404 });
+    };
+    const missingKey = responseRecorder();
+    await adminUsersHandler({ method: 'GET', headers: { cookie: 'paradox-access=student-token' } }, missingKey);
+    expect(missingKey.statusCode).toBe(503);
+    expect(missingKey.payload.code).toBe('AUTH_SERVICE_UNAVAILABLE');
+    expect(missingKey.payload.users).toBeUndefined();
+  } finally {
+    global.fetch = originalFetch;
+    restoreEnv(previousEnv);
+  }
+});
+
+test('admin users endpoint ignores forged client role hints', async () => {
+  const originalFetch = global.fetch;
+  const previousEnv = snapshotEnv();
+  useTestAuthEnv();
+  const forgedToken = unsignedJwt({ sub: 'student-id', email: 'admin@example.com', role: 'admin', app_metadata: { role: 'admin' } });
+  global.fetch = async (url) => {
+    if (String(url).endsWith('/auth/v1/user')) {
+      // GoTrue validates the token and returns the real, non-admin account.
+      return jsonResponse({ id: 'student-id', email: 'student@example.com' });
+    }
+    if (String(url).endsWith('/auth/v1/admin/users/student-id')) {
+      return jsonResponse({ id: 'student-id', email: 'student@example.com', app_metadata: {} });
+    }
+    return new Response('{}', { status: 404 });
+  };
+
+  try {
+    const attempts = [
+      { method: 'GET', headers: { cookie: `paradox-access=${forgedToken}` } },
+      { method: 'GET', headers: { cookie: 'paradox-access=student-token', 'x-user-role': 'admin' }, body: { role: 'admin', app_metadata: { role: 'admin' } } },
+      { method: 'GET', headers: { cookie: 'paradox-access=student-token', 'x-admin': 'true' }, body: { role: 'admin' } },
+    ];
+    for (const request of attempts) {
+      const response = responseRecorder();
+      await adminUsersHandler(request, response);
+      expect(response.statusCode).toBe(403);
+      expect(response.payload.error).toBe('Administrator access required');
+      expect(response.payload.users).toBeUndefined();
+    }
+  } finally {
+    global.fetch = originalFetch;
+    restoreEnv(previousEnv);
+  }
+});
