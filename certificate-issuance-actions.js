@@ -161,8 +161,38 @@ export const certificateIssuanceMethods = {
       this.render();
     }
   },
+  async loadEligibleEvaluations() {
+    const learnerId = (this.querySelector('#cert-learner-id')?.value || '').trim();
+    if (!learnerId) { this.certificateIssuance.error = 'Learner ID is required'; this.render(); return; }
+    this.certificateIssuance.busy = true;
+    this.certificateIssuance.error = '';
+    this.render();
+    try {
+      const response = await fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ action: 'list-eligible-evaluations', learnerId }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Failed to load evaluations');
+      this.certificateIssuance.eligibleEvaluations = result.evaluations || [];
+      this.certificateIssuance.learnerId = learnerId;
+      if (!this.certificateIssuance.eligibleEvaluations.length) this.certificateIssuance.error = 'No eligible evaluations found';
+    } catch (error) {
+      this.certificateIssuance.error = error && error.message ? error.message : String(error);
+    } finally {
+      this.certificateIssuance.busy = false;
+      this.render();
+    }
+  },
+  selectCertificateEvaluation(value) {
+    const select = this.querySelector('#cert-evaluation-select');
+    const option = select && select.selectedOptions && select.selectedOptions[0];
+    if (!value) return;
+    this.certificateIssuance.evaluationId = value;
+    // auto-fill credential code from evaluation? We don't have code in evaluation; leave manual or generate.
+    const learnerInput = this.querySelector('#cert-learner-id');
+    if (learnerInput && !learnerInput.value) learnerInput.value = this.certificateIssuance.learnerId;
+    this.render();
+  },
   resetCertificateIssuance() {
-    this.certificateIssuance = { status: 'idle', learnerId: '', evaluationId: '', credentialCode: '', title: '', prepared: null, txHash: null, error: '', busy: false };
+    this.certificateIssuance = { status: 'idle', learnerId: '', evaluationId: '', credentialCode: '', title: '', prepared: null, txHash: null, error: '', busy: false, eligibleEvaluations: [] };
     writeStoredIssuance(null);
     this.render();
   },

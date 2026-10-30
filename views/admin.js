@@ -57,6 +57,12 @@ export const adminViews = {
       <p><strong>Wallet:</strong> ${this.escape(walletStatus)}</p>
       <div class="row">
         <input id="cert-learner-id" placeholder="Learner ID (UUID)" value="${this.escape(ci.learnerId)}" />
+        <button class="ghost-button" type="button" data-cert-load-evaluations ${ci.busy ? 'disabled' : ''}>Load eligible evaluations</button>
+      </div>
+      <div class="row">
+        <select id="cert-evaluation-select" aria-label="Eligible evaluation"><option value="">Select eligible evaluation</option>${(ci.eligibleEvaluations || []).map(ev => `<option value="${this.escape(ev.id)}" data-learner="${this.escape(ev.sessionId)}">${this.escape(ev.id)} · score ${ev.score} · ${ev.status}</option>`).join('')}</select>
+      </div>
+      <div class="row">
         <input id="cert-evaluation-id" placeholder="Evaluation ID (UUID)" value="${this.escape(ci.evaluationId)}" />
         <input id="cert-code" placeholder="Credential code (PXP-...)" value="${this.escape(ci.credentialCode)}" />
         <input id="cert-title" placeholder="Title" value="${this.escape(ci.title)}" />

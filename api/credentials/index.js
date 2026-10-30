@@ -2,6 +2,7 @@ import { currentUser, noStore, parseBody, publicUser, requireAdmin } from '../au
 import { createCredentialService } from './_service.js';
 import { createCredentialStore } from './_store.js';
 import { createLearningRecordStore } from '../learning-records/_store.js';
+import { publicLearningEvaluation } from '../learning-records/_service.js';
 
 const SAFE_SERVER_CODES = new Set([
   'AVALANCHE_RPC_NOT_CONFIGURED', 'AVALANCHE_RPC_INVALID', 'AVALANCHE_RPC_UNAVAILABLE',
@@ -62,6 +63,14 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
         const session = await requireAdmin(req, res);
         const result = await service.confirmIssue(body, publicUser(session.user));
         return res.status(200).json(result);
+      }
+      if (action === 'list-eligible-evaluations') {
+        await requireAdmin(req, res);
+        const learnerId = String(body?.learnerId || '').trim();
+        const lrStore = learningRecordStoreFactory();
+        if (!lrStore) return res.status(503).json({ error: 'Learning record store is not configured', code: 'LEARNING_RECORD_STORE_NOT_CONFIGURED' });
+        const evaluations = await lrStore.listEligibleEvaluations(learnerId);
+        return res.status(200).json({ evaluations: (evaluations || []).map(publicLearningEvaluation) });
       }
       if (action === 'revoke') {
         await requireAdmin(req, res);

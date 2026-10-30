@@ -28,8 +28,11 @@ class EduApp extends HTMLElement {
     this.authDemoCode = '';
     this.authProvider = 'local';
     this.adminAccounts = null;
+    this.passportEligibleEvaluations = [];
+    this.passportEligibleLoading = false;
+    this.passportEligibleError = '';
     this.certificateWallet = null;
-    this.certificateIssuance = { status: 'idle', learnerId: '', evaluationId: '', credentialCode: '', title: '', prepared: null, txHash: null, error: '', busy: false };
+    this.certificateIssuance = { status: 'idle', learnerId: '', evaluationId: '', credentialCode: '', title: '', prepared: null, txHash: null, error: '', busy: false, eligibleEvaluations: [] };
     this.user = this.readSession();
     this.view = 'dashboard';
     this.pendingView = null;
