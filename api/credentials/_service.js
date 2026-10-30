@@ -1,5 +1,5 @@
-import { AVALANCHE_FUJI_CHAIN_ID, AVALANCHE_FUJI_NETWORK, createAvalancheGateway, credentialIdFromCode, normalizeEvidenceHash } from './_avalanche.js';
-import { AVALANCHE_FUJI_CONFIG } from '../../avalanche-config.js';
+import { AVALANCHE_FUJI_CHAIN_ID, AVALANCHE_FUJI_NETWORK, createAvalancheGateway, credentialIdFromCode, encodeIssueCredential, normalizeEvidenceHash } from './_avalanche.js';
+import { AVALANCHE_FUJI_CONFIG, isEvmAddress, isEvmTransactionHash } from '../../avalanche-config.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CREDENTIAL_CODE = /^PXP-[A-Z0-9-]{4,76}$/;
@@ -461,6 +461,194 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     }
   }
 
+  async function prepareIssue(body, actor) {
+    const input = normalizeCredentialIssueInput(body, actor);
+    const issuerAddress = String(body?.issuerAddress || '').trim();
+    if (!isEvmAddress(issuerAddress)) throw credentialError('Issuer address is invalid', 'INVALID_ISSUER_ADDRESS', 400);
+
+    let verifiedEvidence;
+    if (input.source === 'ai-evaluation') {
+      if (body?.isDemo === true || body?.isTest === true) throw credentialError('Demo evidence cannot be issued', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
+      const verified = await verifyAiEvidence(input, input.learnerId);
+      verifiedEvidence = verified;
+      input.evidenceHash = verified.evidenceHash;
+      input.assessmentScore = verified.assessmentScore;
+    }
+
+    const existing = await store.findByCode(input.credentialCode);
+    const retryRequested = body?.retryFailed === true;
+    const canRetryFailed = Boolean(existing) && existing.blockchain_status === 'failed' && retryRequested;
+
+    if (existing && !canRetryFailed && !['submitting', 'pending'].includes(existing.blockchain_status)) {
+      throw credentialError('Credential code already exists', 'DUPLICATE_CREDENTIAL', 409);
+    }
+    if (existing && (
+      existing.learner_id !== input.learnerId
+      || String(existing.credential_id_hash).toLowerCase() !== input.credentialIdHash.toLowerCase()
+      || String(existing.evidence_hash).toLowerCase() !== input.evidenceHash.toLowerCase()
+      || existing.source !== input.source
+      || Boolean(existing.is_test) !== input.isTest
+    )) {
+      throw credentialError('Failed credential retry does not match the original record', 'CREDENTIAL_RETRY_MISMATCH', 409);
+    }
+
+    let credential = existing;
+    let snapshot = {};
+    if (input.source === 'ai-evaluation') {
+      if (existing) {
+        if (existing.snapshot_version !== 1 || !existing.recipient_name_snapshot || !existing.subject_snapshot || !existing.snapshot_captured_at) {
+          throw credentialError('Legacy credential has no immutable snapshot; issuance retry is blocked', 'CREDENTIAL_SNAPSHOT_MISSING', 409);
+        }
+        if (existing.evaluation_id !== input.evaluationId) throw credentialError('Retry evaluation differs from snapshot', 'CREDENTIAL_RETRY_MISMATCH', 409);
+        input.skill = existing.subject_snapshot;
+      } else {
+        if (!verifiedEvidence?.subject) throw credentialError('Evaluation rubric has no approved certificate subject', 'CREDENTIAL_SUBJECT_UNSUPPORTED', 409);
+        if (!store.findLearnerName) throw credentialError('Learner profile reader is unavailable', 'LEARNER_PROFILE_UNAVAILABLE', 503);
+        const name = text(await store.findLearnerName(input.learnerId), 200, 'recipient name').normalize('NFC');
+        input.skill = verifiedEvidence.subject;
+        snapshot = { recipient_name_snapshot: name, subject_snapshot: input.skill, snapshot_version: 1, snapshot_captured_at: new Date().toISOString(), evaluation_id: input.evaluationId };
+      }
+    }
+
+    // Read-only preflight: RPC, chainId, contract bytecode, authorized issuer.
+    const gateway = await avalancheFactory({ write: false });
+    let preflight;
+    try { preflight = await gateway.readPreflight(issuerAddress); }
+    catch (error) { throw error; }
+
+    // Evidence duplicate check (read-only).
+    if (typeof gateway.credentialIdForEvidence === 'function') {
+      const evidenceOwner = await gateway.credentialIdForEvidence(input.evidenceHash);
+      if (evidenceOwner && !sameHash(evidenceOwner, input.credentialIdHash)) {
+        throw credentialError('Evidence hash is already registered to another credential', 'DUPLICATE_EVIDENCE', 409);
+      }
+    }
+
+    const unsignedData = encodeIssueCredential(input.credentialIdHash, input.evidenceHash);
+
+    let gasEstimate = null;
+    try { gasEstimate = await gateway.estimateGas({ to: gateway.contractAddress, from: issuerAddress, data: unsignedData }); }
+    catch (_) { gasEstimate = null; }
+
+    if (!credential) {
+      try {
+        credential = await store.insertCredential({
+          ...snapshot,
+          learner_id: input.learnerId,
+          credential_code: input.credentialCode,
+          credential_id_hash: input.credentialIdHash,
+          evidence_hash: input.evidenceHash,
+          title: input.title,
+          skill: input.skill,
+          assessment_score: input.assessmentScore,
+          source: input.source,
+          is_test: input.isTest,
+          blockchain_status: 'submitting',
+          network: AVALANCHE_FUJI_NETWORK,
+          chain_id: Number(AVALANCHE_FUJI_CHAIN_ID),
+          contract_address: gateway.contractAddress,
+          issuer_address: issuerAddress,
+          created_by: input.createdBy,
+        });
+      } catch (error) {
+        if (!isDuplicateDatabaseError(error)) throw error;
+        const refetched = await store.findByCode(input.credentialCode).catch(() => null);
+        if (!refetched) throw error;
+        credential = refetched;
+      }
+    } else {
+      credential = await store.updateCredential(credential.id, {
+        blockchain_status: 'submitting',
+        contract_address: gateway.contractAddress,
+        issuer_address: issuerAddress,
+        failure_code: null,
+        failure_message: null,
+      });
+    }
+
+    return {
+      credential: toPublicCredential(credential),
+      unsignedTransaction: {
+        to: gateway.contractAddress,
+        data: unsignedData,
+        value: '0',
+        chainId: Number(AVALANCHE_FUJI_CHAIN_ID),
+        gasEstimate,
+        issuerAddress,
+      },
+      preflight,
+    };
+  }
+
+  async function confirmIssue(body, actor) {
+    const credentialCode = String(body?.credentialCode || '').trim().toUpperCase();
+    const txHash = String(body?.txHash || '').trim();
+    if (!credentialCode) throw credentialError('Credential code is required', 'INVALID_CREDENTIAL_CODE', 400);
+    if (!isEvmTransactionHash(txHash)) throw credentialError('Transaction hash is invalid', 'INVALID_TRANSACTION_HASH', 400);
+
+    const row = await store.findByCode(credentialCode);
+    if (!row) throw credentialError('Credential was not found', 'CREDENTIAL_NOT_FOUND', 404);
+
+    // Idempotency: already confirmed with same tx hash.
+    if (row.blockchain_status === 'confirmed' && row.issue_tx_hash && row.issue_tx_hash.toLowerCase() === txHash.toLowerCase()) {
+      return { credential: toPublicCredential(row), alreadyConfirmed: true };
+    }
+    if (row.blockchain_status === 'confirmed' && row.issue_tx_hash && row.issue_tx_hash.toLowerCase() !== txHash.toLowerCase()) {
+      throw credentialError('Credential already confirmed with a different transaction', 'DUPLICATE_TRANSACTION', 409);
+    }
+
+    const gateway = await avalancheFactory({ write: false });
+    const contractAddress = gateway.contractAddress;
+    const issuerAddress = row.issuer_address;
+
+    let tx;
+    try { tx = await gateway.getTransaction(txHash); }
+    catch (error) { throw error; }
+    if (!tx) {
+      // Not mined/broadcast yet or unknown; keep pending, no DB change.
+      const updated = row.blockchain_status === 'submitting'
+        ? await store.updateCredential(row.id, { blockchain_status: 'pending', issue_tx_hash: txHash })
+        : row;
+      return { credential: toPublicCredential(updated), status: 'pending', reason: 'transaction_not_found' };
+    }
+
+    // Verify chain, destination, sender, value, calldata.
+    if (Number(tx.chainId) !== Number(AVALANCHE_FUJI_CHAIN_ID)) throw credentialError('Transaction is on the wrong chain', 'AVALANCHE_WRONG_CHAIN', 409);
+    if (String(tx.to || '').toLowerCase() !== String(contractAddress).toLowerCase()) throw credentialError('Transaction destination is invalid', 'INVALID_TRANSACTION_DESTINATION', 409);
+    if (issuerAddress && String(tx.from || '').toLowerCase() !== String(issuerAddress).toLowerCase()) throw credentialError('Transaction sender is not the authorized issuer', 'INVALID_TRANSACTION_SENDER', 409);
+    const txValue = typeof tx.value === 'bigint' ? tx.value : BigInt(tx.value || 0);
+    if (txValue !== 0n) throw credentialError('Transaction value must be zero', 'INVALID_TRANSACTION_VALUE', 409);
+    const expectedData = encodeIssueCredential(row.credential_id_hash, row.evidence_hash);
+    if (String(tx.data || '').toLowerCase() !== String(expectedData).toLowerCase()) throw credentialError('Transaction calldata does not match the credential', 'INVALID_TRANSACTION_CALLDATA', 409);
+
+    const receipt = await gateway.getTransactionReceipt(txHash);
+    if (!receipt) {
+      const updated = await store.updateCredential(row.id, { blockchain_status: 'pending', issue_tx_hash: txHash, failure_code: null, failure_message: null });
+      return { credential: toPublicCredential(updated), status: 'pending', reason: 'transaction_pending' };
+    }
+    if (Number(receipt.status) !== 1) {
+      const updated = await store.updateCredential(row.id, { blockchain_status: 'failed', onchain_valid: false, ...safeFailure(credentialError('Avalanche transaction was mined but failed', 'AVALANCHE_TRANSACTION_REVERTED', 502)) });
+      throw credentialError('Avalanche transaction was mined but failed', 'AVALANCHE_TRANSACTION_REVERTED', 502);
+    }
+
+    const onchain = await gateway.verifyCredential(row.credential_id_hash);
+    if (!onchain.exists) throw credentialError('Credential does not exist on Avalanche', 'CREDENTIAL_NOT_CONFIRMED', 409);
+    if (!sameHash(onchain.evidenceHash, row.evidence_hash)) throw credentialError('On-chain evidence hash does not match the database', 'EVIDENCE_HASH_MISMATCH', 409);
+
+    const now = new Date().toISOString();
+    const updated = await store.updateCredential(row.id, {
+      blockchain_status: 'confirmed',
+      issue_tx_hash: txHash,
+      issued_at: isoFromUnix(onchain.issuedAt),
+      verification_checked_at: now,
+      onchain_valid: onchain.valid === true,
+      issuer_address: onchain.issuer,
+      failure_code: null,
+      failure_message: null,
+    });
+    return { credential: toPublicCredential(updated), status: 'confirmed' };
+  }
+
   async function revoke(code) {
     const credentialCode = String(code || '').trim().toUpperCase();
     const row = await store.findByCode(credentialCode);
@@ -606,6 +794,8 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
 
   return {
     issue,
+    prepareIssue,
+    confirmIssue,
     revoke,
     verify,
     async find(code) {

@@ -53,6 +53,16 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
         const session = await requireAdmin(req, res);
         return res.status(201).json({ credential: await service.issue(body, publicUser(session.user)) });
       }
+      if (action === 'prepare-issue') {
+        const session = await requireAdmin(req, res);
+        const result = await service.prepareIssue(body, publicUser(session.user));
+        return res.status(200).json(result);
+      }
+      if (action === 'confirm-issue') {
+        const session = await requireAdmin(req, res);
+        const result = await service.confirmIssue(body, publicUser(session.user));
+        return res.status(200).json(result);
+      }
       if (action === 'revoke') {
         await requireAdmin(req, res);
         return res.status(200).json({ credential: await service.revoke(body.credentialCode) });

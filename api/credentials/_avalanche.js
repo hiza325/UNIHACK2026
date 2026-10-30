@@ -63,6 +63,12 @@ export function credentialIdFromCode(code) {
   return id(`paradox-learning-credential:${normalized}`);
 }
 
+export function encodeIssueCredential(credentialId, evidenceHash) {
+  if (!BYTES32.test(String(credentialId || ''))) throw serviceError('Credential ID hash is invalid', 'INVALID_CREDENTIAL_ID', 400);
+  if (!BYTES32.test(String(evidenceHash || ''))) throw serviceError('Evidence hash is invalid', 'INVALID_EVIDENCE_HASH', 400);
+  return registryInterface.encodeFunctionData('issueCredential', [credentialId, evidenceHash]);
+}
+
 export function normalizeEvidenceHash(value) {
   const raw = String(value || '').trim().replace(/^sha256:/i, '0x');
   const normalized = /^[0-9a-fA-F]{64}$/.test(raw) ? `0x${raw}` : raw;
@@ -149,6 +155,24 @@ export async function createAvalancheGateway({ env = process.env, write = false,
     return resolvedIssuerAddress;
   }
 
+  async function isAuthorizedIssuer(address) {
+    if (!isAddress(address)) throw serviceError('Issuer address is invalid', 'INVALID_ISSUER_ADDRESS', 400);
+    try { return Boolean(await contract.authorizedIssuers(getAddress(address))); }
+    catch (error) { throw mapAvalancheError(error); }
+  }
+
+  async function readPreflight(issuerAddress) {
+    let bytecode = '';
+    try { bytecode = typeof provider.getCode === 'function' ? await provider.getCode(config.contractAddress) : '0x'; }
+    catch (error) { throw mapAvalancheError(error); }
+    if (!bytecode || bytecode === '0x' || bytecode === '0x0') {
+      throw serviceError('Credential registry is not deployed at the configured address', 'AVALANCHE_REGISTRY_NOT_DEPLOYED', 503);
+    }
+    const authorized = await isAuthorizedIssuer(issuerAddress);
+    if (!authorized) throw serviceError('Issuer wallet is not authorized by the registry', 'ISSUER_NOT_AUTHORIZED', 403);
+    return { chainId: Number(AVALANCHE_FUJI_CHAIN_ID), contractAddress: config.contractAddress, issuerAddress: getAddress(issuerAddress), authorized: true };
+  }
+
   async function preflight() {
     const resolvedIssuerAddress = await requireAuthorizedWallet();
     let bytecode = '';
@@ -174,6 +198,27 @@ export async function createAvalancheGateway({ env = process.env, write = false,
       const receipt = await provider.getTransactionReceipt(transactionHash);
       return receipt ? receiptSummary(receipt) : null;
     } catch (error) { throw mapAvalancheError(error); }
+  }
+
+  async function getTransaction(transactionHash) {
+    if (!transactionHash || !BYTES32.test(String(transactionHash))) return null;
+    try {
+      const tx = await provider.getTransaction(transactionHash);
+      if (!tx) return null;
+      return {
+        hash: tx.hash,
+        chainId: Number(tx.chainId),
+        to: tx.to,
+        from: tx.from,
+        value: tx.value,
+        data: tx.data,
+      };
+    } catch (error) { throw mapAvalancheError(error); }
+  }
+
+  async function estimateGas(tx) {
+    try { return (await provider.estimateGas(tx)).toString(); }
+    catch (error) { throw mapAvalancheError(error); }
   }
 
   async function submit(method, args, onSubmitted) {
@@ -235,9 +280,13 @@ export async function createAvalancheGateway({ env = process.env, write = false,
     contractAddress: config.contractAddress,
     issuerAddress: issuerAddress || null,
     preflight,
+    readPreflight,
+    isAuthorizedIssuer,
     verifyCredential,
     credentialIdForEvidence,
+    getTransaction,
     getTransactionReceipt,
+    estimateGas,
     async issueCredential({ credentialId, evidenceHash, onSubmitted }) {
       await requireAuthorizedWallet();
       const receipt = await submit('issueCredential', [credentialId, evidenceHash], onSubmitted);
