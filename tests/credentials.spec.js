@@ -39,7 +39,10 @@ function createMemoryStore() {
     credentials,
     transactions,
     async findLearnerName() { return 'Nguyễn Minh Anh'; },
-    async findByCode(code) { return credentials.find(item => item.credential_code === code) || null; },
+    async findByCode(code) {
+      const row = credentials.find(item => item.credential_code === code);
+      return row ? { ...row } : null;
+    },
     async listByLearner(id) { return credentials.filter(item => item.learner_id === id); },
     async insertCredential(record) {
       const row = { id: `credential-${credentials.length + 1}`, created_at: new Date().toISOString(), onchain_valid: false, verification_checked_at: null, ...record };
@@ -59,6 +62,12 @@ function createMemoryStore() {
     async updateTransaction(id, patch) {
       const row = transactions.find(item => item.id === id);
       Object.assign(row, patch);
+      return { ...row };
+    },
+    async claimRetry(id) {
+      const row = credentials.find(item => item.id === id && item.blockchain_status === 'failed');
+      if (!row) return null;
+      Object.assign(row, { blockchain_status: 'submitting', failure_code: null, failure_message: null });
       return { ...row };
     },
   };
@@ -107,6 +116,10 @@ function successfulGateway() {
     async verifyCredential(credentialId) {
       return { exists: true, valid: true, revoked: false, credentialId, evidenceHash: EVIDENCE_HASH, issuer: this.issuerAddress, issuedAt: 1_800_000_000, revokedAt: 0 };
     },
+    async credentialIdForEvidence() { return null; },
+    async getTransactionReceipt(transactionHash) {
+      return { transactionHash, blockNumber: 123, gasUsed: '100000', status: 1 };
+    },
   };
 }
 
@@ -120,8 +133,7 @@ test('official snapshot uses server profile and rubric, persists before gateway,
   const store = createMemoryStore();
   const gateway = successfulGateway();
   const service = createCredentialService({ store, learningRecordStore: createLearningMemoryStore(), avalancheFactory: async () => {
-    expect(store.credentials[0]).toMatchObject({ recipient_name_snapshot: 'Nguyễn Minh Anh', subject_snapshot: 'Critical thinking and reasoning', evaluation_id: EVALUATION_ID, snapshot_version: 1 });
-    expect(store.credentials[0].issued_at).toBeUndefined();
+    expect(store.credentials).toHaveLength(0);
     return gateway;
   } });
   const result = await service.issue(realPayload({ recipientName: 'FORGED', subject: 'FORGED', skill: 'FORGED', snapshot: { recipientName: 'FORGED' }, issuedAt: '2000-01-01', status: 'verified' }), ADMIN);
@@ -233,16 +245,18 @@ test('duplicate credential and failed transaction are recorded safely', async ()
 
   const failedStore = createMemoryStore();
   const failedGateway = successfulGateway();
-  failedGateway.issueCredential = async ({ onSubmitted }) => {
-    await onSubmitted(ISSUE_TX);
+  failedGateway.issueCredential = async () => {
     throw Object.assign(new Error('Avalanche transaction failed'), { code: 'AVALANCHE_TRANSACTION_FAILED', status: 502 });
   };
   const failedService = createCredentialService({ store: failedStore, avalancheFactory: async () => failedGateway });
   await expect(failedService.issue(issuePayload(), ADMIN)).rejects.toMatchObject({ code: 'AVALANCHE_TRANSACTION_FAILED' });
-  expect(failedStore.credentials[0]).toMatchObject({ blockchain_status: 'failed', issue_tx_hash: ISSUE_TX, failure_code: 'AVALANCHE_TRANSACTION_FAILED' });
-  expect(failedStore.transactions[0]).toMatchObject({ status: 'failed', transaction_hash: ISSUE_TX, error_code: 'AVALANCHE_TRANSACTION_FAILED' });
+  expect(failedStore.credentials[0]).toMatchObject({ blockchain_status: 'failed', failure_code: 'AVALANCHE_TRANSACTION_FAILED' });
+  expect(failedStore.credentials[0].issue_tx_hash).toBeUndefined();
+  expect(failedStore.transactions[0]).toMatchObject({ status: 'failed', error_code: 'AVALANCHE_TRANSACTION_FAILED' });
 
-  const recoveryService = createCredentialService({ store: failedStore, avalancheFactory: async () => successfulGateway() });
+  const recoveryGateway = successfulGateway();
+  recoveryGateway.verifyCredential = async credentialId => ({ exists: false, valid: false, revoked: false, credentialId, evidenceHash: EVIDENCE_HASH, issuer: recoveryGateway.issuerAddress, issuedAt: 0, revokedAt: 0 });
+  const recoveryService = createCredentialService({ store: failedStore, avalancheFactory: async () => recoveryGateway });
   const reconciled = await recoveryService.issue(issuePayload({ retryFailed: true }), ADMIN);
   expect(reconciled).toMatchObject({ status: 'verified', transactionHash: ISSUE_TX });
   expect(failedStore.credentials[0]).toMatchObject({ blockchain_status: 'confirmed', failure_code: null, onchain_valid: true });

@@ -82,5 +82,13 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
         method: 'PATCH', query: filters({ id: `eq.${id}` }), body: patch, single: true,
       });
     },
+    async claimRetry(id) {
+      return request('learning_credentials', {
+        method: 'PATCH',
+        query: filters({ id: `eq.${id}`, blockchain_status: 'eq.failed' }),
+        body: { blockchain_status: 'submitting', failure_code: null, failure_message: null },
+        single: true,
+      });
+    },
   };
 }

@@ -72,6 +72,25 @@ function safeFailure(error) {
   };
 }
 
+function sameHash(left, right) {
+  return String(left || '').toLowerCase() === String(right || '').toLowerCase();
+}
+
+function isDuplicateDatabaseError(error) {
+  return error?.code === 'DUPLICATE_CREDENTIAL_DATABASE'
+    || (error?.status === 409 && /already exists/i.test(String(error?.message || '')));
+}
+
+function isConfirmedChainError(error) {
+  return error?.onchainConfirmed === true || Number(error?.receipt?.status) === 1;
+}
+
+function isAmbiguousChainError(error) {
+  return !isConfirmedChainError(error)
+    && !error?.receipt
+    && (error?.ambiguous === true || error?.broadcast === true);
+}
+
 export function toPublicCredential(row) {
   const revoked = row.blockchain_status === 'revoked';
   const pending = ['submitting', 'pending', 'revoke_pending'].includes(row.blockchain_status);
@@ -209,7 +228,9 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       input.assessmentScore = verified.assessmentScore;
     }
     const existing = await store.findByCode(input.credentialCode);
-    if (existing && (body.retryFailed !== true || existing.blockchain_status !== 'failed')) {
+    const retryRequested = body.retryFailed === true;
+    const canRetryFailedRecord = Boolean(existing) && existing.blockchain_status === 'failed' && retryRequested;
+    if (existing && !canRetryFailedRecord) {
       throw credentialError('Credential code already exists', 'DUPLICATE_CREDENTIAL', 409);
     }
     if (existing && (
@@ -240,35 +261,126 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
           snapshot_captured_at: new Date().toISOString(), evaluation_id: input.evaluationId };
       }
     }
+
+    // Preflight must happen before any issuance DB write. A missing signer, wrong chain,
+    // missing registry or unauthorized issuer therefore cannot create credential rows.
+    const gateway = await avalancheFactory({ write: true });
+    const preflight = typeof gateway?.preflight === 'function'
+      ? gateway.preflight.bind(gateway)
+      : (typeof gateway?.requireAuthorizedWallet === 'function' ? gateway.requireAuthorizedWallet.bind(gateway) : null);
+    if (preflight) await preflight();
+
+    if (typeof gateway?.credentialIdForEvidence === 'function') {
+      const evidenceOwner = await gateway.credentialIdForEvidence(input.evidenceHash);
+      if (evidenceOwner && !sameHash(evidenceOwner, input.credentialIdHash)) {
+        throw credentialError('Evidence hash is already registered to another credential', 'DUPLICATE_EVIDENCE', 409);
+      }
+    }
+
+    let previousTransactionUnknown = false;
+    if (canRetryFailedRecord && existing.issue_tx_hash) {
+      const previousReceipt = typeof gateway?.getTransactionReceipt === 'function'
+        ? await gateway.getTransactionReceipt(existing.issue_tx_hash)
+        : null;
+      if (previousReceipt && Number(previousReceipt.status) === 1) {
+        const onchain = await gateway.verifyCredential(input.credentialIdHash);
+        if (onchain.exists && !sameHash(onchain.evidenceHash, input.evidenceHash)) {
+          throw credentialError('On-chain evidence hash does not match the failed record', 'EVIDENCE_HASH_MISMATCH', 409);
+        }
+        if (onchain.exists) {
+          credential = await store.updateCredential(existing.id, {
+            blockchain_status: onchain.revoked ? 'revoked' : 'confirmed',
+            issued_at: isoFromUnix(onchain.issuedAt),
+            revoked_at: isoFromUnix(onchain.revokedAt),
+            verification_checked_at: new Date().toISOString(),
+            onchain_valid: onchain.valid,
+            issuer_address: onchain.issuer,
+            failure_code: null,
+            failure_message: null,
+          });
+          return toPublicCredential(credential);
+        }
+        previousTransactionUnknown = true;
+      } else if (!previousReceipt) {
+        previousTransactionUnknown = true;
+      }
+    }
+
+    if (previousTransactionUnknown) {
+      const onchain = await gateway.verifyCredential(input.credentialIdHash);
+      if (onchain.exists) {
+        if (!sameHash(onchain.evidenceHash, input.evidenceHash)) {
+          throw credentialError('On-chain evidence hash does not match the failed record', 'EVIDENCE_HASH_MISMATCH', 409);
+        }
+        credential = await store.updateCredential(existing.id, {
+          blockchain_status: onchain.revoked ? 'revoked' : 'confirmed',
+          issued_at: isoFromUnix(onchain.issuedAt),
+          revoked_at: isoFromUnix(onchain.revokedAt),
+          verification_checked_at: new Date().toISOString(),
+          onchain_valid: onchain.valid,
+          issuer_address: onchain.issuer,
+          failure_code: null,
+          failure_message: null,
+        });
+        return toPublicCredential(credential);
+      }
+      throw credentialError('Previous Avalanche transaction is still unconfirmed; retry is blocked', 'AVALANCHE_TRANSACTION_STATUS_UNKNOWN', 409);
+    }
+
+    if (canRetryFailedRecord) {
+      if (typeof store.claimRetry === 'function') {
+        const claimed = await store.claimRetry(existing.id);
+        if (!claimed) throw credentialError('Credential retry is already in progress', 'CREDENTIAL_RETRY_IN_PROGRESS', 409);
+        credential = claimed;
+      } else {
+        credential = await store.updateCredential(existing.id, { blockchain_status: 'submitting', failure_code: null, failure_message: null });
+      }
+    }
+
     let transaction;
+    let broadcastTransactionHash = null;
+    let lastTransactionHash = credential?.issue_tx_hash || null;
+    let chainConfirmed = false;
     try {
       if (!credential) {
-        credential = await store.insertCredential({
-          ...snapshot,
-          learner_id: input.learnerId,
-          credential_code: input.credentialCode,
-          credential_id_hash: input.credentialIdHash,
-          evidence_hash: input.evidenceHash,
-          title: input.title,
-          skill: input.skill,
-          assessment_score: input.assessmentScore,
-          source: input.source,
-          is_test: input.isTest,
-          blockchain_status: 'submitting',
-          network: AVALANCHE_FUJI_NETWORK,
-          chain_id: Number(AVALANCHE_FUJI_CHAIN_ID),
-          created_by: input.createdBy,
-        });
-        transaction = await store.insertTransaction({ credential_id: credential.id, operation: 'issue', status: 'submitting' });
+        try {
+          credential = await store.insertCredential({
+            ...snapshot,
+            learner_id: input.learnerId,
+            credential_code: input.credentialCode,
+            credential_id_hash: input.credentialIdHash,
+            evidence_hash: input.evidenceHash,
+            title: input.title,
+            skill: input.skill,
+            assessment_score: input.assessmentScore,
+            source: input.source,
+            is_test: input.isTest,
+            blockchain_status: 'submitting',
+            network: AVALANCHE_FUJI_NETWORK,
+            chain_id: Number(AVALANCHE_FUJI_CHAIN_ID),
+            created_by: input.createdBy,
+          });
+          transaction = await store.insertTransaction({ credential_id: credential.id, operation: 'issue', status: 'submitting' });
+        } catch (error) {
+          if (!isDuplicateDatabaseError(error)) throw error;
+          const refetched = await store.findByCode(input.credentialCode).catch(() => null);
+          if (!refetched) throw error;
+          const refetchRetryable = refetched.blockchain_status === 'failed' && retryRequested;
+          if (!refetchRetryable) throw credentialError('Credential code already exists', 'DUPLICATE_CREDENTIAL', 409);
+          // A concurrent creator won the insert race. Do not bypass the atomic retry
+          // claim by adopting that row in this request.
+          throw credentialError('Credential changed during issuance; retry again', 'CREDENTIAL_RETRY_IN_PROGRESS', 409);
+        }
       }
-      const gateway = await avalancheFactory({ write: true });
-      credential = await store.updateCredential(credential.id, {
-        contract_address: gateway.contractAddress,
-        issuer_address: gateway.issuerAddress,
-      });
-      if (existing) {
+      if (credential?.id && gateway?.contractAddress) {
+        credential = await store.updateCredential(credential.id, {
+          contract_address: gateway.contractAddress,
+          issuer_address: gateway.issuerAddress,
+        });
+      }
+      if (canRetryFailedRecord || (credential && credential.id && !transaction)) {
         const onchain = await gateway.verifyCredential(input.credentialIdHash);
-        if (onchain.exists && String(onchain.evidenceHash).toLowerCase() !== input.evidenceHash.toLowerCase()) {
+        if (onchain.exists && !sameHash(onchain.evidenceHash, input.evidenceHash)) {
           throw credentialError('On-chain evidence hash does not match the failed record', 'EVIDENCE_HASH_MISMATCH', 409);
         }
         if (onchain.exists) {
@@ -290,25 +402,61 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
         credentialId: input.credentialIdHash,
         evidenceHash: input.evidenceHash,
         onSubmitted: async transactionHash => {
+          broadcastTransactionHash = transactionHash;
+          lastTransactionHash = transactionHash;
           credential = await store.updateCredential(credential.id, { blockchain_status: 'pending', issue_tx_hash: transactionHash, failure_code: null, failure_message: null });
           transaction = await store.updateTransaction(transaction.id, { status: 'pending', transaction_hash: transactionHash });
         },
       });
+      chainConfirmed = true;
+      lastTransactionHash = result.receipt.transactionHash;
       const now = new Date().toISOString();
       credential = await store.updateCredential(credential.id, {
         blockchain_status: 'confirmed',
         issue_tx_hash: result.receipt.transactionHash,
-        issued_at: isoFromUnix(result.credential.issuedAt),
+        issued_at: isoFromUnix(result.credential?.issuedAt),
         verification_checked_at: now,
-        onchain_valid: result.credential.valid,
+        onchain_valid: result.credential?.valid === true,
         failure_code: null,
         failure_message: null,
       });
       await store.updateTransaction(transaction.id, { status: 'confirmed', transaction_hash: result.receipt.transactionHash, block_number: result.receipt.blockNumber, gas_used: result.receipt.gasUsed });
       return toPublicCredential(credential);
     } catch (error) {
-      if (credential?.id) await store.updateCredential(credential.id, { blockchain_status: 'failed', onchain_valid: false, ...safeFailure(error) }).catch(() => {});
-      if (transaction?.id) await store.updateTransaction(transaction.id, { status: 'failed', error_code: safeFailure(error).failure_code, error_message: safeFailure(error).failure_message }).catch(() => {});
+      const confirmed = chainConfirmed || isConfirmedChainError(error);
+      const ambiguous = !confirmed && !error?.receipt
+        && (isAmbiguousChainError(error) || Boolean(broadcastTransactionHash));
+      const transactionHash = error?.transactionHash || broadcastTransactionHash || lastTransactionHash || null;
+      if (credential?.id) {
+        if (confirmed) {
+          await store.updateCredential(credential.id, {
+            blockchain_status: 'confirmed',
+            ...(transactionHash ? { issue_tx_hash: transactionHash } : {}),
+            verification_checked_at: new Date().toISOString(),
+            onchain_valid: true,
+            failure_code: null,
+            failure_message: null,
+          }).catch(() => {});
+        } else if (ambiguous) {
+          await store.updateCredential(credential.id, {
+            blockchain_status: 'pending',
+            ...(transactionHash ? { issue_tx_hash: transactionHash } : {}),
+            failure_code: 'AVALANCHE_TRANSACTION_STATUS_UNKNOWN',
+            failure_message: 'Transaction was broadcast; confirmation is pending',
+          }).catch(() => {});
+        } else {
+          await store.updateCredential(credential.id, { blockchain_status: 'failed', onchain_valid: false, ...safeFailure(error) }).catch(() => {});
+        }
+      }
+      if (transaction?.id) {
+        if (confirmed) {
+          await store.updateTransaction(transaction.id, { status: 'confirmed', ...(transactionHash ? { transaction_hash: transactionHash } : {}) }).catch(() => {});
+        } else if (ambiguous) {
+          await store.updateTransaction(transaction.id, { status: 'pending', ...(transactionHash ? { transaction_hash: transactionHash } : {}) }).catch(() => {});
+        } else {
+          await store.updateTransaction(transaction.id, { status: 'failed', error_code: safeFailure(error).failure_code, error_message: safeFailure(error).failure_message }).catch(() => {});
+        }
+      }
       throw error;
     }
   }
@@ -318,24 +466,78 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     const row = await store.findByCode(credentialCode);
     if (!row) throw credentialError('Credential was not found', 'CREDENTIAL_NOT_FOUND', 404);
     if (row.blockchain_status === 'revoked') throw credentialError('Credential has already been revoked', 'CREDENTIAL_ALREADY_REVOKED', 409);
+    const revokePending = row.blockchain_status === 'revoke_pending';
+    if (row.blockchain_status !== 'confirmed' && !revokePending) throw credentialError('Credential issuance is not confirmed', 'CREDENTIAL_NOT_CONFIRMED', 409);
     if (row.source === 'mock') throw credentialError('Mock credentials cannot be revoked on-chain', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
+
+    const gateway = await avalancheFactory({ write: true });
+    const preflight = typeof gateway?.preflight === 'function'
+      ? gateway.preflight.bind(gateway)
+      : (typeof gateway?.requireAuthorizedWallet === 'function' ? gateway.requireAuthorizedWallet.bind(gateway) : null);
+    if (preflight) await preflight();
+
+    let previousRevokeUnknown = false;
+    if (row.revoke_tx_hash) {
+      if (typeof gateway?.getTransactionReceipt !== 'function') {
+        previousRevokeUnknown = true;
+      } else {
+        const previousReceipt = await gateway.getTransactionReceipt(row.revoke_tx_hash);
+        if (!previousReceipt) {
+          previousRevokeUnknown = true;
+        } else if (Number(previousReceipt.status) === 1) {
+          previousRevokeUnknown = true;
+        }
+      }
+    }
+
+    const onchain = await gateway.verifyCredential(row.credential_id_hash);
+    if (!onchain.exists) throw credentialError('Credential does not exist on Avalanche', 'CREDENTIAL_NOT_CONFIRMED', 409);
+    if (!sameHash(onchain.evidenceHash, row.evidence_hash)) {
+      throw credentialError('On-chain evidence hash does not match the database', 'EVIDENCE_HASH_MISMATCH', 409);
+    }
+    if (onchain.revoked) {
+      const reconciled = await store.updateCredential(row.id, {
+        blockchain_status: 'revoked',
+        revoked_at: isoFromUnix(onchain.revokedAt),
+        verification_checked_at: new Date().toISOString(),
+        onchain_valid: false,
+        issuer_address: onchain.issuer,
+        failure_code: null,
+        failure_message: null,
+      });
+      return toPublicCredential(reconciled);
+    }
+    if (revokePending) {
+      throw credentialError('Credential revocation is still pending', 'CREDENTIAL_REVOKE_PENDING', 409);
+    }
+    if (previousRevokeUnknown) {
+      throw credentialError('Previous Avalanche revocation is still unconfirmed', 'AVALANCHE_TRANSACTION_STATUS_UNKNOWN', 409);
+    }
 
     let transaction = await store.insertTransaction({ credential_id: row.id, operation: 'revoke', status: 'submitting' });
     let current = row;
+    let broadcastTransactionHash = null;
+    let lastTransactionHash = row.revoke_tx_hash || null;
+    let lastRevokedAt = null;
+    let chainConfirmed = false;
     try {
-      const gateway = await avalancheFactory({ write: true });
       const result = await gateway.revokeCredential({
         credentialId: row.credential_id_hash,
         onSubmitted: async transactionHash => {
+          broadcastTransactionHash = transactionHash;
+          lastTransactionHash = transactionHash;
           current = await store.updateCredential(row.id, { blockchain_status: 'revoke_pending', revoke_tx_hash: transactionHash, failure_code: null, failure_message: null });
           transaction = await store.updateTransaction(transaction.id, { status: 'pending', transaction_hash: transactionHash });
         },
       });
+      chainConfirmed = true;
+      lastTransactionHash = result.receipt.transactionHash;
+      lastRevokedAt = result.credential?.revokedAt;
       const now = new Date().toISOString();
       current = await store.updateCredential(row.id, {
         blockchain_status: 'revoked',
         revoke_tx_hash: result.receipt.transactionHash,
-        revoked_at: isoFromUnix(result.credential.revokedAt),
+        revoked_at: isoFromUnix(lastRevokedAt),
         verification_checked_at: now,
         onchain_valid: false,
         failure_code: null,
@@ -344,8 +546,39 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       await store.updateTransaction(transaction.id, { status: 'confirmed', transaction_hash: result.receipt.transactionHash, block_number: result.receipt.blockNumber, gas_used: result.receipt.gasUsed });
       return toPublicCredential(current);
     } catch (error) {
-      await store.updateCredential(row.id, { blockchain_status: row.blockchain_status, ...safeFailure(error) }).catch(() => {});
-      await store.updateTransaction(transaction.id, { status: 'failed', error_code: safeFailure(error).failure_code, error_message: safeFailure(error).failure_message }).catch(() => {});
+      const confirmed = chainConfirmed || isConfirmedChainError(error);
+      const ambiguous = !confirmed && !error?.receipt
+        && (isAmbiguousChainError(error) || Boolean(broadcastTransactionHash));
+      const transactionHash = error?.transactionHash || broadcastTransactionHash || lastTransactionHash || null;
+      if (confirmed) {
+        await store.updateCredential(row.id, {
+          blockchain_status: 'revoked',
+          ...(transactionHash ? { revoke_tx_hash: transactionHash } : {}),
+          ...(lastRevokedAt ? { revoked_at: isoFromUnix(lastRevokedAt) } : {}),
+          verification_checked_at: new Date().toISOString(),
+          onchain_valid: false,
+          failure_code: null,
+          failure_message: null,
+        }).catch(() => {});
+      } else if (ambiguous) {
+        await store.updateCredential(row.id, {
+          blockchain_status: 'revoke_pending',
+          ...(transactionHash ? { revoke_tx_hash: transactionHash } : {}),
+          failure_code: 'AVALANCHE_TRANSACTION_STATUS_UNKNOWN',
+          failure_message: 'Revocation was broadcast; confirmation is pending',
+        }).catch(() => {});
+      } else {
+        await store.updateCredential(row.id, { blockchain_status: row.blockchain_status, ...safeFailure(error) }).catch(() => {});
+      }
+      if (transaction?.id) {
+        if (confirmed) {
+          await store.updateTransaction(transaction.id, { status: 'confirmed', ...(transactionHash ? { transaction_hash: transactionHash } : {}) }).catch(() => {});
+        } else if (ambiguous) {
+          await store.updateTransaction(transaction.id, { status: 'pending', ...(transactionHash ? { transaction_hash: transactionHash } : {}) }).catch(() => {});
+        } else {
+          await store.updateTransaction(transaction.id, { status: 'failed', error_code: safeFailure(error).failure_code, error_message: safeFailure(error).failure_message }).catch(() => {});
+        }
+      }
       throw error;
     }
   }
