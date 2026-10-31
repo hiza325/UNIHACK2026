@@ -32,7 +32,8 @@ export const routerMethods = {
     }
     this.view = APP_VIEWS.includes(raw) ? raw : 'dashboard';
     this.render();
-    if (this.view === 'admin') this.loadAdminAccounts();
+    if (this.view === 'admin') { this.loadAdminAccounts(); if (typeof this.restoreCertificateIssuance === 'function') this.restoreCertificateIssuance(); }
+    if (this.view === 'passport' && typeof this.loadPassportEligibleEvaluations === 'function') this.loadPassportEligibleEvaluations();
     if (['dashboard', 'profile', 'passport'].includes(this.view)) this.loadLearningPassportSnapshot();
     if (['dashboard', 'history', 'analytics', 'profile'].includes(this.view)) this.loadLearningRecordHistory();
   },

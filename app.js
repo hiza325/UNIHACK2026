@@ -10,6 +10,7 @@ import { supportMethods } from './app-support.js';
 import { learningPassportActionMethods } from './learning-passport-actions.js';
 import { createLearningPassportService } from './learning-passport-service.js';
 import { learningRecordActionMethods } from './learning-records-actions.js';
+import { certificateIssuanceMethods } from './certificate-issuance-actions.js';
 import { createLearningRecordsService } from './learning-records-service.js';
 import { defineComponents } from './components.js';
 
@@ -27,6 +28,11 @@ class EduApp extends HTMLElement {
     this.authDemoCode = '';
     this.authProvider = 'local';
     this.adminAccounts = null;
+    this.passportEligibleEvaluations = [];
+    this.passportEligibleLoading = false;
+    this.passportEligibleError = '';
+    this.certificateWallet = null;
+    this.certificateIssuance = { status: 'idle', learnerId: '', evaluationId: '', credentialCode: '', title: '', prepared: null, txHash: null, error: '', busy: false, eligibleEvaluations: [] };
     this.user = this.readSession();
     this.view = 'dashboard';
     this.pendingView = null;
@@ -126,6 +132,6 @@ class EduApp extends HTMLElement {
   escape(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 }
 
-Object.assign(EduApp.prototype, dataMethods, viewMethods, actionMethods, routerMethods, themeMethods, eventMethods, notificationMethods, supportMethods, learningPassportActionMethods, learningRecordActionMethods);
+Object.assign(EduApp.prototype, dataMethods, viewMethods, actionMethods, routerMethods, themeMethods, eventMethods, notificationMethods, supportMethods, learningPassportActionMethods, learningRecordActionMethods, certificateIssuanceMethods);
 
 defineComponents(EduApp);

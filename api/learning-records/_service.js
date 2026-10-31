@@ -377,8 +377,10 @@ export function createLearningRecordService({ store, now = () => new Date() } = 
         const eligible = result.status === 'correct'
           && result.evaluation.status === 'pass'
           && result.evaluation.evidenceSufficient === true
+          && Number(result.evaluation.score) >= 80
           && proof?.schemaVersion === 'paradox-proof-of-learning-v1'
-          && /^[0-9a-f]{64}$/i.test(String(proof.contentHash || ''));
+          && /^[0-9a-f]{64}$/i.test(String(proof.contentHash || ''))
+          && Number(proof.score) >= 80;
         const credentialId = eligible ? credentialCode(submission.id, completedAt) : null;
         const evaluationRow = await store.insertEvaluation({
           session_id: session.id,

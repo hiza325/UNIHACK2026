@@ -181,7 +181,10 @@ test('Learning Passport loads persisted Fuji status and verifies through the cre
   await page.goto('/#/passport');
   await expect(page.locator('.passport-data-notice.live')).toContainText('FUJI TESTNET');
   await expect(page.locator('.credential-row')).toContainText('CHỨNG NHẬN KIỂM THỬ');
-  await expect(page.locator('.credential-status.verified')).toBeVisible();
+  // A manual-test credential remains preview-only in the certificate UI,
+  // even if its test evidence has a confirmed chain response.
+  await expect(page.locator('.credential-status.verified')).toHaveCount(0);
+  await expect(page.locator('.credential-status.unverified')).toBeVisible();
 
   await page.locator('[data-certificate-details]').click();
   await page.locator('[data-verify-certificate]').click();
@@ -249,6 +252,69 @@ test('Verify distinguishes checking, not found, unissued, and network error with
   await page.keyboard.press('Enter');
   await expect(page.locator('[data-verification-state="unissued"]')).toBeVisible();
   expect(networkAttempts).toBe(2);
+});
+
+test('Learning Passport lists eligible evaluations for the signed-in learner only', async ({ page }) => {
+  await seedSession(page);
+  await page.addInitScript(() => { window.PARADOX_LEARNING_PASSPORT_CONFIG = { mode: 'mock' }; });
+  await page.route('**/api/auth/session', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ user: SESSION }),
+  }));
+  let requestUrl = '';
+  await page.route(url => url.pathname === '/api/learning-records', async route => {
+    requestUrl = route.request().url();
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ evaluations: [{ id: 'eval-1', sessionId: 'session-1', score: 92, status: 'pass', rubricVersion: 'paradox-rubric-v1', credential: { eligible: true } }] }),
+    });
+  });
+
+  await page.goto('/#/passport');
+  await expect(page.locator('.passport-eligible-row')).toHaveCount(1);
+  await expect(page.locator('.passport-eligible-row')).toContainText('92');
+  await expect(page.locator('.passport-eligible-row')).toContainText('Eligible');
+  expect(requestUrl).toContain('view=evaluations');
+  expect(requestUrl).not.toContain('learnerId');
+});
+
+test('Learning Passport surfaces evaluation load failures instead of claiming there are none', async ({ page }) => {
+  await seedSession(page);
+  await page.addInitScript(() => { window.PARADOX_LEARNING_PASSPORT_CONFIG = { mode: 'mock' }; });
+  await page.route('**/api/auth/session', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ user: SESSION }),
+  }));
+  await page.route(url => url.pathname === '/api/learning-records', route => route.fulfill({
+    status: 503, contentType: 'application/json',
+    body: JSON.stringify({ error: 'Learning record database is unavailable', code: 'LEARNING_RECORD_DATABASE_UNAVAILABLE' }),
+  }));
+
+  await page.goto('/#/passport');
+  await expect(page.locator('.passport-eligible-card')).toContainText(/unavailable/i);
+});
+
+test('Learning Passport still shows eligible evaluations when no verified credential exists', async ({ page }) => {
+  await seedSession(page);
+  await page.route('**/api/auth/session', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ user: SESSION }),
+  }));
+  const emptyPassport = {
+    schemaVersion: 'paradox-learning-passport-v1', passportId: 'PLP-EMPTY-TEST',
+    source: { type: 'avalanche', isReal: true, label: 'AVALANCHE FUJI', network: 'avalanche-fuji', chainId: 43113 },
+    learner: { id: SESSION.id, displayName: SESSION.name, email: SESSION.email, level: 'Proof of Learning', cohort: 'Avalanche Fuji' },
+    summary: { overallScore: 0, progress: 0, completedAssessments: 0, learningHours: null },
+    skills: [], assessments: [], credentials: [],
+  };
+  await page.route(url => url.pathname === '/api/credentials', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ passport: emptyPassport }),
+  }));
+  await page.route(url => url.pathname === '/api/learning-records', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ evaluations: [{ id: 'eval-1', sessionId: 'session-1', score: 92, status: 'pass', rubricVersion: 'paradox-rubric-v1', credential: { eligible: true } }] }),
+  }));
+
+  await page.goto('/#/passport');
+  await expect(page.locator('[data-passport-state="empty"]')).toBeVisible();
+  await expect(page.locator('.passport-eligible-row')).toHaveCount(1);
 });
 
 test('About guide publishes Fuji metadata, feature boundaries, and responsive verification instructions', async ({ page }) => {

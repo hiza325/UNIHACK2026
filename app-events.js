@@ -57,6 +57,11 @@ export const eventMethods = {
     const verifyCredential = event.target.closest?.('[data-verify-certificate]');
     if (verifyCredential) { this.openPassportVerification(verifyCredential.dataset.verifyCertificate); return; }
     if (event.target.closest?.('[data-close-passport-detail]') || event.target.id === 'passport-detail-modal') { this.closePassportCredential(); return; }
+    if (event.target.closest?.('[data-cert-connect-wallet]')) { this.connectCertificateWallet(); return; }
+    if (event.target.closest?.('[data-cert-prepare]')) { this.prepareCertificateIssuance(); return; }
+    if (event.target.closest?.('[data-cert-confirm]')) { this.confirmCertificateIssuance(); return; }
+    if (event.target.closest?.('[data-cert-reset]')) { this.resetCertificateIssuance(); return; }
+    if (event.target.closest?.('[data-cert-load-evaluations]')) { this.loadEligibleEvaluations(); return; }
     const accountStatus = event.target.closest?.('[data-account-status]');
     if (accountStatus && this.user?.role === 'admin') {
       const reason = this.querySelector(`[data-ban-reason-for="${CSS.escape(accountStatus.dataset.accountId)}"]`)?.value || '';
@@ -84,6 +89,7 @@ export const eventMethods = {
     if (event.target.id === 'work-text') { this.auditText = event.target.value; this.saveAuditState(); }
     if (event.target.id === 'problem-text') { this.auditProblemText = event.target.value; this.saveAuditState(); }
     if (event.target.id === 'admin-search') { this.filterAdminUsers(event.target.value); return; }
+    if (event.target.id === 'cert-evaluation-select') { this.selectCertificateEvaluation(event.target.value); return; }
     if (event.target.id === 'hint-level') {
       const label = this.querySelector('#hint-value');
       const value = Number(event.target.value);

@@ -6,6 +6,7 @@ import {
   normalizeEvidenceHash,
 } from '../api/credentials/_avalanche.js';
 import { createCredentialService, normalizeCredentialIssueInput } from '../api/credentials/_service.js';
+import { createCredentialStore } from '../api/credentials/_store.js';
 
 const ADMIN = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', role: 'admin' };
 const LEARNER_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -37,7 +38,11 @@ function createMemoryStore() {
   return {
     credentials,
     transactions,
-    async findByCode(code) { return credentials.find(item => item.credential_code === code) || null; },
+    async findLearnerName() { return 'Nguyễn Minh Anh'; },
+    async findByCode(code) {
+      const row = credentials.find(item => item.credential_code === code);
+      return row ? { ...row } : null;
+    },
     async listByLearner(id) { return credentials.filter(item => item.learner_id === id); },
     async insertCredential(record) {
       const row = { id: `credential-${credentials.length + 1}`, created_at: new Date().toISOString(), onchain_valid: false, verification_checked_at: null, ...record };
@@ -59,6 +64,12 @@ function createMemoryStore() {
       Object.assign(row, patch);
       return { ...row };
     },
+    async claimRetry(id) {
+      const row = credentials.find(item => item.id === id && item.blockchain_status === 'failed');
+      if (!row) return null;
+      Object.assign(row, { blockchain_status: 'submitting', failure_code: null, failure_message: null });
+      return { ...row };
+    },
   };
 }
 
@@ -72,6 +83,7 @@ function createLearningMemoryStore(evaluationOverrides = {}) {
     learner_id: LEARNER_ID,
     status: 'pass',
     credential_eligible: true,
+    rubric_version: 'paradox-rubric-v1',
     proof_record: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 90, contentHash: 'cd'.repeat(32) },
     ...evaluationOverrides,
   }];
@@ -104,8 +116,91 @@ function successfulGateway() {
     async verifyCredential(credentialId) {
       return { exists: true, valid: true, revoked: false, credentialId, evidenceHash: EVIDENCE_HASH, issuer: this.issuerAddress, issuedAt: 1_800_000_000, revokedAt: 0 };
     },
+    async credentialIdForEvidence() { return null; },
+    async getTransactionReceipt(transactionHash) {
+      return { transactionHash, blockNumber: 123, gasUsed: '100000', status: 1 };
+    },
   };
 }
+
+function realPayload(overrides = {}) {
+  return issuePayload({ source: 'ai-evaluation', isTest: false, credentialCode: 'PXP-SNAPSHOT-0001',
+    evaluationId: EVALUATION_ID, evidenceHash: undefined,
+    proofRecord: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 90, contentHash: 'cd'.repeat(32) }, ...overrides });
+}
+
+test('official snapshot uses server profile and rubric, persists before gateway, and ignores frontend metadata', async () => {
+  const store = createMemoryStore();
+  const gateway = successfulGateway();
+  const service = createCredentialService({ store, learningRecordStore: createLearningMemoryStore(), avalancheFactory: async () => {
+    expect(store.credentials).toHaveLength(0);
+    return gateway;
+  } });
+  const result = await service.issue(realPayload({ recipientName: 'FORGED', subject: 'FORGED', skill: 'FORGED', snapshot: { recipientName: 'FORGED' }, issuedAt: '2000-01-01', status: 'verified' }), ADMIN);
+  expect(result.snapshot).toMatchObject({ recipientName: 'Nguyễn Minh Anh', subject: 'Critical thinking and reasoning', credentialId: result.id, certificateCode: result.code, issuedAt: new Date(1_800_000_000 * 1000).toISOString() });
+  expect(result.snapshot.capturedAt).not.toBe(result.snapshot.issuedAt);
+  await expect(service.issue(realPayload(), ADMIN)).rejects.toMatchObject({ code: 'DUPLICATE_CREDENTIAL' });
+  expect(store.credentials).toHaveLength(1);
+});
+
+test('failed official retry reuses captured metadata after profile changes; verification and revocation preserve it', async () => {
+  const store = createMemoryStore(); const learning = createLearningMemoryStore();
+  const gateway = successfulGateway();
+  const service = createCredentialService({ store, learningRecordStore: learning, avalancheFactory: async () => gateway });
+  const issue = gateway.issueCredential;
+  gateway.issueCredential = async () => { throw new Error('Mock transport failure'); };
+  await expect(service.issue(realPayload(), ADMIN)).rejects.toThrow('Mock transport failure');
+  const saved = { ...store.credentials[0] };
+  store.findLearnerName = async () => { throw new Error('Retry must not read current Profile'); };
+  learning.evaluations[0].rubric_version = 'future-rubric';
+  gateway.verifyCredential = async () => ({ exists: false });
+  gateway.issueCredential = issue;
+  const retried = await service.issue(realPayload({ retryFailed: true, recipientName: 'Changed', skill: 'Changed' }), ADMIN);
+  expect(retried.snapshot).toMatchObject({ recipientName: saved.recipient_name_snapshot, subject: saved.subject_snapshot, capturedAt: saved.snapshot_captured_at });
+  gateway.verifyCredential = async () => ({ exists: true, valid: true, evidenceHash: `0x${'cd'.repeat(32)}`, issuedAt: 1_800_000_000, issuer: gateway.issuerAddress });
+  expect((await service.verify(retried.code)).snapshot).toEqual(retried.snapshot);
+  expect((await service.revoke(retried.code)).snapshot).toEqual(retried.snapshot);
+  expect(store.credentials).toHaveLength(1);
+});
+
+test('legacy official credentials remain readable without guessed snapshot but cannot retry issuance', async () => {
+  const store = createMemoryStore();
+  await store.insertCredential({ credential_code: 'PXP-SNAPSHOT-0001', credential_id_hash: credentialIdFromCode('PXP-SNAPSHOT-0001'), learner_id: LEARNER_ID, evidence_hash: `0x${'cd'.repeat(32)}`, source: 'ai-evaluation', is_test: false, blockchain_status: 'failed' });
+  const service = createCredentialService({ store, learningRecordStore: createLearningMemoryStore(), avalancheFactory: async () => { throw new Error('Must not contact chain'); } });
+  expect((await service.find('PXP-SNAPSHOT-0001')).snapshot).toBeNull();
+  await expect(service.issue(realPayload({ retryFailed: true }), ADMIN)).rejects.toMatchObject({ code: 'CREDENTIAL_SNAPSHOT_MISSING' });
+  expect(store.credentials[0].recipient_name_snapshot).toBeUndefined();
+});
+
+test('unsupported rubric, missing name, cross-user and demo evidence fail before persistence or chain', async () => {
+  for (const variant of ['rubric', 'name', 'cross-user', 'demo']) {
+    const store = createMemoryStore(); const learning = createLearningMemoryStore();
+    if (variant === 'rubric') learning.evaluations[0].rubric_version = 'unknown';
+    if (variant === 'name') store.findLearnerName = async () => null;
+    if (variant === 'demo') learning.evaluations[0].proof_record.source = 'demo';
+    const service = createCredentialService({ store, learningRecordStore: learning, avalancheFactory: async () => { throw new Error('Must not contact chain'); } });
+    const code = { rubric: 'CREDENTIAL_SUBJECT_UNSUPPORTED', name: 'LEARNER_NAME_MISSING', 'cross-user': 'LEARNING_EVALUATION_NOT_FOUND', demo: 'MOCK_CREDENTIAL_FORBIDDEN' }[variant];
+    await expect(service.issue(realPayload(variant === 'cross-user' ? { learnerId: OTHER_LEARNER_ID } : {}), ADMIN)).rejects.toMatchObject({ code });
+    expect(store.credentials).toHaveLength(0);
+  }
+});
+
+test('credential store reads authoritative target learner and rejects protected PATCH fields before HTTP', async () => {
+  const calls = [];
+  const store = createCredentialStore({ env: { SUPABASE_URL: 'https://supabase.invalid', SUPABASE_SERVICE_ROLE_KEY: 'test-only' }, fetcher: async (url, options) => {
+    calls.push({ url, options });
+    return { ok: true, status: 200, json: async () => url.includes('/auth/') ? { id: LEARNER_ID, user_metadata: { full_name: 'Tên thật' } } : [{}] };
+  } });
+  expect(await store.findLearnerName(LEARNER_ID)).toBe('Tên thật');
+  expect(calls[0].url).toContain(`/auth/v1/admin/users/${LEARNER_ID}`);
+  for (const field of ['recipient_name_snapshot', 'subject_snapshot', 'snapshot_version', 'snapshot_captured_at', 'evaluation_id', 'learner_id', 'skill', 'credential_code']) {
+    await expect(store.updateCredential('id', { [field]: 'tampered' })).rejects.toMatchObject({ code: 'CREDENTIAL_IMMUTABLE_FIELD' });
+  }
+  expect(calls).toHaveLength(1);
+  await store.updateCredential('id', { blockchain_status: 'confirmed', issued_at: '2026-10-29T00:00:00Z', verification_checked_at: '2026-10-29T00:00:01Z', onchain_valid: true });
+  await store.updateCredential('id', { blockchain_status: 'revoked', revoked_at: '2026-10-30T00:00:00Z' });
+  expect(calls).toHaveLength(3);
+});
 
 test('credential input rejects mock and unlabelled test issuance', () => {
   expect(() => normalizeCredentialIssueInput(issuePayload({ source: 'mock' }), ADMIN)).toThrow(/Mock data cannot be issued/);
@@ -117,13 +212,20 @@ test('credential input rejects mock and unlabelled test issuance', () => {
   expect(normalized.credentialIdHash).toBe(credentialIdFromCode('PXP-TEST-2026-0001'));
 });
 
-test('real issuance requires an eligible AI proof record', () => {
-  expect(() => normalizeCredentialIssueInput(issuePayload({ credentialCode: 'PXP-2026-REAL-0001', source: 'ai-evaluation', isTest: false }), ADMIN)).toThrow(/AI proof record/);
+test('real issuance allows backend DB proof when client proof is omitted', () => {
   const normalized = normalizeCredentialIssueInput(issuePayload({
     credentialCode: 'PXP-2026-REAL-0001', source: 'ai-evaluation', isTest: false, evidenceHash: undefined,
+  }), ADMIN);
+  expect(normalized).toMatchObject({ isTest: false, evidenceHash: null });
+  const withProof = normalizeCredentialIssueInput(issuePayload({
+    credentialCode: 'PXP-2026-REAL-0001', source: 'ai-evaluation', isTest: false, evidenceHash: undefined, assessmentScore: null,
     proofRecord: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 88, contentHash: 'cd'.repeat(32) },
   }), ADMIN);
-  expect(normalized).toMatchObject({ isTest: false, assessmentScore: 90, evidenceHash: `0x${'cd'.repeat(32)}` });
+  expect(withProof).toMatchObject({ isTest: false, assessmentScore: 88, evidenceHash: `0x${'cd'.repeat(32)}` });
+  expect(() => normalizeCredentialIssueInput(issuePayload({
+    credentialCode: 'PXP-2026-REAL-0001', source: 'ai-evaluation', isTest: false,
+    proofRecord: { schemaVersion: 'bad', evidenceSufficient: false, status: 'fail' },
+  }), ADMIN)).toThrow(/AI proof record/);
 });
 
 test('credential service persists pending and confirmed Fuji transaction state', async () => {
@@ -150,16 +252,18 @@ test('duplicate credential and failed transaction are recorded safely', async ()
 
   const failedStore = createMemoryStore();
   const failedGateway = successfulGateway();
-  failedGateway.issueCredential = async ({ onSubmitted }) => {
-    await onSubmitted(ISSUE_TX);
+  failedGateway.issueCredential = async () => {
     throw Object.assign(new Error('Avalanche transaction failed'), { code: 'AVALANCHE_TRANSACTION_FAILED', status: 502 });
   };
   const failedService = createCredentialService({ store: failedStore, avalancheFactory: async () => failedGateway });
   await expect(failedService.issue(issuePayload(), ADMIN)).rejects.toMatchObject({ code: 'AVALANCHE_TRANSACTION_FAILED' });
-  expect(failedStore.credentials[0]).toMatchObject({ blockchain_status: 'failed', issue_tx_hash: ISSUE_TX, failure_code: 'AVALANCHE_TRANSACTION_FAILED' });
-  expect(failedStore.transactions[0]).toMatchObject({ status: 'failed', transaction_hash: ISSUE_TX, error_code: 'AVALANCHE_TRANSACTION_FAILED' });
+  expect(failedStore.credentials[0]).toMatchObject({ blockchain_status: 'failed', failure_code: 'AVALANCHE_TRANSACTION_FAILED' });
+  expect(failedStore.credentials[0].issue_tx_hash).toBeUndefined();
+  expect(failedStore.transactions[0]).toMatchObject({ status: 'failed', error_code: 'AVALANCHE_TRANSACTION_FAILED' });
 
-  const recoveryService = createCredentialService({ store: failedStore, avalancheFactory: async () => successfulGateway() });
+  const recoveryGateway = successfulGateway();
+  recoveryGateway.verifyCredential = async credentialId => ({ exists: false, valid: false, revoked: false, credentialId, evidenceHash: EVIDENCE_HASH, issuer: recoveryGateway.issuerAddress, issuedAt: 0, revokedAt: 0 });
+  const recoveryService = createCredentialService({ store: failedStore, avalancheFactory: async () => recoveryGateway });
   const reconciled = await recoveryService.issue(issuePayload({ retryFailed: true }), ADMIN);
   expect(reconciled).toMatchObject({ status: 'verified', transactionHash: ISSUE_TX });
   expect(failedStore.credentials[0]).toMatchObject({ blockchain_status: 'confirmed', failure_code: null, onchain_valid: true });

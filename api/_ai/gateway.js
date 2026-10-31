@@ -14,8 +14,8 @@
 import { AI_PROVIDERS, findAiProvider, GEMINI_PRIMARY_API_KEY_ENV, GEMINI_SECONDARY_API_KEY_ENV, ANYROUTER_PRIMARY_API_KEY_ENV, ANYROUTER_SECONDARY_API_KEY_ENV } from './providers.js';
 
 export const AI_GATEWAY_DEFAULTS = Object.freeze({
-  timeoutMs: 10000,
-  totalTimeoutMs: 26000,
+  timeoutMs: 15000,
+  totalTimeoutMs: 30000,
   maxRetries: 1,
   retryDelayMs: 300,
   maxRetryLimit: 3,

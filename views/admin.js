@@ -27,7 +27,54 @@ export const adminViews = {
         <div id="admin-users">${rows || `<p class="empty-note">${this.t('adminEmpty')}</p>`}</div>
         <p class="empty-note" id="admin-search-empty" hidden>${this.t('adminNoResults')}</p>
       </section>
+      ${this.viewCertificateIssuance()}
     </div>`;
+  },
+  viewCertificateIssuance() {
+    const ci = this.certificateIssuance || { status: 'idle', error: '', busy: false, prepared: null, txHash: null };
+    const wallet = this.certificateWallet;
+    const walletStatus = wallet ? `${wallet.address} · chainId ${wallet.chainId} · ${wallet.authorized ? 'Issuer authorized' : 'Not authorized'}` : 'Not connected';
+    const prepared = ci.prepared;
+    const preview = prepared && prepared.unsignedTransaction ? `
+      <dl class="passport-detail-list">
+        <div><dt>Learner</dt><dd>${this.escape(ci.learnerId)}</dd></div>
+        <div><dt>Certificate</dt><dd>${this.escape(ci.credentialCode)}</dd></div>
+        <div><dt>Title</dt><dd>${this.escape(ci.title)}</dd></div>
+        <div><dt>Contract</dt><dd><code>${this.escape(prepared.unsignedTransaction.to)}</code></dd></div>
+        <div><dt>Network</dt><dd>Avalanche Fuji (43113)</dd></div>
+        <div><dt>Issuer</dt><dd><code>${this.escape(prepared.unsignedTransaction.issuerAddress || '')}</code></dd></div>
+        <div><dt>Gas estimate</dt><dd>${this.escape(String(prepared.unsignedTransaction.gasEstimate || 'N/A'))}</dd></div>
+      </dl>
+      <pre>${this.escape(JSON.stringify(prepared.unsignedTransaction, null, 2))}</pre>
+    ` : '';
+    const explorer = ci.txHash ? `<a href="https://explorer-test.avax.network/c-chain/tx/${this.escape(ci.txHash)}" target="_blank" rel="noopener noreferrer">View on Avalanche Explorer</a>` : '';
+    return `<section class="card admin-cert-card">
+      <div class="panel-head"><div><h2 class="panel-title">Certificate Issuance (Avalanche Fuji)</h2><p class="panel-sub">Prepare on backend, sign with Core Wallet, confirm on-chain.</p></div></div>
+      <div class="row">
+        <button class="ghost-button" type="button" data-cert-connect-wallet ${ci.busy ? 'disabled' : ''}>Connect Core Wallet</button>
+        <button class="ghost-button" type="button" data-cert-reset ${ci.busy ? 'disabled' : ''}>Reset</button>
+      </div>
+      <p><strong>Wallet:</strong> ${this.escape(walletStatus)}</p>
+      <div class="row">
+        <input id="cert-learner-id" placeholder="Learner ID (UUID)" value="${this.escape(ci.learnerId)}" />
+        <button class="ghost-button" type="button" data-cert-load-evaluations ${ci.busy ? 'disabled' : ''}>Load eligible evaluations</button>
+      </div>
+      <div class="row">
+        <select id="cert-evaluation-select" aria-label="Eligible evaluation"><option value="">Select eligible evaluation</option>${(ci.eligibleEvaluations || []).map(ev => `<option value="${this.escape(ev.id)}" data-learner="${this.escape(ev.sessionId)}">${this.escape(ev.id)} · score ${ev.score} · ${ev.status}</option>`).join('')}</select>
+      </div>
+      <div class="row">
+        <input id="cert-evaluation-id" placeholder="Evaluation ID (UUID)" value="${this.escape(ci.evaluationId)}" />
+        <input id="cert-code" placeholder="Credential code (PXP-...)" value="${this.escape(ci.credentialCode)}" />
+        <input id="cert-title" placeholder="Title" value="${this.escape(ci.title)}" />
+      </div>
+      <div class="row">
+        <button class="primary-button" type="button" data-cert-prepare ${ci.busy || !wallet || wallet.chainId !== 43113 || !wallet.authorized ? 'disabled' : ''}>Prepare</button>
+        <button class="primary-button" type="button" data-cert-confirm ${ci.busy || !ci.prepared ? 'disabled' : ''}>Sign &amp; Send</button>
+      </div>
+      <p><strong>Status:</strong> ${this.escape(ci.status)} ${ci.error ? `— ${this.escape(ci.error)}` : ''}</p>
+      ${preview}
+      ${ci.txHash ? `<p><strong>Tx:</strong> <code>${this.escape(ci.txHash)}</code> ${explorer}</p>` : ''}
+    </section>`;
   },
   filterAdminUsers(value) {
     const query = String(value || '').trim().toLowerCase();

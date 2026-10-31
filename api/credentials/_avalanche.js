@@ -25,6 +25,7 @@ export const LEARNING_CREDENTIAL_REGISTRY_ABI = Object.freeze([
 const registryInterface = new Interface(LEARNING_CREDENTIAL_REGISTRY_ABI);
 const BYTES32 = /^0x[0-9a-fA-F]{64}$/;
 const PRIVATE_KEY = /^0x[0-9a-fA-F]{64}$/;
+const ZERO_BYTES32 = `0x${'0'.repeat(64)}`;
 
 function serviceError(message, code, status, cause) {
   return Object.assign(new Error(message, cause ? { cause } : undefined), { code, status });
@@ -60,6 +61,12 @@ export function credentialIdFromCode(code) {
   const normalized = String(code || '').trim().toUpperCase();
   if (!normalized || normalized.length > 80) throw serviceError('Invalid credential code', 'INVALID_CREDENTIAL_CODE', 400);
   return id(`paradox-learning-credential:${normalized}`);
+}
+
+export function encodeIssueCredential(credentialId, evidenceHash) {
+  if (!BYTES32.test(String(credentialId || ''))) throw serviceError('Credential ID hash is invalid', 'INVALID_CREDENTIAL_ID', 400);
+  if (!BYTES32.test(String(evidenceHash || ''))) throw serviceError('Evidence hash is invalid', 'INVALID_EVIDENCE_HASH', 400);
+  return registryInterface.encodeFunctionData('issueCredential', [credentialId, evidenceHash]);
 }
 
 export function normalizeEvidenceHash(value) {
@@ -111,6 +118,7 @@ export async function createAvalancheGateway({ env = process.env, write = false,
   await assertFujiNetwork(provider);
   const wallet = write ? (suppliedWallet || new Wallet(config.privateKey, provider)) : null;
   const contract = suppliedContract || new Contract(config.contractAddress, LEARNING_CREDENTIAL_REGISTRY_ABI, wallet || provider);
+  const issuerAddress = wallet ? (typeof wallet.address === 'string' ? wallet.address : await wallet.getAddress?.()) : null;
 
   async function verifyCredential(credentialId) {
     try {
@@ -130,42 +138,164 @@ export async function createAvalancheGateway({ env = process.env, write = false,
     } catch (error) { throw mapAvalancheError(error); }
   }
 
+  async function credentialIdForEvidence(evidenceHash) {
+    try {
+      const credentialId = await contract.credentialIdForEvidence(evidenceHash);
+      return String(credentialId).toLowerCase() === ZERO_BYTES32 ? null : credentialId;
+    } catch (error) { throw mapAvalancheError(error); }
+  }
+
   async function requireAuthorizedWallet() {
     if (!write || !wallet) throw serviceError('Issuer wallet is required for this operation', 'AVALANCHE_ISSUER_NOT_CONFIGURED', 503);
+    const resolvedIssuerAddress = issuerAddress || (typeof wallet.address === 'string' ? wallet.address : await wallet.getAddress?.());
     let authorized;
-    try { authorized = await contract.authorizedIssuers(wallet.address); }
+    try { authorized = await contract.authorizedIssuers(resolvedIssuerAddress); }
     catch (error) { throw mapAvalancheError(error); }
     if (!authorized) throw serviceError('Issuer wallet is not authorized by the registry', 'ISSUER_NOT_AUTHORIZED', 403);
-    return wallet.address;
+    return resolvedIssuerAddress;
+  }
+
+  async function isAuthorizedIssuer(address) {
+    if (!isAddress(address)) throw serviceError('Issuer address is invalid', 'INVALID_ISSUER_ADDRESS', 400);
+    try { return Boolean(await contract.authorizedIssuers(getAddress(address))); }
+    catch (error) { throw mapAvalancheError(error); }
+  }
+
+  async function readPreflight(issuerAddress) {
+    let bytecode = '';
+    try { bytecode = typeof provider.getCode === 'function' ? await provider.getCode(config.contractAddress) : '0x'; }
+    catch (error) { throw mapAvalancheError(error); }
+    if (!bytecode || bytecode === '0x' || bytecode === '0x0') {
+      throw serviceError('Credential registry is not deployed at the configured address', 'AVALANCHE_REGISTRY_NOT_DEPLOYED', 503);
+    }
+    const authorized = await isAuthorizedIssuer(issuerAddress);
+    if (!authorized) throw serviceError('Issuer wallet is not authorized by the registry', 'ISSUER_NOT_AUTHORIZED', 403);
+    return { chainId: Number(AVALANCHE_FUJI_CHAIN_ID), contractAddress: config.contractAddress, issuerAddress: getAddress(issuerAddress), authorized: true };
+  }
+
+  async function preflight() {
+    const resolvedIssuerAddress = await requireAuthorizedWallet();
+    let bytecode = '';
+    try {
+      bytecode = typeof provider.getCode === 'function' ? await provider.getCode(config.contractAddress) : '0x';
+    } catch (error) {
+      throw mapAvalancheError(error);
+    }
+    if (!bytecode || bytecode === '0x' || bytecode === '0x0') {
+      throw serviceError('Credential registry is not deployed at the configured address', 'AVALANCHE_REGISTRY_NOT_DEPLOYED', 503);
+    }
+    return {
+      chainId: Number(AVALANCHE_FUJI_CHAIN_ID),
+      contractAddress: config.contractAddress,
+      issuerAddress: resolvedIssuerAddress,
+      authorized: true,
+    };
+  }
+
+  async function getTransactionReceipt(transactionHash) {
+    if (!transactionHash || !BYTES32.test(String(transactionHash))) return null;
+    try {
+      const receipt = await provider.getTransactionReceipt(transactionHash);
+      return receipt ? receiptSummary(receipt) : null;
+    } catch (error) { throw mapAvalancheError(error); }
+  }
+
+  async function getTransaction(transactionHash) {
+    if (!transactionHash || !BYTES32.test(String(transactionHash))) return null;
+    try {
+      const tx = await provider.getTransaction(transactionHash);
+      if (!tx) return null;
+      return {
+        hash: tx.hash,
+        chainId: Number(tx.chainId),
+        to: tx.to,
+        from: tx.from,
+        value: tx.value,
+        data: tx.data,
+      };
+    } catch (error) { throw mapAvalancheError(error); }
+  }
+
+  async function estimateGas(tx) {
+    try { return (await provider.estimateGas(tx)).toString(); }
+    catch (error) { throw mapAvalancheError(error); }
   }
 
   async function submit(method, args, onSubmitted) {
+    let transaction;
     try {
-      const transaction = await contract[method](...args);
-      await onSubmitted?.(transaction.hash);
-      const receipt = await transaction.wait(1);
-      if (!receipt || Number(receipt.status) !== 1) {
-        throw serviceError('Avalanche transaction was mined but failed', 'AVALANCHE_TRANSACTION_REVERTED', 502);
-      }
-      return receiptSummary(receipt);
-    } catch (error) { throw mapAvalancheError(error); }
+      transaction = await contract[method](...args);
+    } catch (error) {
+      throw mapAvalancheError(error);
+    }
+
+    const transactionHash = transaction?.hash || null;
+    try {
+      await onSubmitted?.(transactionHash);
+    } catch (error) {
+      // The transaction is already broadcast. A persistence failure here must not
+      // be reported as a chain failure or the credential could be retried twice.
+      throw Object.assign(error, { transactionHash, broadcast: true, ambiguous: true });
+    }
+
+    let receipt;
+    try {
+      receipt = await transaction.wait(1);
+    } catch (error) {
+      throw Object.assign(mapAvalancheError(error), { transactionHash, broadcast: true, ambiguous: true });
+    }
+
+    if (!receipt) {
+      throw Object.assign(
+        serviceError('Avalanche transaction was broadcast but its receipt is not available yet', 'AVALANCHE_TRANSACTION_STATUS_UNKNOWN', 503),
+        { transactionHash, broadcast: true, ambiguous: true },
+      );
+    }
+    if (Number(receipt.status) !== 1) {
+      throw Object.assign(
+        serviceError('Avalanche transaction was mined but failed', 'AVALANCHE_TRANSACTION_REVERTED', 502),
+        { transactionHash, receipt: receiptSummary(receipt), broadcast: true, ambiguous: false },
+      );
+    }
+    return receiptSummary(receipt);
+  }
+
+  async function readAfterReceipt(reader, receipt) {
+    try {
+      return await reader();
+    } catch (error) {
+      throw Object.assign(error, {
+        transactionHash: receipt?.transactionHash || null,
+        receipt,
+        broadcast: true,
+        ambiguous: false,
+        onchainConfirmed: true,
+      });
+    }
   }
 
   return {
     chainId: Number(AVALANCHE_FUJI_CHAIN_ID),
     network: AVALANCHE_FUJI_NETWORK,
     contractAddress: config.contractAddress,
-    issuerAddress: wallet?.address || null,
+    issuerAddress: issuerAddress || null,
+    preflight,
+    readPreflight,
+    isAuthorizedIssuer,
     verifyCredential,
+    credentialIdForEvidence,
+    getTransaction,
+    getTransactionReceipt,
+    estimateGas,
     async issueCredential({ credentialId, evidenceHash, onSubmitted }) {
       await requireAuthorizedWallet();
       const receipt = await submit('issueCredential', [credentialId, evidenceHash], onSubmitted);
-      return { receipt, credential: await verifyCredential(credentialId) };
+      return { receipt, credential: await readAfterReceipt(() => verifyCredential(credentialId), receipt) };
     },
     async revokeCredential({ credentialId, onSubmitted }) {
       await requireAuthorizedWallet();
       const receipt = await submit('revokeCredential', [credentialId], onSubmitted);
-      return { receipt, credential: await verifyCredential(credentialId) };
+      return { receipt, credential: await readAfterReceipt(() => verifyCredential(credentialId), receipt) };
     },
   };
 }

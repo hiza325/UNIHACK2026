@@ -1,7 +1,9 @@
-import { currentUser, parseBody, publicUser, requireAdmin } from '../auth/_supabase.js';
-import { createCredentialService } from './_service.js';
+import { currentUser, noStore, parseBody, publicUser, requireAdmin } from '../auth/_supabase.js';
+import { guardCredentialLookup } from '../auth/_rate-limit.js';
+import { createCredentialService, toVerificationView } from './_service.js';
 import { createCredentialStore } from './_store.js';
 import { createLearningRecordStore } from '../learning-records/_store.js';
+import { publicLearningEvaluation } from '../learning-records/_service.js';
 
 const SAFE_SERVER_CODES = new Set([
   'AVALANCHE_RPC_NOT_CONFIGURED', 'AVALANCHE_RPC_INVALID', 'AVALANCHE_RPC_UNAVAILABLE',
@@ -16,6 +18,7 @@ function queryValue(req, name) {
 
 function sendCredentialError(res, error) {
   const status = Number(error?.status) || 500;
+  if (status === 429) res.setHeader('Retry-After', String(Number(error?.retryAfter) || 60));
   const safeMessage = status < 500 || SAFE_SERVER_CODES.has(error?.code)
     ? error.message
     : 'Credential service is temporarily unavailable';
@@ -24,6 +27,7 @@ function sendCredentialError(res, error) {
 
 export function createCredentialsHandler({ storeFactory = createCredentialStore, serviceFactory = createCredentialService, learningRecordStoreFactory = () => { try { return createLearningRecordStore(); } catch { return null; } } } = {}) {
   return async function credentialsHandler(req, res) {
+    noStore(res);
     if (!['GET', 'POST'].includes(req.method)) {
       res.setHeader('Allow', 'GET, POST');
       return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });
@@ -34,9 +38,10 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
         const service = serviceFactory({ store: storeFactory(), learningRecordStore: learningRecordStoreFactory() });
         const code = queryValue(req, 'code');
         if (code) {
+          guardCredentialLookup(req, session.user?.id);
           const credential = await service.find(code);
           if (!credential) return res.status(404).json({ error: 'Credential was not found', code: 'CREDENTIAL_NOT_FOUND' });
-          return res.status(200).json({ credential });
+          return res.status(200).json({ credential: toVerificationView(credential) });
         }
         return res.status(200).json({ passport: await service.passport(publicUser(session.user)) });
       }
@@ -45,12 +50,31 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
       const action = String(body.action || '');
       const service = serviceFactory({ store: storeFactory(), learningRecordStore: learningRecordStoreFactory() });
       if (action === 'verify') {
-        await currentUser(req, res);
-        return res.status(200).json({ credential: await service.verify(body.credentialCode) });
+        const session = await currentUser(req, res);
+        guardCredentialLookup(req, session.user?.id);
+        return res.status(200).json({ credential: toVerificationView(await service.verify(body.credentialCode)) });
       }
       if (action === 'issue') {
         const session = await requireAdmin(req, res);
         return res.status(201).json({ credential: await service.issue(body, publicUser(session.user)) });
+      }
+      if (action === 'prepare-issue') {
+        const session = await requireAdmin(req, res);
+        const result = await service.prepareIssue(body, publicUser(session.user));
+        return res.status(200).json(result);
+      }
+      if (action === 'confirm-issue') {
+        const session = await requireAdmin(req, res);
+        const result = await service.confirmIssue(body, publicUser(session.user));
+        return res.status(200).json(result);
+      }
+      if (action === 'list-eligible-evaluations') {
+        await requireAdmin(req, res);
+        const learnerId = String(body?.learnerId || '').trim();
+        const lrStore = learningRecordStoreFactory();
+        if (!lrStore) return res.status(503).json({ error: 'Learning record store is not configured', code: 'LEARNING_RECORD_STORE_NOT_CONFIGURED' });
+        const evaluations = await lrStore.listEligibleEvaluations(learnerId);
+        return res.status(200).json({ evaluations: (evaluations || []).map(publicLearningEvaluation) });
       }
       if (action === 'revoke') {
         await requireAdmin(req, res);

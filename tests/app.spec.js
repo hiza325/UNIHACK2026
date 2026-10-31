@@ -503,3 +503,26 @@ test.describe('history filters', () => {
     await expect(page.locator('[data-session-status]:visible')).toHaveCount(1);
   });
 });
+
+
+test('forged localStorage admin role cannot open user management', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('paradox-session', JSON.stringify({ id: 'student-id', name: 'Student', email: 'student@example.com', role: 'admin' }));
+    localStorage.setItem('paradox-accounts', JSON.stringify([{ id: 'student-id', name: 'Student', email: 'student@example.com', role: 'admin', status: 'active' }]));
+  });
+
+  await page.route('**/api/auth/session', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ user: { id: 'student-id', name: 'Student', email: 'student@example.com', role: 'user' } }),
+  }));
+  await page.route('**/api/admin/users', route => route.fulfill({
+    status: 403,
+    contentType: 'application/json',
+    body: JSON.stringify({ error: 'Administrator access required' }),
+  }));
+
+  await page.goto('/#/admin');
+  await expect(page).toHaveURL(/#\/dashboard$/);
+  await expect(page.locator('.admin-page')).toHaveCount(0);
+});
