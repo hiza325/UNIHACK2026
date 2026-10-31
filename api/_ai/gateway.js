@@ -2,7 +2,8 @@
  * Shared server-only AI gateway for AI Learning.
  *
  * Responsibilities:
- * - resolve provider order (Gemini primary, AnyRouter fallback, optional AI_PROVIDER_ORDER override);
+ * - resolve provider order (Groq primary, Gemini fallback, AnyRouter last resort,
+ *   optional AI_PROVIDER_ORDER override);
  * - read API keys from environment variables only and never expose them downstream;
  * - enforce a per-attempt timeout and a bounded total deadline;
  * - retry retryable failures (timeouts, network errors, 408/425/429/5xx, empty or invalid output);
@@ -11,7 +12,7 @@
  * - return normalised provenance metadata and redact secrets from every error surface.
  */
 
-import { AI_PROVIDERS, findAiProvider, GEMINI_PRIMARY_API_KEY_ENV, GEMINI_SECONDARY_API_KEY_ENV, ANYROUTER_PRIMARY_API_KEY_ENV, ANYROUTER_SECONDARY_API_KEY_ENV } from './providers.js';
+import { AI_PROVIDERS, findAiProvider, GROQ_PRIMARY_API_KEY_ENV, GROQ_SECONDARY_API_KEY_ENV, GEMINI_PRIMARY_API_KEY_ENV, GEMINI_SECONDARY_API_KEY_ENV, ANYROUTER_PRIMARY_API_KEY_ENV, ANYROUTER_SECONDARY_API_KEY_ENV } from './providers.js';
 
 export const AI_GATEWAY_DEFAULTS = Object.freeze({
   timeoutMs: 15000,
@@ -63,7 +64,7 @@ function redact(text, env) {
     if (value.length >= 8) output = output.split(value).join('[redacted]');
   }
   for (const keyName of Object.keys(env || {})) {
-    if (/^(GEMINI_API_KEY|ANYROUTER_LEARNING_API_KEY)(?:_\d+)?$/.test(keyName)) {
+    if (/^(GROQ_API_KEY|GEMINI_API_KEY|ANYROUTER_LEARNING_API_KEY)(?:_\d+)?$/.test(keyName)) {
       const value = String(env?.[keyName] || '').trim();
       if (value.length >= 8) output = output.split(value).join('[redacted]');
     }
@@ -137,6 +138,7 @@ export function describeAiProviderStatus({ env = process.env, providers = AI_PRO
   const described = entries.map(describeEntry);
   const [primary] = described;
   const fallback = described.length > 1 ? described[described.length - 1] : null;
+  const groqKeysConfigured = Object.keys(env || {}).filter(name => /^GROQ_API_KEY(?:_\d+)?$/.test(name) && String(env?.[name] || '').trim().length > 0).length;
   const geminiKeysConfigured = Object.keys(env || {}).filter(name => /^GEMINI_API_KEY(?:_\d+)?$/.test(name) && String(env?.[name] || '').trim().length > 0).length;
   const anyrouterKeysConfigured = Object.keys(env || {}).filter(name => /^ANYROUTER_LEARNING_API_KEY(?:_\d+)?$/.test(name) && String(env?.[name] || '').trim().length > 0).length;
   return {
@@ -147,6 +149,14 @@ export function describeAiProviderStatus({ env = process.env, providers = AI_PRO
     providers: described,
     configured: entries.filter(entry => entry.configured).map(entry => entry.provider.id),
     missingEnv: entries.filter(entry => !entry.configured).map(entry => entry.provider.apiKeyEnv),
+    groqKeys: {
+      activeEnv: GROQ_PRIMARY_API_KEY_ENV,
+      configuredCount: groqKeysConfigured,
+      backupEnv: GROQ_SECONDARY_API_KEY_ENV,
+      backupConfigured: groqKeysConfigured > 1,
+    },
+    groqKeyCount: groqKeysConfigured,
+    groqBackupKeyConfigured: groqKeysConfigured > 1,
     geminiKeys: {
       activeEnv: GEMINI_PRIMARY_API_KEY_ENV,
       configuredCount: geminiKeysConfigured,

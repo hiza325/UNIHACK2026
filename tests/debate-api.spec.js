@@ -182,18 +182,20 @@ test('Debate handler returns 503 with provider details when no AI provider is co
     json(body) { responseBody = body; return this; },
   };
   const request = { method: 'POST', headers: { 'x-forwarded-for': '203.0.113.91' }, body: { problem: 'Tính 1 + 1', solution: '2' } };
-  const original = { gemini: process.env.GEMINI_API_KEY, anyrouter: process.env.ANYROUTER_LEARNING_API_KEY };
+  const original = { groq: process.env.GROQ_API_KEY, gemini: process.env.GEMINI_API_KEY, anyrouter: process.env.ANYROUTER_LEARNING_API_KEY };
+  delete process.env.GROQ_API_KEY;
   delete process.env.GEMINI_API_KEY;
   delete process.env.ANYROUTER_LEARNING_API_KEY;
   try {
     await handler(request, response);
   } finally {
+    if (original.groq !== undefined) process.env.GROQ_API_KEY = original.groq;
     if (original.gemini !== undefined) process.env.GEMINI_API_KEY = original.gemini;
     if (original.anyrouter !== undefined) process.env.ANYROUTER_LEARNING_API_KEY = original.anyrouter;
   }
   expect(responseStatus).toBe(503);
   expect(responseBody).toMatchObject({ code: 'NOT_CONFIGURED' });
-  expect(responseBody.details.missingEnv).toEqual(expect.arrayContaining(['GEMINI_API_KEY', 'ANYROUTER_LEARNING_API_KEY']));
+  expect(responseBody.details.missingEnv).toEqual(expect.arrayContaining(['GROQ_API_KEY', 'GEMINI_API_KEY', 'ANYROUTER_LEARNING_API_KEY']));
   expect(JSON.stringify(responseBody)).not.toContain('test-gemini-key');
 });
 
@@ -224,6 +226,33 @@ test('Debate handler uses AnyRouter as the working provider when Gemini is not c
   expect(JSON.stringify(responseBody)).not.toContain('test-anyrouter-key');
 });
 
+test('Debate handler uses Groq Cloud as the working provider when only GROQ_API_KEY is set', async () => {
+  const fetcher = async () => openAiResponse(JSON.stringify({
+    status: 'correct', summary: 'Lời giải đúng.', confidence: 0.9, issues: [], strengths: [], nextQuestion: '', reply: '',
+  }));
+  const handler = createDebateHandler({
+    analysisFactory: payload => createDebateAnalysisWithMeta(payload, {
+      env: { GROQ_API_KEY: 'test-groq-key', GROQ_MODEL: 'openai/gpt-oss-20b' },
+      fetcher,
+    }),
+  });
+  let responseStatus = 200;
+  let responseBody;
+  const response = {
+    setHeader() { return this; },
+    status(status) { responseStatus = status; return this; },
+    json(body) { responseBody = body; return this; },
+  };
+  const request = { method: 'POST', headers: { 'x-forwarded-for': '203.0.113.94' }, body: { problem: 'Tính 5 + 5', solution: '10' } };
+
+  await handler(request, response);
+
+  expect(responseStatus).toBe(200);
+  expect(responseBody.analysis).toMatchObject({ status: 'correct', issues: [] });
+  expect(responseBody.meta).toMatchObject({ provider: 'groq', model: 'groq/openai/gpt-oss-20b', attempts: 1, fallbackUsed: false });
+  expect(JSON.stringify(responseBody)).not.toContain('test-groq-key');
+});
+
 test('Debate handler returns a clear 502 and no fabricated analysis when all providers fail', async () => {
   const fetcher = async () => new Response(JSON.stringify({ error: { message: 'provider down' } }), {
     status: 503,
@@ -251,7 +280,7 @@ test('Debate handler returns a clear 502 and no fabricated analysis when all pro
   expect(responseStatus).toBe(502);
   expect(responseBody).toMatchObject({ code: 'UPSTREAM_ERROR' });
   expect(responseBody.analysis).toBeUndefined();
-  expect(responseBody.details.attempts.map(item => item.provider)).toEqual(['gemini', 'anyrouter']);
+  expect(responseBody.details.attempts.map(item => item.provider)).toEqual(['groq', 'gemini', 'anyrouter']);
   const serialised = JSON.stringify(responseBody);
   expect(serialised).not.toContain('test-gemini-key');
   expect(serialised).not.toContain('test-anyrouter-key');
