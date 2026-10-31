@@ -72,6 +72,29 @@ function makeGateway(overrides = {}) {
   };
 }
 
+test('prepare-issue rejects an ineligible database evaluation even without client proofRecord', async () => {
+  const store = createMemoryStore();
+  const ineligibleStore = createLearningRecordStore();
+  const originalFind = ineligibleStore.findEvaluation.bind(ineligibleStore);
+  ineligibleStore.findEvaluation = async (id, learnerId) => {
+    const row = await originalFind(id, learnerId);
+    return row ? { ...row, credential_eligible: false, proof_record: row.proof_record } : null;
+  };
+  const service = createCredentialService({ store, avalancheFactory: async () => makeGateway(), learningRecordStore: ineligibleStore });
+  const body = { credentialCode: 'PXP-TEST-2026-0010', learnerId: LEARNER_ID, evaluationId: EVALUATION_ID, title: 'Test Cert', source: 'ai-evaluation', issuerAddress: ISSUER_ADDRESS };
+  await expect(service.prepareIssue(body, ADMIN)).rejects.toMatchObject({ code: 'LEARNING_EVALUATION_NOT_ELIGIBLE', status: 409 });
+});
+
+test('prepare-issue creates submitting credential without client proofRecord', async () => {
+  const store = createMemoryStore();
+  const service = createCredentialService({ store, avalancheFactory: async () => makeGateway(), learningRecordStore: createLearningRecordStore() });
+  const body = { credentialCode: 'PXP-TEST-2026-0009', learnerId: LEARNER_ID, evaluationId: EVALUATION_ID, title: 'Test Cert', source: 'ai-evaluation', issuerAddress: ISSUER_ADDRESS };
+  const result = await service.prepareIssue(body, ADMIN);
+  expect(result.unsignedTransaction.to).toBe(CONTRACT_ADDRESS);
+  expect(store.credentials[0].blockchain_status).toBe('submitting');
+  expect(result.credential.status).toBe('pending');
+});
+
 test('prepare-issue creates submitting credential and unsigned tx', async () => {
   const store = createMemoryStore();
   const service = createCredentialService({ store, avalancheFactory: async () => makeGateway(), learningRecordStore: createLearningRecordStore() });

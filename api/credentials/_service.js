@@ -34,11 +34,14 @@ export function normalizeCredentialIssueInput(body = {}, actor = {}) {
   }
   if (!isTest) {
     const proof = body.proofRecord;
-    if (proof?.schemaVersion !== 'paradox-proof-of-learning-v1' || proof.evidenceSufficient !== true || proof.status !== 'pass') {
-      throw credentialError('A passing, evidence-sufficient AI proof record is required', 'AI_PROOF_NOT_ELIGIBLE', 400);
+    if (proof !== undefined && proof !== null) {
+      if (proof?.schemaVersion !== 'paradox-proof-of-learning-v1' || proof.evidenceSufficient !== true || proof.status !== 'pass') {
+        throw credentialError('A passing, evidence-sufficient AI proof record is required', 'AI_PROOF_NOT_ELIGIBLE', 400);
+      }
     }
   }
 
+  const rawEvidenceHash = body.evidenceHash || body.proofRecord?.contentHash;
   const score = body.assessmentScore ?? body.proofRecord?.score ?? null;
   if (score !== null && (!Number.isInteger(score) || score < 0 || score > 100)) {
     throw credentialError('Assessment score must be an integer from 0 to 100', 'INVALID_ASSESSMENT_SCORE', 400);
@@ -50,7 +53,7 @@ export function normalizeCredentialIssueInput(body = {}, actor = {}) {
     evaluationId: evaluationId || null,
     credentialCode,
     credentialIdHash: credentialIdFromCode(credentialCode),
-    evidenceHash: normalizeEvidenceHash(body.evidenceHash || body.proofRecord?.contentHash),
+    evidenceHash: rawEvidenceHash ? normalizeEvidenceHash(rawEvidenceHash) : null,
     proofRecord: body.proofRecord && typeof body.proofRecord === 'object' ? body.proofRecord : null,
     title: text(body.title, 160, 'title'),
     skill: isTest ? text(body.skill, 120, 'skill') : null,

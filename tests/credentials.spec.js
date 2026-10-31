@@ -212,13 +212,20 @@ test('credential input rejects mock and unlabelled test issuance', () => {
   expect(normalized.credentialIdHash).toBe(credentialIdFromCode('PXP-TEST-2026-0001'));
 });
 
-test('real issuance requires an eligible AI proof record', () => {
-  expect(() => normalizeCredentialIssueInput(issuePayload({ credentialCode: 'PXP-2026-REAL-0001', source: 'ai-evaluation', isTest: false }), ADMIN)).toThrow(/AI proof record/);
+test('real issuance allows backend DB proof when client proof is omitted', () => {
   const normalized = normalizeCredentialIssueInput(issuePayload({
     credentialCode: 'PXP-2026-REAL-0001', source: 'ai-evaluation', isTest: false, evidenceHash: undefined,
+  }), ADMIN);
+  expect(normalized).toMatchObject({ isTest: false, evidenceHash: null });
+  const withProof = normalizeCredentialIssueInput(issuePayload({
+    credentialCode: 'PXP-2026-REAL-0001', source: 'ai-evaluation', isTest: false, evidenceHash: undefined, assessmentScore: null,
     proofRecord: { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 88, contentHash: 'cd'.repeat(32) },
   }), ADMIN);
-  expect(normalized).toMatchObject({ isTest: false, assessmentScore: 90, evidenceHash: `0x${'cd'.repeat(32)}` });
+  expect(withProof).toMatchObject({ isTest: false, assessmentScore: 88, evidenceHash: `0x${'cd'.repeat(32)}` });
+  expect(() => normalizeCredentialIssueInput(issuePayload({
+    credentialCode: 'PXP-2026-REAL-0001', source: 'ai-evaluation', isTest: false,
+    proofRecord: { schemaVersion: 'bad', evidenceSufficient: false, status: 'fail' },
+  }), ADMIN)).toThrow(/AI proof record/);
 });
 
 test('credential service persists pending and confirmed Fuji transaction state', async () => {
