@@ -1,4 +1,5 @@
 import { currentUser, noStore, parseBody, publicUser, requireAdmin } from '../auth/_supabase.js';
+import { guardCredentialLookup } from '../auth/_rate-limit.js';
 import { createCredentialService, toVerificationView } from './_service.js';
 import { createCredentialStore } from './_store.js';
 import { createLearningRecordStore } from '../learning-records/_store.js';
@@ -17,6 +18,7 @@ function queryValue(req, name) {
 
 function sendCredentialError(res, error) {
   const status = Number(error?.status) || 500;
+  if (status === 429) res.setHeader('Retry-After', String(Number(error?.retryAfter) || 60));
   const safeMessage = status < 500 || SAFE_SERVER_CODES.has(error?.code)
     ? error.message
     : 'Credential service is temporarily unavailable';
@@ -36,6 +38,7 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
         const service = serviceFactory({ store: storeFactory(), learningRecordStore: learningRecordStoreFactory() });
         const code = queryValue(req, 'code');
         if (code) {
+          guardCredentialLookup(req, session.user?.id);
           const credential = await service.find(code);
           if (!credential) return res.status(404).json({ error: 'Credential was not found', code: 'CREDENTIAL_NOT_FOUND' });
           return res.status(200).json({ credential: toVerificationView(credential) });
@@ -47,8 +50,9 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
       const action = String(body.action || '');
       const service = serviceFactory({ store: storeFactory(), learningRecordStore: learningRecordStoreFactory() });
       if (action === 'verify') {
-        await currentUser(req, res);
-        return res.status(200).json({ credential: await service.verify(body.credentialCode) });
+        const session = await currentUser(req, res);
+        guardCredentialLookup(req, session.user?.id);
+        return res.status(200).json({ credential: toVerificationView(await service.verify(body.credentialCode)) });
       }
       if (action === 'issue') {
         const session = await requireAdmin(req, res);
