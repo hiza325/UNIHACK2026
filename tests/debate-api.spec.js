@@ -349,6 +349,39 @@ test('Debate handler assigns auth-specific codes instead of reporting auth failu
   expect(responseBody).toMatchObject({ code: 'AUTH_REQUIRED', requestId: expect.any(String) });
 });
 
+test('AI probe endpoint reports a real provider result instead of a configured-key guess', async () => {
+  const makeRes = () => ({
+    statusCode: 200, headers: {}, payload: null,
+    setHeader(name, value) { this.headers[name] = value; return this; },
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  });
+  const makeReq = ip => ({ method: 'GET', headers: { 'x-forwarded-for': ip }, url: '/api/debate?aiStatus=1&probe=1', query: {} });
+
+  const okRes = makeRes();
+  const healthy = createDebateHandler({
+    probeFactory: async () => ({ provider: 'groq', providerModel: 'groq/openai/gpt-oss-120b', latencyMs: 128 }),
+  });
+  await healthy(makeReq('203.0.113.121'), okRes);
+  expect(okRes.statusCode).toBe(200);
+  expect(okRes.headers['X-AI-Request-Id']).toEqual(expect.any(String));
+  expect(okRes.payload).toEqual({
+    probe: {
+      checked: true, ok: true, provider: 'groq', model: 'groq/openai/gpt-oss-120b', latencyMs: 128,
+      requestId: expect.any(String),
+    },
+  });
+
+  const failedRes = makeRes();
+  const broken = createDebateHandler({
+    probeFactory: async () => { throw Object.assign(new Error('down'), { code: 'TIMEOUT', status: 504 }); },
+  });
+  await broken(makeReq('203.0.113.122'), failedRes);
+  expect(failedRes.statusCode).toBe(200);
+  expect(failedRes.payload.probe).toMatchObject({ checked: true, ok: false, code: 'TIMEOUT', status: 504 });
+  expect(failedRes.payload.analysis).toBeUndefined();
+});
+
 test('Debate API rate-limits repeated requests from one client', async () => {
   const request = { method: 'POST', headers: { 'x-forwarded-for': '203.0.113.84' }, body: {} };
   const invoke = async () => {

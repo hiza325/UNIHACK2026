@@ -15,9 +15,9 @@
 import { AI_PROVIDERS, findAiProvider, GROQ_PRIMARY_API_KEY_ENV, GROQ_SECONDARY_API_KEY_ENV, GEMINI_PRIMARY_API_KEY_ENV, GEMINI_SECONDARY_API_KEY_ENV, ANYROUTER_PRIMARY_API_KEY_ENV, ANYROUTER_SECONDARY_API_KEY_ENV } from './providers.js';
 
 export const AI_GATEWAY_DEFAULTS = Object.freeze({
-  timeoutMs: 15000,
-  totalTimeoutMs: 30000,
-  maxRetries: 1,
+  timeoutMs: 25000,
+  totalTimeoutMs: 55000,
+  maxRetries: 0,
   retryDelayMs: 300,
   maxRetryLimit: 3,
   maxDelayMs: 1500,

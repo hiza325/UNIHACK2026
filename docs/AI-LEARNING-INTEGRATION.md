@@ -106,9 +106,9 @@ Groq và AnyRouter đều là OpenAI-compatible: `Authorization: Bearer …`, `m
 
 | Tham số | Mặc định | Giới hạn | Ý nghĩa |
 |---|---:|---:|---|
-| `AI_PROVIDER_TIMEOUT_MS` | 10000 | 100–60000 | Timeout mỗi lần gọi một provider |
-| `AI_TOTAL_TIMEOUT_MS` | 26000 | 100–120000 | Deadline tổng cho toàn bộ chuỗi provider |
-| `AI_MAX_RETRIES` | 1 | 0–3 | Số lần retry **trên mỗi provider** (tổng attempt = retries + 1) |
+| `AI_PROVIDER_TIMEOUT_MS` | 25000 | 100–60000 | Timeout mỗi lần gọi một provider |
+| `AI_TOTAL_TIMEOUT_MS` | 55000 | 100–120000 | Deadline tổng cho toàn bộ chuỗi provider |
+| `AI_MAX_RETRIES` | 0 | 0–3 | Số lần retry **trên mỗi provider** (mặc định 0: fallback nhanh hơn retry) |
 | `AI_RETRY_DELAY_MS` | 300 | 0–5000 | Backoff cơ sở, nhân đôi mỗi lần, chặn trần 1500 ms |
 
 ### 4.3. Khi nào retry, khi nào fallback
@@ -133,6 +133,25 @@ Khi cả 3 provider thất bại, gateway ném lỗi tổng hợp và `api/debat
 - Mọi message lỗi đi qua `redact()`: thay giá trị key đã cấu hình bằng `[redacted]`, đồng thời chặn pattern `AIza…`, `gsk_…`, `sk-ar-…`, `Bearer …`.
 - Response lỗi chỉ chứa metadata kỹ thuật và `attempts`, không chứa key.
 - Test `Provider schemas stay server-side only and never reach browser bundles` quét toàn bộ JS frontend + `index.html`.
+
+### 4.5. Health check thật (probe)
+
+`GET /api/ai/status` chỉ cho biết **có key hay không** (`ready` = ít nhất một provider đã cấu hình), **không** chứng minh upstream còn sống. Response vì vậy luôn kèm:
+
+```json
+"probe": { "available": true, "checked": false, "endpoint": "/api/debate?aiStatus=1&probe=1" }
+```
+
+Muốn kiểm tra thật, gọi endpoint probe (tốn 1 request model rất nhỏ, `maxOutputTokens: 8`, timeout 15s, không retry):
+
+```bash
+curl -s "https://<host>/api/debate?aiStatus=1&probe=1"
+```
+
+- Provider trả lời: `{"probe":{"checked":true,"ok":true,"provider":"groq","model":"groq/openai/gpt-oss-120b","latencyMs":128,"requestId":"…"}}`
+- Provider lỗi: `{"probe":{"checked":true,"ok":false,"code":"TIMEOUT","status":504,"latencyMs":15000,"requestId":"…"}}`
+
+Probe dùng chung rate limit 15 request/phút/IP với Analyze và **không** tạo evaluation hay ghi dữ liệu học tập.
 
 ---
 
@@ -217,9 +236,9 @@ Khi cả 3 provider thất bại, gateway ném lỗi tổng hợp và `api/debat
 | `ANYROUTER_LEARNING_API_KEY` | Khuyến nghị | — | Provider dự phòng; **khác** `ANYROUTER_API_KEY` của support widget |
 | `ANYROUTER_LEARNING_API_KEY_2` | Không | — | Key AnyRouter thứ hai cho project/môi trường khác; chỉ lưu làm cấu hình dự phòng, không tự động xoay |
 | `ANYROUTER_LEARNING_MODEL` | Không | `anyrouter/free` | Model AnyRouter cho AI Learning |
-| `AI_PROVIDER_TIMEOUT_MS` | Không | `10000` | Timeout mỗi attempt |
-| `AI_TOTAL_TIMEOUT_MS` | Không | `26000` | Deadline tổng |
-| `AI_MAX_RETRIES` | Không | `1` | Tối đa 3 |
+| `AI_PROVIDER_TIMEOUT_MS` | Không | `25000` | Timeout mỗi attempt |
+| `AI_TOTAL_TIMEOUT_MS` | Không | `55000` | Deadline tổng |
+| `AI_MAX_RETRIES` | Không | `0` | Tối đa 3 |
 | `AI_RETRY_DELAY_MS` | Không | `300` | Backoff cơ sở |
 | `AI_PROVIDER_ORDER` | Không | `groq,gemini,anyrouter` | Chỉ dùng khi cần đảo thứ tự/kiểm thử |
 | `ANYROUTER_API_KEY` | Support widget | — | Không dùng cho AI Learning |
@@ -283,8 +302,8 @@ git diff --check
 
 | Bộ test | Kết quả |
 |---|---|
-| `tests/ai-gateway.spec.js` + `tests/debate-api.spec.js` | **39/39 PASS** |
-| `npm test` (toàn bộ repo) | **244/244 PASS** |
+| `tests/ai-gateway.spec.js` + `tests/debate-api.spec.js` | **41/41 PASS** |
+| `npm test` (toàn bộ repo) | **251/251 PASS** |
 | `git diff --check` | sạch |
 
 ### 9.3. Đã mock

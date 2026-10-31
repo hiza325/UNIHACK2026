@@ -14,6 +14,8 @@ const RUBRIC_VERSION = 'paradox-rubric-v1';
 const requestWindows = new Map();
 const RATE_LIMIT = 15;
 const RATE_WINDOW_MS = 60 * 1000;
+const AI_PROBE_TIMEOUT_MS = 15000;
+const AI_PROBE_TOTAL_TIMEOUT_MS = 20000;
 
 function defaultDiagnosticLogger(env = process.env) {
   return env.VERCEL === '1' || env.NODE_ENV === 'production' ? console : null;
@@ -271,6 +273,7 @@ export function createDebateHandler({
   storeFactory = createLearningRecordStore,
   recordServiceFactory = createLearningRecordService,
   logger = defaultDiagnosticLogger(),
+  probeFactory,
 } = {}) {
   function isAiStatusRequest(req) {
     const host = String(req?.headers?.host || 'localhost');
@@ -288,6 +291,16 @@ export function createDebateHandler({
     return pathname === '/api/ai/status';
   }
 
+  function isAiProbeRequest(req) {
+    if (req?.query?.probe === '1' || req?.query?.probe === 1) return true;
+    const host = String(req?.headers?.host || 'localhost');
+    try {
+      return new URL(String(req?.url || '/'), `http://${host}`).searchParams.get('probe') === '1';
+    } catch {
+      return false;
+    }
+  }
+
   function sendAiStatus(res) {
     res.setHeader('Cache-Control', 'no-store');
     const settings = resolveAiGatewaySettings();
@@ -303,7 +316,60 @@ export function createDebateHandler({
         validation: 'server-side JSON schema',
         fallback: ai.order.join(' -> '),
       },
+      probe: {
+        available: true,
+        checked: false,
+        endpoint: '/api/debate?aiStatus=1&probe=1',
+        note: 'ready only means at least one provider has a key; call the probe endpoint to verify upstream health.',
+      },
     });
+  }
+
+  async function sendAiProbe(req, res) {
+    res.setHeader('Cache-Control', 'no-store');
+    const requestId = randomUUID();
+    res.setHeader('X-AI-Request-Id', requestId);
+    if (!allowRequest(req)) {
+      res.setHeader('Retry-After', '60');
+      return res.status(429).json({ error: 'Too many AI requests. Please wait a moment.', code: 'RATE_LIMIT', requestId });
+    }
+    const startedAt = Date.now();
+    try {
+      const result = probeFactory
+        ? await probeFactory()
+        : await createAiGateway({
+          timeoutMs: AI_PROBE_TIMEOUT_MS,
+          totalTimeoutMs: AI_PROBE_TOTAL_TIMEOUT_MS,
+          maxRetries: 0,
+        }).complete({
+          systemPrompt: 'You are a health probe. Reply with the single word OK.',
+          userPrompt: 'Reply with OK.',
+          temperature: 0,
+          maxOutputTokens: 8,
+          json: false,
+        });
+      return res.status(200).json({
+        probe: {
+          checked: true,
+          ok: true,
+          provider: result.provider,
+          model: result.providerModel,
+          latencyMs: result.latencyMs,
+          requestId,
+        },
+      });
+    } catch (error) {
+      return res.status(200).json({
+        probe: {
+          checked: true,
+          ok: false,
+          code: error?.code || 'UPSTREAM_ERROR',
+          status: Number(error?.status) || 502,
+          latencyMs: Date.now() - startedAt,
+          requestId,
+        },
+      });
+    }
   }
 
   return async function handler(req, res) {
@@ -312,6 +378,7 @@ export function createDebateHandler({
         res.setHeader('Allow', 'GET, HEAD');
         return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });
       }
+      if (isAiProbeRequest(req)) return sendAiProbe(req, res);
       return sendAiStatus(res);
     }
 

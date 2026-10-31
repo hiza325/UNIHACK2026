@@ -4,6 +4,7 @@ import { createCredentialService, toVerificationView } from './_service.js';
 import { createCredentialStore } from './_store.js';
 import { createLearningRecordStore } from '../learning-records/_store.js';
 import { publicLearningEvaluation } from '../learning-records/_service.js';
+import { createAdminAuditLog } from '../admin/_audit.js';
 
 const SAFE_SERVER_CODES = new Set([
   'AVALANCHE_RPC_NOT_CONFIGURED', 'AVALANCHE_RPC_INVALID', 'AVALANCHE_RPC_UNAVAILABLE',
@@ -25,7 +26,15 @@ function sendCredentialError(res, error) {
   return res.status(status).json({ error: safeMessage, ...(error?.code ? { code: error.code } : {}) });
 }
 
-export function createCredentialsHandler({ storeFactory = createCredentialStore, serviceFactory = createCredentialService, learningRecordStoreFactory = () => { try { return createLearningRecordStore(); } catch { return null; } } } = {}) {
+export function createCredentialsHandler({ storeFactory = createCredentialStore, serviceFactory = createCredentialService, learningRecordStoreFactory = () => { try { return createLearningRecordStore(); } catch { return null; } }, auditFactory = createAdminAuditLog } = {}) {
+  async function audit(entry) {
+    try {
+      await auditFactory().record(entry);
+    } catch {
+      // The audit trail is best-effort and must never block a credential action.
+    }
+  }
+
   return async function credentialsHandler(req, res) {
     noStore(res);
     if (!['GET', 'POST'].includes(req.method)) {
@@ -56,16 +65,41 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
       }
       if (action === 'issue') {
         const session = await requireAdmin(req, res);
-        return res.status(201).json({ credential: await service.issue(body, publicUser(session.user)) });
+        const credential = await service.issue(body, publicUser(session.user));
+        await audit({
+          action: 'credential.issue',
+          actorId: session.user.id,
+          actorEmail: session.user.email || null,
+          targetType: 'credential',
+          targetId: credential?.credentialCode || body.credentialCode || null,
+          metadata: { learnerId: body.learnerId || null, isTest: body.isTest === true },
+        });
+        return res.status(201).json({ credential });
       }
       if (action === 'prepare-issue') {
         const session = await requireAdmin(req, res);
         const result = await service.prepareIssue(body, publicUser(session.user));
+        await audit({
+          action: 'credential.prepare-issue',
+          actorId: session.user.id,
+          actorEmail: session.user.email || null,
+          targetType: 'credential',
+          targetId: result?.credential?.credentialCode || body.credentialCode || null,
+          metadata: { learnerId: body.learnerId || null },
+        });
         return res.status(200).json(result);
       }
       if (action === 'confirm-issue') {
         const session = await requireAdmin(req, res);
         const result = await service.confirmIssue(body, publicUser(session.user));
+        await audit({
+          action: 'credential.confirm-issue',
+          actorId: session.user.id,
+          actorEmail: session.user.email || null,
+          targetType: 'credential',
+          targetId: result?.credential?.credentialCode || body.credentialCode || null,
+          metadata: { learnerId: body.learnerId || null },
+        });
         return res.status(200).json(result);
       }
       if (action === 'list-eligible-evaluations') {
@@ -77,8 +111,17 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
         return res.status(200).json({ evaluations: (evaluations || []).map(publicLearningEvaluation) });
       }
       if (action === 'revoke') {
-        await requireAdmin(req, res);
-        return res.status(200).json({ credential: await service.revoke(body.credentialCode) });
+        const session = await requireAdmin(req, res);
+        const credential = await service.revoke(body.credentialCode);
+        await audit({
+          action: 'credential.revoke',
+          actorId: session.user.id,
+          actorEmail: session.user.email || null,
+          targetType: 'credential',
+          targetId: credential?.credentialCode || body.credentialCode || null,
+          metadata: {},
+        });
+        return res.status(200).json({ credential });
       }
       return res.status(400).json({ error: 'Unsupported credential action', code: 'INVALID_CREDENTIAL_ACTION' });
     } catch (error) {

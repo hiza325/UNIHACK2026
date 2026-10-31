@@ -125,7 +125,7 @@ test('Gemini answers when Groq is not configured and receives a server-built req
 
 test('Gemini retries once on a 5xx failure and then falls back to AnyRouter with a valid request', async () => {
   const recorder = createRecorder(({ url }) => (providerOf(url) === 'gemini' ? httpError(500, 'gemini exploded') : openAiOk('{"ok":true}')));
-  const gateway = createAiGateway({ env: ALL_ENV, fetcher: recorder.fetcher, retryDelayMs: 0 });
+  const gateway = createAiGateway({ env: ALL_ENV, fetcher: recorder.fetcher, maxRetries: 1, retryDelayMs: 0 });
 
   const result = await gateway.complete({ systemPrompt: 'SYS', userPrompt: 'USER', validate: text => JSON.parse(text) });
 
@@ -361,6 +361,17 @@ test('Gateway settings are clamped to safe operational bounds', () => {
   expect(settings).toEqual({ timeoutMs: 100, totalTimeoutMs: 120000, maxRetries: 3, retryDelayMs: 0 });
 });
 
+test('Default gateway budget tolerates the slowest measured Gemini latency without retrying', () => {
+  const settings = resolveAiGatewaySettings({ env: {} });
+  expect(settings.timeoutMs).toBe(25000);
+  expect(settings.totalTimeoutMs).toBe(55000);
+  expect(settings.maxRetries).toBe(0);
+  // Slowest observed single Gemini call was 23450 ms, so one attempt must fit.
+  expect(settings.timeoutMs).toBeGreaterThan(23450);
+  // The primary and the first fallback must both fit inside the total deadline.
+  expect(settings.totalTimeoutMs).toBeGreaterThanOrEqual(settings.timeoutMs * 2);
+});
+
 test('Debate keeps the multi-step Socratic flow for every mode through the gateway', async () => {
   const json = JSON.stringify({
     status: 'incorrect',
@@ -480,7 +491,8 @@ test('AI status endpoint reports every provider without exposing secrets', async
   expect(body.ai.geminiBackupKeyConfigured).toBe(false);
   expect(body.ai.anyrouterKeyCount).toBe(0);
   expect(body.ai.anyrouterBackupKeyConfigured).toBe(false);
-  expect(body.gateway).toMatchObject({ maxRetries: 1, fallback: 'groq -> gemini -> anyrouter' });
+  expect(body.probe).toMatchObject({ available: true, checked: false, endpoint: '/api/debate?aiStatus=1&probe=1' });
+  expect(body.gateway).toMatchObject({ maxRetries: 0, fallback: 'groq -> gemini -> anyrouter' });
   expect(JSON.stringify(body)).not.toMatch(/AIza[0-9A-Za-z\-_]{20,}|sk-ar-[A-Za-z0-9\-_]{10,}|gsk_[A-Za-z0-9]{10,}/);
 
   const methodNotAllowed = await request.post('/api/ai/status');
