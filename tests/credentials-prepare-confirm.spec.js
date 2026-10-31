@@ -72,6 +72,22 @@ function makeGateway(overrides = {}) {
   };
 }
 
+test('prepare-issue rejects when learner profile has no recipient name', async () => {
+  const store = createMemoryStore();
+  store.findLearnerName = async () => null;
+  const service = createCredentialService({ store, avalancheFactory: async () => makeGateway(), learningRecordStore: createLearningRecordStore() });
+  const body = { credentialCode: 'PXP-TEST-2026-0011', learnerId: LEARNER_ID, evaluationId: EVALUATION_ID, title: 'Test Cert', source: 'ai-evaluation', issuerAddress: ISSUER_ADDRESS };
+  await expect(service.prepareIssue(body, ADMIN)).rejects.toMatchObject({ code: 'LEARNER_NAME_MISSING', status: 409 });
+});
+
+test('prepare-issue rejects when learner profile cannot be found', async () => {
+  const store = createMemoryStore();
+  store.findLearnerName = async () => { throw Object.assign(new Error('Learner was not found'), { code: 'LEARNER_NOT_FOUND', status: 404 }); };
+  const service = createCredentialService({ store, avalancheFactory: async () => makeGateway(), learningRecordStore: createLearningRecordStore() });
+  const body = { credentialCode: 'PXP-TEST-2026-0012', learnerId: LEARNER_ID, evaluationId: EVALUATION_ID, title: 'Test Cert', source: 'ai-evaluation', issuerAddress: ISSUER_ADDRESS };
+  await expect(service.prepareIssue(body, ADMIN)).rejects.toMatchObject({ code: 'LEARNER_NOT_FOUND', status: 404 });
+});
+
 test('prepare-issue rejects an ineligible database evaluation even without client proofRecord', async () => {
   const store = createMemoryStore();
   const ineligibleStore = createLearningRecordStore();

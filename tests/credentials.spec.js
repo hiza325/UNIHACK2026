@@ -179,7 +179,7 @@ test('unsupported rubric, missing name, cross-user and demo evidence fail before
     if (variant === 'name') store.findLearnerName = async () => null;
     if (variant === 'demo') learning.evaluations[0].proof_record.source = 'demo';
     const service = createCredentialService({ store, learningRecordStore: learning, avalancheFactory: async () => { throw new Error('Must not contact chain'); } });
-    const code = { rubric: 'CREDENTIAL_SUBJECT_UNSUPPORTED', name: 'INVALID_RECIPIENT_NAME', 'cross-user': 'LEARNING_EVALUATION_NOT_FOUND', demo: 'MOCK_CREDENTIAL_FORBIDDEN' }[variant];
+    const code = { rubric: 'CREDENTIAL_SUBJECT_UNSUPPORTED', name: 'LEARNER_NAME_MISSING', 'cross-user': 'LEARNING_EVALUATION_NOT_FOUND', demo: 'MOCK_CREDENTIAL_FORBIDDEN' }[variant];
     await expect(service.issue(realPayload(variant === 'cross-user' ? { learnerId: OTHER_LEARNER_ID } : {}), ADMIN)).rejects.toMatchObject({ code });
     expect(store.credentials).toHaveLength(0);
   }

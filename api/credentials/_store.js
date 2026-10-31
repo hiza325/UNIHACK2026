@@ -45,11 +45,14 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
       const response = await fetcher(`${config.url}/auth/v1/admin/users/${encodeURIComponent(learnerId)}`, {
         headers: { apikey: config.serviceKey, Authorization: `Bearer ${config.serviceKey}` },
       });
+      if (response.status === 404) throw storeError('Learner was not found', 'LEARNER_NOT_FOUND', 404);
       if (!response.ok) throw storeError('Learner profile could not be read', 'LEARNER_PROFILE_UNAVAILABLE', 503);
       const user = await response.json();
       if (user?.id !== learnerId) throw storeError('Learner profile mismatch', 'LEARNER_PROFILE_MISMATCH', 409);
-      // No email-derived fallback: absence of an explicit profile name blocks issuance.
-      return user.user_metadata?.full_name || user.user_metadata?.name || null;
+      // Supabase may store the display name under several metadata keys.
+      // Only an explicitly stored profile name is authoritative; never derive one from email.
+      const metadata = user.user_metadata || user.raw_user_meta_data || user.app_metadata || {};
+      return metadata.full_name || metadata.name || metadata.display_name || metadata.preferred_name || metadata.given_name || null;
     },
     async findByCode(code) {
       return request('learning_credentials', {

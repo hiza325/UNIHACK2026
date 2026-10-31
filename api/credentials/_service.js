@@ -258,7 +258,9 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       } else {
         if (!verifiedEvidence.subject) throw credentialError('Evaluation rubric has no approved certificate subject', 'CREDENTIAL_SUBJECT_UNSUPPORTED', 409);
         if (!store.findLearnerName) throw credentialError('Learner profile reader is unavailable', 'LEARNER_PROFILE_UNAVAILABLE', 503);
-        const name = text(await store.findLearnerName(input.learnerId), 200, 'recipient name').normalize('NFC');
+        const recipientName = await store.findLearnerName(input.learnerId);
+        if (!recipientName) throw credentialError('Learner profile has no recipient name', 'LEARNER_NAME_MISSING', 409);
+        const name = text(recipientName, 200, 'recipient name').normalize('NFC');
         input.skill = verifiedEvidence.subject;
         snapshot = { recipient_name_snapshot: name, subject_snapshot: input.skill, snapshot_version: 1,
           snapshot_captured_at: new Date().toISOString(), evaluation_id: input.evaluationId };
@@ -507,7 +509,9 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       } else {
         if (!verifiedEvidence?.subject) throw credentialError('Evaluation rubric has no approved certificate subject', 'CREDENTIAL_SUBJECT_UNSUPPORTED', 409);
         if (!store.findLearnerName) throw credentialError('Learner profile reader is unavailable', 'LEARNER_PROFILE_UNAVAILABLE', 503);
-        const name = text(await store.findLearnerName(input.learnerId), 200, 'recipient name').normalize('NFC');
+        const recipientName = await store.findLearnerName(input.learnerId);
+        if (!recipientName) throw credentialError('Learner profile has no recipient name', 'LEARNER_NAME_MISSING', 409);
+        const name = text(recipientName, 200, 'recipient name').normalize('NFC');
         input.skill = verifiedEvidence.subject;
         snapshot = { recipient_name_snapshot: name, subject_snapshot: input.skill, snapshot_version: 1, snapshot_captured_at: new Date().toISOString(), evaluation_id: input.evaluationId };
       }
