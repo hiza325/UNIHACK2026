@@ -148,7 +148,11 @@ Mức nghiêm trọng cộng dồn: mã do admin nhập tự do (regex `^PXP-[A-
 
 Bản vá đầu tiên chỉ phủ `GET ?code=`. Khi nối rate limit mới phát hiện `POST action:"verify"` vẫn trả payload đầy đủ, tức vẫn lộ qua đường thứ hai. Cả hai nhánh giờ đều đi qua `toVerificationView`, và mỗi nhánh có test riêng.
 
-Đã xác minh UI không cần các field bị cắt: trang verify (`views/passport.js:100`) và luồng thật (`learning-passport-actions.js:104` → `verifyCredential`) không đọc `recipientName`, `assessmentScore`, `evidenceHash` hay `evaluationId`. Panel chi tiết trong passport dùng dữ liệu từ `GET /api/credentials` (owner-scoped), không dùng `?code=`.
+Đã xác minh UI không cần các field bị cắt: trang verify (`views/passport.js:100`) và luồng thật (`learning-passport-actions.js:105` → `verifyCredential`) không đọc `recipientName`, `assessmentScore`, `evidenceHash` hay `evaluationId`. Panel chi tiết trong passport dùng dữ liệu từ `GET /api/credentials` (owner-scoped), không dùng `?code=`.
+
+Kiểm tra thêm cho module render chứng chỉ trên nhánh, vì `certificateData()` tại `certificate-renderer.js:20` **yêu cầu** `snapshot.recipientName`, `snapshot.subject`, `snapshot.evaluationId`: `mountCertificatePreview` nhận credential từ `findLearningPassportCredential` (`learning-passport-actions.js:41,50`), hàm này lọc trong `passport.credentials` đã tải ở client (`learning-passport-service.js:142-145`), không gọi HTTP theo mã — nên projection không ảnh hưởng bản render.
+
+Toàn bộ mã frontend chỉ khai báo `GET /api/credentials?code=` ở `learning-passport-service.js:8`, không có chỗ nào gọi. Endpoint tồn tại cho client bên ngoài; khai thác được qua HTTP trực tiếp chứ không qua UI. Hệ quả: nếu muốn siết tiếp, có thể cân nhắc giới hạn endpoint này cho admin mà không đụng trải nghiệm người dùng — quyết định sản phẩm, chưa làm.
 
 ### 3.3 Rate limit cho tra cứu mã
 
