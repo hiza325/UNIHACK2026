@@ -57,7 +57,11 @@ export function authConfig(env = process.env) {
   const anonKey = env.SUPABASE_ANON_KEY || '';
   const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY || '';
   if (!url || !anonKey) throw Object.assign(new Error('Authentication service is not configured'), { status: 503, code: 'AUTH_NOT_CONFIGURED' });
-  return { url, anonKey, serviceKey, adminEmails: String(env.ADMIN_EMAILS || 'admin@paradox.ai,huyclasswiz@gmail.com,huyriuuu@gmail.com,lamnguyen080306@gmail.com').split(',').map(email => email.trim().toLowerCase()).filter(Boolean) };
+  // Fail closed: an unset or empty ADMIN_EMAILS must mean "no allowlisted
+  // admins", not "fall back to the developers' personal accounts". Provision
+  // administrators through `app_metadata.role = 'admin'` instead.
+  const adminEmails = String(env.ADMIN_EMAILS || '').split(',').map(email => email.trim().toLowerCase()).filter(Boolean);
+  return { url, anonKey, serviceKey, adminEmails };
 }
 
 // Deprecated alias kept for callers that used the Gmail-only helper. It now

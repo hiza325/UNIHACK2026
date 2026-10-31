@@ -94,6 +94,22 @@ function isAmbiguousChainError(error) {
     && (error?.ambiguous === true || error?.broadcast === true);
 }
 
+// Projection for lookups made by credential code, which any signed-in user
+// can attempt. It keeps what the verification page renders and drops
+// learner-private fields: holder name, assessment score, evaluation and
+// evidence identifiers.
+const VERIFICATION_VIEW_FIELDS = [
+  'id', 'code', 'name', 'skill', 'issuedAt', 'revokedAt', 'status',
+  'network', 'chainId', 'contractAddress', 'transactionHash',
+  'transactionStatus', 'verification', 'isTest', 'source',
+];
+
+export function toVerificationView(credential) {
+  return Object.fromEntries(
+    VERIFICATION_VIEW_FIELDS.filter(field => field in credential).map(field => [field, credential[field]]),
+  );
+}
+
 export function toPublicCredential(row) {
   const revoked = row.blockchain_status === 'revoked';
   const pending = ['submitting', 'pending', 'revoke_pending'].includes(row.blockchain_status);

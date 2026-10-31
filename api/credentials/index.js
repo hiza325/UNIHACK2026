@@ -1,5 +1,5 @@
 import { currentUser, noStore, parseBody, publicUser, requireAdmin } from '../auth/_supabase.js';
-import { createCredentialService } from './_service.js';
+import { createCredentialService, toVerificationView } from './_service.js';
 import { createCredentialStore } from './_store.js';
 import { createLearningRecordStore } from '../learning-records/_store.js';
 import { publicLearningEvaluation } from '../learning-records/_service.js';
@@ -38,7 +38,7 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
         if (code) {
           const credential = await service.find(code);
           if (!credential) return res.status(404).json({ error: 'Credential was not found', code: 'CREDENTIAL_NOT_FOUND' });
-          return res.status(200).json({ credential });
+          return res.status(200).json({ credential: toVerificationView(credential) });
         }
         return res.status(200).json({ passport: await service.passport(publicUser(session.user)) });
       }
