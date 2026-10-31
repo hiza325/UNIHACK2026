@@ -27,6 +27,14 @@ export const passportViews = {
     if (this.passportError) return `<div class="passport-api-state error" role="alert"><p>${this.t('passportLoadError')}</p><button class="ghost-button" type="button" data-retry-passport>${this.t('dataRetry')} ↗</button></div>`;
     return '';
   },
+  passportEligibleEvaluationsMarkup() {
+    const body = this.passportEligibleLoading
+      ? '<p class="passport-empty-list">Loading eligible evaluations...</p>'
+      : this.passportEligibleError
+        ? `<p class="passport-empty-list">${this.escape(this.passportEligibleError)}</p>`
+        : ((this.passportEligibleEvaluations || []).map(ev => `<article class="passport-eligible-row"><div><strong>${this.escape(ev.id)}</strong><small>score ${this.escape(ev.score)} · ${this.escape(ev.status)} · ${this.escape(ev.rubricVersion || '')}</small></div><span class="credential-status pending">Eligible</span></article>`).join('') || '<p class="passport-empty-list">No eligible evaluations yet. Complete a passing AI evaluation with score &gt;= 80 and a valid proof record.</p>');
+    return `<section class="card passport-eligible-card"><div class="panel-head"><div><h2 class="panel-title">Eligible evaluations</h2><p class="panel-sub">AI evaluations that may be issued as certificates (score &gt;= 80, valid proof record).</p></div></div><div class="passport-eligible-list">${body}</div></section>`;
+  },
   viewPassport() {
     const t = key => this.t(key);
     const state = this.learningPassportDataState();
@@ -34,7 +42,7 @@ export const passportViews = {
     if (state === 'loading') return `<div class="page passport-page" data-passport-state="loading">${head}${this.dataStatePanel('loading', { title: t('passportLoading'), message: t('passportLoadingDesc') })}</div>`;
     if (state === 'error') return `<div class="page passport-page" data-passport-state="error">${head}${this.dataStatePanel('error', { title: t('passportLoadErrorTitle'), message: t('passportLoadError'), retry: 'data-retry-passport' })}</div>`;
     const passport = this.getLearningPassportSnapshot();
-    if (state === 'empty' || !passport) return `<div class="page passport-page" data-passport-state="empty">${head}${passport ? this.passportDataNotice(passport) : ''}${this.dataStatePanel('empty', { title: t('passportEmptyTitle'), message: t('passportEmptyDesc') })}</div>`;
+    if (state === 'empty' || !passport) return `<div class="page passport-page" data-passport-state="empty">${head}${passport ? this.passportDataNotice(passport) : ''}${this.dataStatePanel('empty', { title: t('passportEmptyTitle'), message: t('passportEmptyDesc') })}${this.passportEligibleEvaluationsMarkup()}</div>`;
     const initials = passport.learner.displayName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
     const achieved = passport.skills.filter(skill => skill.achieved).length;
     const skills = passport.skills.map(skill => `<article class="passport-skill ${skill.achieved ? 'achieved' : ''}"><div class="passport-skill-head"><span class="passport-skill-icon">${svgIcon(skill.achieved ? 'check' : 'clock')}</span><div><h3>${this.escape(skill.name)}</h3><p>${this.escape(skill.description)}</p></div><strong>${Number.isFinite(skill.score) ? `${skill.score}<small>/100</small>` : '—'}</strong></div>${Number.isFinite(skill.progress) ? `<div class="skill-track" role="progressbar" aria-label="${this.escape(skill.name)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${skill.progress}"><span style="width:${skill.progress}%"></span></div>` : ''}<footer><span>${skill.achieved ? t('passportAchieved') : t('passportInProgress')}</span><span>${t('passportEvidence').replace('{count}', String(skill.evidenceCount))}</span></footer></article>`).join('') || `<p class="passport-empty-list">${t('passportNoVerifiedSkills')}</p>`;
@@ -47,7 +55,7 @@ export const passportViews = {
       <section class="card passport-hero"><div class="avatar passport-avatar">${this.escape(initials)}</div><div class="passport-identity"><span>${t('passportLabel')}</span><h2>${this.escape(passport.learner.displayName)}</h2><p>${this.escape(passport.learner.email)}</p><small>${this.escape(passport.learner.level)} · ${this.escape(passport.learner.cohort)}</small></div><div class="passport-id"><span>${t('passportId')}</span><strong>${this.escape(passport.passportId)}</strong><small>${passport.schemaVersion}</small></div></section>
       <div class="stat-grid four passport-stats">${this.statCard(t('passportSkillsAchieved'), achieved, `/${passport.skills.length}`)}${this.statCard(t('passportOverallScore'), passport.summary.overallScore, '/100')}${this.statCard(t('passportProgress'), passport.summary.progress, '%')}${this.statCard(t('passportCredentials'), passport.credentials.length, '')}</div>
       <div class="passport-grid"><section class="card passport-skills-card"><div class="panel-head"><div><h2 class="panel-title">${t('passportSkills')}</h2><p class="panel-sub">${t('passportSkillsSub')}</p></div></div><div class="passport-skill-list">${skills}</div></section><section class="card passport-assessments-card"><div class="panel-head"><div><h2 class="panel-title">${t('passportAssessments')}</h2><p class="panel-sub">${t('passportAssessmentsSub')}</p></div></div><div class="passport-assessment-list">${assessments}</div></section></div>
-      <section class="card passport-eligible-card"><div class="panel-head"><div><h2 class="panel-title">Eligible evaluations</h2><p class="panel-sub">AI evaluations that may be issued as certificates.</p></div></div><div class="passport-eligible-list">${(this.passportEligibleEvaluations || []).map(ev => `<article class="passport-eligible-row"><div><strong>${this.escape(ev.id)}</strong><small>score ${this.escape(ev.score)} · ${this.escape(ev.status)}</small></div><span class="credential-status pending">Eligible</span></article>`).join('') || `<p class="passport-empty-list">No eligible evaluations yet.</p>`}</div></section>
+      ${this.passportEligibleEvaluationsMarkup()}
       <section class="card credentials-card"><div class="panel-head"><div><h2 class="panel-title">${t('passportCertificateList')}</h2><p class="panel-sub">${t('passportCertificateSub')}</p></div><button class="ghost-button" type="button" data-open-passport-verify>${svgIcon('search')} ${t('passportVerify')}</button></div><div class="credential-list">${credentials}</div></section>
       <div class="practice-backdrop passport-detail-backdrop" id="passport-detail-modal" hidden></div>
     </div>`;
