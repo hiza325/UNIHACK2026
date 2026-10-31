@@ -14,8 +14,8 @@ const RUBRIC_VERSION = 'paradox-rubric-v1';
 const requestWindows = new Map();
 const RATE_LIMIT = 15;
 const RATE_WINDOW_MS = 60 * 1000;
-const AI_PROBE_TIMEOUT_MS = 15000;
-const AI_PROBE_TOTAL_TIMEOUT_MS = 20000;
+const AI_PROBE_TIMEOUT_MS = 25000;
+const AI_PROBE_TOTAL_TIMEOUT_MS = 30000;
 
 function defaultDiagnosticLogger(env = process.env) {
   return env.VERCEL === '1' || env.NODE_ENV === 'production' ? console : null;
@@ -345,7 +345,7 @@ export function createDebateHandler({
           systemPrompt: 'You are a health probe. Reply with the single word OK.',
           userPrompt: 'Reply with OK.',
           temperature: 0,
-          maxOutputTokens: 8,
+          maxOutputTokens: 128,
           json: false,
         });
       return res.status(200).json({
@@ -359,6 +359,9 @@ export function createDebateHandler({
         },
       });
     } catch (error) {
+      const attempts = Array.isArray(error?.details?.attempts)
+        ? error.details.attempts.map(item => ({ provider: item.provider, attempt: item.attempt, code: item.code, durationMs: item.durationMs }))
+        : [];
       return res.status(200).json({
         probe: {
           checked: true,
@@ -367,6 +370,8 @@ export function createDebateHandler({
           status: Number(error?.status) || 502,
           latencyMs: Date.now() - startedAt,
           requestId,
+          attempts,
+          lastError: typeof error?.details?.lastError === 'string' ? error.details.lastError.slice(0, 200) : null,
         },
       });
     }

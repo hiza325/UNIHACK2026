@@ -142,14 +142,14 @@ Khi cả 3 provider thất bại, gateway ném lỗi tổng hợp và `api/debat
 "probe": { "available": true, "checked": false, "endpoint": "/api/debate?aiStatus=1&probe=1" }
 ```
 
-Muốn kiểm tra thật, gọi endpoint probe (tốn 1 request model rất nhỏ, `maxOutputTokens: 8`, timeout 15s, không retry):
+Muốn kiểm tra thật, gọi endpoint probe (tốn 1 request model rất nhỏ, `maxOutputTokens: 128`, timeout 25s, không retry):
 
 ```bash
 curl -s "https://<host>/api/debate?aiStatus=1&probe=1"
 ```
 
 - Provider trả lời: `{"probe":{"checked":true,"ok":true,"provider":"groq","model":"groq/openai/gpt-oss-120b","latencyMs":128,"requestId":"…"}}`
-- Provider lỗi: `{"probe":{"checked":true,"ok":false,"code":"TIMEOUT","status":504,"latencyMs":15000,"requestId":"…"}}`
+- Provider lỗi: `{"probe":{"checked":true,"ok":false,"code":"UPSTREAM_ERROR","status":502,"latencyMs":25600,"attempts":[{"provider":"gemini","attempt":1,"code":"TIMEOUT","durationMs":25000}],"lastError":"Google Gemini timed out","requestId":"…"}}`
 
 Probe dùng chung rate limit 15 request/phút/IP với Analyze và **không** tạo evaluation hay ghi dữ liệu học tập.
 

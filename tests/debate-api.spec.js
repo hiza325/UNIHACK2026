@@ -374,11 +374,24 @@ test('AI probe endpoint reports a real provider result instead of a configured-k
 
   const failedRes = makeRes();
   const broken = createDebateHandler({
-    probeFactory: async () => { throw Object.assign(new Error('down'), { code: 'TIMEOUT', status: 504 }); },
+    probeFactory: async () => {
+      throw Object.assign(new Error('down'), {
+        code: 'TIMEOUT',
+        status: 504,
+        details: {
+          attempts: [{ provider: 'gemini', attempt: 1, code: 'TIMEOUT', durationMs: 25000, retryable: true }],
+          lastError: 'Google Gemini timed out',
+        },
+      });
+    },
   });
   await broken(makeReq('203.0.113.122'), failedRes);
   expect(failedRes.statusCode).toBe(200);
-  expect(failedRes.payload.probe).toMatchObject({ checked: true, ok: false, code: 'TIMEOUT', status: 504 });
+  expect(failedRes.payload.probe).toMatchObject({
+    checked: true, ok: false, code: 'TIMEOUT', status: 504,
+    attempts: [{ provider: 'gemini', attempt: 1, code: 'TIMEOUT', durationMs: 25000 }],
+    lastError: 'Google Gemini timed out',
+  });
   expect(failedRes.payload.analysis).toBeUndefined();
 });
 
