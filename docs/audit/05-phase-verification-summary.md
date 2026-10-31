@@ -25,6 +25,21 @@ Quy tắc đã tuân thủ throughout: chỉ kiểm thử trên Staging, không 
 
 **Test nền:** `npm test` 241/241 PASS · `npm run contract:test` 8/8 PASS.
 
+### 1.1 Chạy lại toàn bộ trên HEAD hiện tại
+
+| Kiểm tra | Kết quả chạy lại |
+|---|---|
+| `npm test` | **241 passed (52.7s)** |
+| `npm run contract:test` | **8 passing** |
+| SEC-03 | `ADMIN_EMAILS` unset → `[]`; khai báo `" Admin@X.com , admin2@x.com "` → `["admin@x.com","admin2@x.com"]` |
+| SEC-01 | guard + projection có mặt ở cả hai nhánh: `api/credentials/index.js:41,44` (GET) và `:54,55` (POST verify) |
+| SEC-02 | 6 điểm `requireAdmin` trong `api/credentials/index.js` + `api/admin/users.js:9` |
+| D4 | 0 dòng `console.*` trong `api/` khớp key/token/secret/password/cookie |
+| Gói C | `chainId 0xa869` · code 2322 bytes · `owner() 0x35d1dc81…` · `authorizedIssuers(0xA906…C396) = true` · nonce ví phát hành `0` tại block 60319522 |
+| Premise Staging | **vẫn sai** — `app.js` `4f34809e3354` và `views/passport.js` `d7e04c792bc9` khớp `main`; `certificate-renderer.js` và `certificate-issuance-actions.js` trả **404**; `/api/admin/users` vẫn `Cache-Control: public` |
+
+Bảng trạng thái dưới đây là kết quả của lần chạy lại này. File `.doc` cùng thư mục sinh ra từ `node tools/build-phase-report.mjs`, nội dung lấy thẳng từ tài liệu này.
+
 ## 2. Gói A — lập bản đồ hệ thống và phân quyền
 
 | Mã | Kết quả | Bằng chứng kiểm tra lại được |
