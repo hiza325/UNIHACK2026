@@ -1,8 +1,8 @@
 # PARADOX AI — Nghiệm thu theo giai đoạn (Internal Staging Work Plan 31/10/2026)
 
 **Ngày lập:** 2026-11-01
-**Nhánh làm việc:** `feat/certificate-snapshot` @ `172929a` (đã push)
-**Chủ thể thực hiện:** agent trong phiên Qoder; 5 commit `35bd93e…172929a` đứng tên `hiza325 <huyriuuu@gmail.com>` — **không** đứng tên `nguyenhominhtu100808`.
+**Nhánh làm việc:** `feat/certificate-snapshot`
+**Chủ thể thực hiện:** agent trong phiên Qoder. Tám commit `84ed163…` mang tác giả `nguyenhominhtu100808-pixel <348087843+nguyenhominhtu100808-pixel@users.noreply.github.com>`; credential dùng để push thuộc tài khoản `hiza325`, nên author và người đẩy lên là hai chủ thể khác nhau.
 
 ## 0. Đọc trước khi dùng tài liệu này
 
