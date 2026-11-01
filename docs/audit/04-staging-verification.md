@@ -23,6 +23,8 @@ Môi trường kiểm tra đã cài Node.js `v26.13.0` / npm `11.20.0` (project 
 
 ### 1.1 Bằng chứng Staging chạy `main`
 
+> **Đã lỗi thời từ 2026-11-02 — đọc `05-phase-verification-summary.md` mục 0.1 trước.** Hai chỗ sai ở đây: (1) URL đo là `unihack2026-beryl.vercel.app`, trong khi host staging thật là `paradox-ai-staging.vercel.app` — đo lại thì hai host trả cùng `Etag`, tức một deployment phục vụ cả hai, nên kết luận vẫn đúng nhưng dẫn chứng thì sai tên; (2) Staging **đã được redeploy** và hiện chạy `ab1ef9b`, không còn `main` cũ. Bảng dưới giữ nguyên như snapshot của ngày 31/10.
+
 URL lấy từ `docs/PRODUCTION-SMOKE-TEST.md`: `https://unihack2026-beryl.vercel.app`.
 
 So SHA1 của file phục vụ thực tế với SHA1 trong git:
