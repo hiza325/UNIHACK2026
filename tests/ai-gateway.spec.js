@@ -107,13 +107,13 @@ test('Gemini answers when Groq is not configured and receives a server-built req
   const result = await gateway.complete({ systemPrompt: 'SYSTEM RULES', userPrompt: 'LEARNER INPUT', validate: text => JSON.parse(text) });
 
   expect(result.provider).toBe('gemini');
-  expect(result.model).toBe('gemini-3.5-flash');
-  expect(result.providerModel).toBe('gemini/gemini-3.5-flash');
+  expect(result.model).toBe('gemini-3.5-flash-lite');
+  expect(result.providerModel).toBe('gemini/gemini-3.5-flash-lite');
   expect(result.value).toEqual({ ok: true });
   expect(result.attempts).toBe(1);
   expect(result.fallbackUsed).toBe(false);
   const [request] = recorder.calls;
-  expect(request.url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent');
+  expect(request.url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent');
   expect(request.options.headers['x-goog-api-key']).toBe(GEMINI_KEY);
   expect(request.body.systemInstruction.parts[0].text).toBe('SYSTEM RULES');
   expect(request.body.contents[0].parts[0].text).toBe('LEARNER INPUT');
@@ -276,7 +276,7 @@ test('Readiness diagnostics expose only provider names and booleans', () => {
     missingEnv: ['GROQ_API_KEY', 'GEMINI_API_KEY'],
   });
   expect(unconfigured.primary).toMatchObject({ id: 'groq', role: 'primary', configured: false, model: 'openai/gpt-oss-120b' });
-  expect(unconfigured.fallback).toMatchObject({ id: 'gemini', role: 'fallback', configured: false, model: 'gemini-3.5-flash' });
+  expect(unconfigured.fallback).toMatchObject({ id: 'gemini', role: 'fallback', configured: false, model: 'gemini-3.5-flash-lite' });
   expect(unconfigured.providers.map(provider => provider.id)).toEqual(['groq', 'gemini']);
   expect(unconfigured.groqKeyCount).toBe(0);
   expect(unconfigured.groqBackupKeyConfigured).toBe(false);
@@ -432,7 +432,7 @@ test('Provider schemas stay server-side only and never reach browser bundles', (
 test('Provider catalogue defines Groq and Gemini in fallback order', () => {
   expect(AI_PROVIDERS.map(provider => provider.id)).toEqual(['groq', 'gemini']);
   expect(AI_PROVIDERS[0]).toMatchObject({ role: 'primary', apiKeyEnv: 'GROQ_API_KEY', defaultModel: 'openai/gpt-oss-120b' });
-  expect(AI_PROVIDERS[1]).toMatchObject({ role: 'fallback', apiKeyEnv: 'GEMINI_API_KEY', defaultModel: 'gemini-3.5-flash' });
+  expect(AI_PROVIDERS[1]).toMatchObject({ role: 'fallback', apiKeyEnv: 'GEMINI_API_KEY', defaultModel: 'gemini-3.5-flash-lite' });
 });
 
 test('AI status endpoint reports every provider without exposing secrets', async ({ request }) => {

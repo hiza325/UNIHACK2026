@@ -298,7 +298,7 @@ test('Support widget uses the AI Learning providers and never calls anyrouter.de
 
   expect(calls.map(call => call.url)).toEqual([
     'https://api.groq.com/openai/v1/chat/completions',
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',
   ]);
   expect(JSON.stringify(calls)).not.toMatch(/anyrouter/i);
   expect(calls[1].headers['x-goog-api-key']).toBe('gemini-secret-value');

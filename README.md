@@ -226,7 +226,7 @@ Widget trợ lý nổi chỉ hướng dẫn cách sử dụng PARADOX; system pr
 Backend/serverless function tại `api/support.js` dùng chung AI Gateway với AI Learning (`api/_ai/`):
 
 - Provider chính: Groq Cloud — `https://api.groq.com/openai/v1/chat/completions`, model mặc định `openai/gpt-oss-120b`
-- Provider dự phòng: Google Gemini — model mặc định `gemini-3.5-flash`
+- Provider dự phòng: Google Gemini — model mặc định `gemini-3.5-flash-lite`
 - Key: biến môi trường `GROQ_API_KEY` (dự phòng `GEMINI_API_KEY`)
 - Model tùy chọn: `GROQ_MODEL` / `GEMINI_MODEL`, thứ tự provider đổi bằng `AI_PROVIDER_ORDER`
 

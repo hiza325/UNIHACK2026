@@ -274,6 +274,21 @@ export const actionMethods = {
     this.authDemoCode = '';
     this.navigate(target);
   },
+  async enterLocalSession() {
+    const email = this.normalizeEmail('local@paradox.test');
+    const existing = this.getAccounts().find(account => this.normalizeEmail(account.email) === email);
+    let account = existing;
+    if (!account) {
+      const created = await this.registerAccount({
+        name: this.t('authLocalName'),
+        email,
+        password: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+      });
+      account = this.getAccounts().find(item => item.id === created.id) || created;
+    }
+    this.authProvider = 'local';
+    await this.completeAuthentication(this.publicAccount(account));
+  },
   hydrateFilePreviews() {
     ['problem', 'work'].forEach(async type => {
       const file = this.files[type][0];

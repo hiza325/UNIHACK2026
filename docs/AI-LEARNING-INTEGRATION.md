@@ -59,7 +59,7 @@ Thư viện server-only:
 | Thứ tự | ID | Vai trò | Endpoint | Model mặc định | Biến key | Biến model |
 |---:|---|---|---|---|---|---|
 | 1 | `groq` | `primary` | `https://api.groq.com/openai/v1/chat/completions` | `openai/gpt-oss-120b` | `GROQ_API_KEY` | `GROQ_MODEL` |
-| 2 | `gemini` | `fallback` | `generativelanguage.googleapis.com` | `gemini-3.5-flash` | `GEMINI_API_KEY` | `GEMINI_MODEL` |
+| 2 | `gemini` | `fallback` | `generativelanguage.googleapis.com` | `gemini-3.5-flash-lite` | `GEMINI_API_KEY` | `GEMINI_MODEL` |
 
 Groq là OpenAI-compatible: `Authorization: Bearer …`, `messages`, `max_tokens`, `response_format: { "type": "json_object" }`. Gemini dùng `x-goog-api-key`, `systemInstruction`, `contents`, `generationConfig.responseMimeType`.
 
@@ -168,13 +168,13 @@ Probe dùng chung rate limit 15 request/phút/IP với Analyze và **không** t�
   },
   "meta": {
     "provider": "gemini",
-    "model": "gemini/gemini-3.5-flash",
+    "model": "gemini/gemini-3.5-flash-lite",
     "attempts": 1,
     "retryCount": 0,
     "fallbackUsed": false,
     "latencyMs": 1180,
     "trace": [
-      { "provider": "gemini", "model": "gemini-3.5-flash", "attempt": 1, "code": "OK", "retryable": false, "durationMs": 1180 }
+      { "provider": "gemini", "model": "gemini-3.5-flash-lite", "attempt": 1, "code": "OK", "retryable": false, "durationMs": 1180 }
     ]
   }
 }
@@ -182,7 +182,7 @@ Probe dùng chung rate limit 15 request/phút/IP với Analyze và **không** t�
 
 - `analysis` giữ đúng schema cũ, frontend không phải đổi gì.
 - `meta` là phần bổ sung chỉ để quan sát/kiểm thử; frontend hiện tại bỏ qua.
-- Với `mode = resubmit`, `analysis.proofRecord.model` ghi provider thực tế đã trả lời, ví dụ `gemini/gemini-3.5-flash` khi Groq lỗi.
+- Với `mode = resubmit`, `analysis.proofRecord.model` ghi provider thực tế đã trả lời, ví dụ `gemini/gemini-3.5-flash-lite` khi Groq lỗi.
 
 ### 5.2. Lỗi
 
@@ -218,7 +218,7 @@ Probe dùng chung rate limit 15 request/phút/IP với Analyze và **không** t�
 | `GROQ_MODEL` | Không | `openai/gpt-oss-120b` | Model Groq cho AI Learning |
 | `GEMINI_API_KEY` | Khuyến nghị | — | Provider dự phòng thứ nhất |
 | `GEMINI_API_KEY_2` | Không | — | Key Gemini thứ hai cho project/môi trường khác; chỉ được lưu làm cấu hình dự phòng, không tự động xoay |
-| `GEMINI_MODEL` | Không | `gemini-3.5-flash` | Model Gemini |
+| `GEMINI_MODEL` | Không | `gemini-3.5-flash-lite` | Model Gemini |
 | `AI_PROVIDER_TIMEOUT_MS` | Không | `25000` | Timeout mỗi attempt |
 | `AI_TOTAL_TIMEOUT_MS` | Không | `55000` | Deadline tổng |
 | `AI_MAX_RETRIES` | Không | `0` | Tối đa 3 |
@@ -243,7 +243,7 @@ Tùy chọn:
 
 ```dotenv
 GROQ_MODEL=openai/gpt-oss-120b
-GEMINI_MODEL=gemini-3.5-flash
+GEMINI_MODEL=gemini-3.5-flash-lite
 ```
 
 Sau đó restart `npm run serve` và mở `http://127.0.0.1:8173/api/ai/status`.

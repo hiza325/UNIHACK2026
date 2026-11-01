@@ -1,0 +1,3814 @@
+{
+  "generatedAt": "2026-11-01T06:05:08.957Z",
+  "environment": "local-test",
+  "baseline": {
+    "branch": "p0/ai-flow-v2",
+    "commit": "7f7ef3dd446ad93d59a12ade1917bd0598c92465",
+    "subject": "feat(ai-flow): server-authoritative claim/finish/abort flow and tests",
+    "dirtyWorkingTree": true
+  },
+  "providerStatus": {
+    "GEMINI_API_KEY": "absent",
+    "ANYROUTER_LEARNING_API_KEY": "absent",
+    "ANYROUTER_API_KEY": "absent"
+  },
+  "cases": {
+    "GRADER-COMPLIANT": {
+      "executedAt": "2026-11-01T06:05:04.729Z",
+      "status": "PASS",
+      "actualOutput": "46/46 compliant analyses accepted",
+      "category": "grader"
+    },
+    "V-MUT-01": {
+      "executedAt": "2026-11-01T06:05:04.750Z",
+      "status": "PASS",
+      "actualOutput": "46/46 bản hỏng bị evaluator từ chối",
+      "category": "V-grader-metamorphic"
+    },
+    "V-MUT-02": {
+      "executedAt": "2026-11-01T06:05:04.751Z",
+      "status": "PASS",
+      "actualOutput": "46/46 bản hỏng bị evaluator từ chối",
+      "category": "V-grader-metamorphic"
+    },
+    "V-MUT-03": {
+      "executedAt": "2026-11-01T06:05:04.751Z",
+      "status": "PASS",
+      "actualOutput": "46/46 bản hỏng bị evaluator từ chối",
+      "category": "V-grader-metamorphic"
+    },
+    "V-MUT-04": {
+      "executedAt": "2026-11-01T06:05:04.751Z",
+      "status": "PASS",
+      "actualOutput": "24/24 bản hỏng bị evaluator từ chối",
+      "category": "V-grader-metamorphic"
+    },
+    "V-MUT-05": {
+      "executedAt": "2026-11-01T06:05:04.751Z",
+      "status": "PASS",
+      "actualOutput": "9/9 bản hỏng bị evaluator từ chối",
+      "category": "V-grader-metamorphic"
+    },
+    "V-MUT-06": {
+      "executedAt": "2026-11-01T06:05:04.751Z",
+      "status": "PASS",
+      "actualOutput": "3/3 bản hỏng bị evaluator từ chối",
+      "category": "V-grader-metamorphic"
+    },
+    "V-MUT-07": {
+      "executedAt": "2026-11-01T06:05:04.751Z",
+      "status": "PASS",
+      "actualOutput": "9/9 bản hỏng bị evaluator từ chối",
+      "category": "V-grader-metamorphic"
+    },
+    "V-MUT-08": {
+      "executedAt": "2026-11-01T06:05:04.751Z",
+      "status": "PASS",
+      "actualOutput": "4/4 bản hỏng bị evaluator từ chối",
+      "category": "V-grader-metamorphic"
+    },
+    "A-01:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=408",
+      "category": "gold-integrity"
+    },
+    "A-02:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=1692",
+      "category": "gold-integrity"
+    },
+    "A-03:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=17/12",
+      "category": "gold-integrity"
+    },
+    "A-04:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=3/10",
+      "category": "gold-integrity"
+    },
+    "A-05:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=-3",
+      "category": "gold-integrity"
+    },
+    "A-06:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=24",
+      "category": "gold-integrity"
+    },
+    "A-07:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=x = 5",
+      "category": "gold-integrity"
+    },
+    "A-08:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=x = 4",
+      "category": "gold-integrity"
+    },
+    "A-09:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=x < -3",
+      "category": "gold-integrity"
+    },
+    "A-10:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=x ≤ 5",
+      "category": "gold-integrity"
+    },
+    "A-11:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=x^2 + 6x + 9",
+      "category": "gold-integrity"
+    },
+    "A-12:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=Kết luận đúng nhưng lập luận sai: mệnh đề đảo không suy ra từ mệnh đề thuận.",
+      "category": "gold-integrity"
+    },
+    "A-13:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=Cần chứng minh với số tổng quát 2k + 1 và 2m + 1.",
+      "category": "gold-integrity"
+    },
+    "A-14:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=0",
+      "category": "gold-integrity"
+    },
+    "B-01:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=insufficient answer=Không xác định duy nhất từ dữ kiện đã cho.",
+      "category": "gold-integrity"
+    },
+    "B-02:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=insufficient answer=Không tính được khi chỉ biết một cạnh.",
+      "category": "gold-integrity"
+    },
+    "B-03:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=Vô nghiệm",
+      "category": "gold-integrity"
+    },
+    "B-04:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=x = 7 hoặc x = -7",
+      "category": "gold-integrity"
+    },
+    "B-05:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=Mọi x đều là nghiệm (vô số nghiệm)",
+      "category": "gold-integrity"
+    },
+    "B-06:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=400",
+      "category": "gold-integrity"
+    },
+    "B-07:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=n = 8",
+      "category": "gold-integrity"
+    },
+    "B-08:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=insufficient answer=Phụ thuộc quy ước: tính từ trái sang phải cho 8, dùng dấu ngoặc cho 2.",
+      "category": "gold-integrity"
+    },
+    "B-09:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=75000 đồng",
+      "category": "gold-integrity"
+    },
+    "B-10:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=0,3",
+      "category": "gold-integrity"
+    },
+    "B-11:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=x = 3",
+      "category": "gold-integrity"
+    },
+    "B-12:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=insufficient answer=Không xác định duy nhất.",
+      "category": "gold-integrity"
+    },
+    "C-01:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=Hàm đúng, tham chiếu const và tích lũy kiểu rộng.",
+      "category": "gold-integrity"
+    },
+    "C-02:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=Thiếu dấu chấm phẩy sau khai báo a.",
+      "category": "gold-integrity"
+    },
+    "C-03:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=Cả hai biến đều nhận giá trị của b.",
+      "category": "gold-integrity"
+    },
+    "C-04:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=Phép chia thực hiện trên số nguyên, phần thập phân bị cắt.",
+      "category": "gold-integrity"
+    },
+    "C-05:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=Vòng lặp vô hạn vì i không bao giờ tăng.",
+      "category": "gold-integrity"
+    },
+    "C-06:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=Đọc một phần tử ngoài biên (chỉ số bằng size).",
+      "category": "gold-integrity"
+    },
+    "C-07:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=Tràn số nguyên có dấu từ 13! trở đi (13! = 6 227 020 800 > 2^31 - 1) và tràn số học có dấu là hành vi không xác định.",
+      "category": "gold-integrity"
+    },
+    "C-08:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=Không kiểm tra n khác 0 và không kiểm tra trạng thái của luồng nhập.",
+      "category": "gold-integrity"
+    },
+    "C-09:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=best chưa khởi tạo; nếu v rỗng hàm trả về giá trị rác.",
+      "category": "gold-integrity"
+    },
+    "C-10:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=Đúng; dùng std::count_if cũng chấp nhận được.",
+      "category": "gold-integrity"
+    },
+    "D-01:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=17",
+      "category": "gold-integrity"
+    },
+    "D-02:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=Hàm đúng với n không âm.",
+      "category": "gold-integrity"
+    },
+    "D-03:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=150 km",
+      "category": "gold-integrity"
+    },
+    "D-04:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=x = 3",
+      "category": "gold-integrity"
+    },
+    "D-05:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=incorrect answer=36",
+      "category": "gold-integrity"
+    },
+    "D-06:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=5050",
+      "category": "gold-integrity"
+    },
+    "D-07:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=x ≥ 8",
+      "category": "gold-integrity"
+    },
+    "D-08:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=6a",
+      "category": "gold-integrity"
+    },
+    "D-09:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=Giải thích dựa trên đường thẳng song song là chấp nhận được.",
+      "category": "gold-integrity"
+    },
+    "D-10:gold": {
+      "executedAt": "2026-11-01T06:05:04.762Z",
+      "status": "PASS",
+      "actualOutput": "verdict=correct answer=y = 3",
+      "category": "gold-integrity"
+    },
+    "GOLD-SELFCHECK": {
+      "0": "4",
+      "1": "6",
+      "2": "/",
+      "3": "4",
+      "4": "6",
+      "5": " ",
+      "6": "b",
+      "7": "à",
+      "8": "i",
+      "9": " ",
+      "10": "g",
+      "11": "o",
+      "12": "l",
+      "13": "d",
+      "14": " ",
+      "15": "t",
+      "16": "ự",
+      "17": " ",
+      "18": "k",
+      "19": "i",
+      "20": "ể",
+      "21": "m",
+      "22": " ",
+      "23": "c",
+      "24": "h",
+      "25": "ứ",
+      "26": "n",
+      "27": "g",
+      "28": " ",
+      "29": "đ",
+      "30": "ư",
+      "31": "ợ",
+      "32": "c",
+      "executedAt": "2026-11-01T06:05:04.762Z"
+    },
+    "V-PROP-02": {
+      "executedAt": "2026-11-01T06:05:04.784Z",
+      "status": "PASS",
+      "actualOutput": "306 lần grading lặp lại cho kết quả giống hệt nhau (6 mẫu × 51 vòng)"
+    },
+    "V-PROP-01": {
+      "executedAt": "2026-11-01T06:05:04.788Z",
+      "status": "PASS",
+      "actualOutput": "điểm ∈ [0,1] trên 233 cặp (46 gold + 187 mutant)"
+    },
+    "E-01": {
+      "executedAt": "2026-11-01T06:05:04.802Z",
+      "status": "PASS",
+      "actualOutput": "6 payload bị từ chối đúng — 400 INVALID_INPUT cho thiếu problem/solution và quá giới hạn"
+    },
+    "E-02": {
+      "executedAt": "2026-11-01T06:05:04.802Z",
+      "status": "PASS",
+      "actualOutput": "problem+solution = 24000 được chấp nhận, 24001 bị từ chối trước khi tới gateway"
+    },
+    "F-09": {
+      "executedAt": "2026-11-01T06:05:04.802Z",
+      "status": "PASS",
+      "actualOutput": "body không phải object → 400"
+    },
+    "F-11": {
+      "executedAt": "2026-11-01T06:05:04.802Z",
+      "status": "PASS",
+      "actualOutput": "solution 16001 ký tự bị từ chối, gateway không được gọi"
+    },
+    "E-06": {
+      "executedAt": "2026-11-01T06:05:04.818Z",
+      "status": "PASS",
+      "actualOutput": "HTTP intake nhận 1/2/3 (chuỗi \"2\" được ép kiểu), từ chối 0/4/NaN/null/undefined — client không được tự đặt cấp gợi ý ngoài khoảng"
+    },
+    "V-BND-01": {
+      "executedAt": "2026-11-01T06:05:04.818Z",
+      "status": "PASS",
+      "actualOutput": "boundary table 9 giá trị hintLevel: accept=[1,2,2,3], reject=[0,4,NaN,null,undefined]"
+    },
+    "E-07": {
+      "executedAt": "2026-11-01T06:05:04.850Z",
+      "status": "PASS",
+      "actualOutput": "gợi ý trùng previousHints → MODEL_OUTPUT_INVALID/INVALID_OUTPUT"
+    },
+    "V-BND-04": {
+      "executedAt": "2026-11-01T06:05:04.850Z",
+      "status": "PASS",
+      "actualOutput": "previousHints 5 mục → giữ 3 mục đầu"
+    },
+    "E-09": {
+      "executedAt": "2026-11-01T06:05:04.863Z",
+      "status": "PASS",
+      "actualOutput": "resubmit thiếu previousSolution → INVALID_INPUT"
+    },
+    "E-10": {
+      "executedAt": "2026-11-01T06:05:04.863Z",
+      "status": "PASS",
+      "actualOutput": "rubric 86/100 → pass; 54/100 → needs_improvement; confidence 0.2 → insufficient"
+    },
+    "E-13": {
+      "executedAt": "2026-11-01T06:05:04.875Z",
+      "status": "PASS",
+      "actualOutput": "step/status/state/analysis/allowedActions/credentialId đều bị loại khỏi envelope"
+    },
+    "V-BND-03": {
+      "executedAt": "2026-11-01T06:05:04.875Z",
+      "status": "PASS",
+      "actualOutput": "conversation 40 lượt → 16 lượt, mỗi lượt cắt 1200 ký tự"
+    },
+    "D-05": {
+      "executedAt": "2026-11-01T06:05:04.875Z",
+      "status": "PASS",
+      "actualOutput": "buildAnalysisInput bỏ qua previousAnalysis do client soạn; analysisStatus lấy từ server"
+    },
+    "D-07": {
+      "executedAt": "2026-11-01T06:05:04.875Z",
+      "status": "PASS",
+      "actualOutput": "lịch sử hội thoại chỉ là dữ liệu, không đủ để đổi analysisStatus"
+    },
+    "E-12": {
+      "executedAt": "2026-11-01T06:05:04.894Z",
+      "status": "PASS",
+      "actualOutput": "mode=exercise đi qua /api/debate tới bước gọi provider (dừng ở 503 NOT_CONFIGURED vì không có key; claim=1); hợp đồng module kiểm exercise + giữ verdict đã lưu"
+    },
+    "D-09": {
+      "executedAt": "2026-11-01T06:05:04.895Z",
+      "status": "PASS",
+      "actualOutput": "normalizeSources loại URL javascript: và giữ markup vô hại thành chuỗi tiêu đề"
+    },
+    "D-10": {
+      "executedAt": "2026-11-01T06:05:04.895Z",
+      "status": "PASS",
+      "actualOutput": "sanitizeAnalysisForStorage gỡ proofRecord/credentialId/evidenceHash trước khi ghi"
+    },
+    "F-08": {
+      "executedAt": "2026-11-01T06:05:04.915Z",
+      "status": "PASS",
+      "actualOutput": "request thứ 16 cùng IP → 429 RATE_LIMIT; body lỗi mang đúng request id của header; 17/18 request đi tới bước claim (request bị chặn ở cửa sổ IP không tiêu tốn hạn mức DB)"
+    },
+    "V-STATE-02": {
+      "executedAt": "2026-11-01T06:05:04.915Z",
+      "status": "PASS",
+      "actualOutput": "cửa sổ 60s: block → hết cửa sổ → allow, cách ly theo IP"
+    },
+    "PIPELINE-A02": {
+      "executedAt": "2026-11-01T06:05:04.950Z",
+      "status": "PASS",
+      "actualOutput": "pipeline + evaluator xử lý phản hồi scripted provider đúng hợp đồng (4 ms, provider gemini)",
+      "latencyMs": 4
+    },
+    "D-01": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Cần provider cho luồng học (GEMINI_API_KEY/ANYROUTER_LEARNING_API_KEY absent) → R-02."
+    },
+    "D-02": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Cần provider cho luồng học (GEMINI_API_KEY/ANYROUTER_LEARNING_API_KEY absent) → R-02."
+    },
+    "D-03": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Cần provider cho luồng học (GEMINI_API_KEY/ANYROUTER_LEARNING_API_KEY absent) → R-02."
+    },
+    "D-04": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Cần provider cho luồng học (GEMINI_API_KEY/ANYROUTER_LEARNING_API_KEY absent) → R-02."
+    },
+    "D-06": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Cần provider cho luồng học (GEMINI_API_KEY/ANYROUTER_LEARNING_API_KEY absent) → R-02."
+    },
+    "D-08": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Cần provider cho luồng học (GEMINI_API_KEY/ANYROUTER_LEARNING_API_KEY absent) → R-02."
+    },
+    "A-01": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-02": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-03": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-04": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-05": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-06": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-07": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-08": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-09": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-10": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-11": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-12": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-13": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "A-14": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "B-01": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "B-02": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "B-03": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "B-04": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "B-05": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "B-06": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "B-07": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "B-08": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "B-09": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "B-10": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "B-11": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "B-12": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "C-01": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "C-02": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "C-03": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "C-04": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "C-05": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "C-06": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "C-07": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "C-08": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "C-09": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "C-10": {
+      "executedAt": "2026-11-01T06:05:04.958Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Đánh giá chất lượng câu trả lời model cần provider; evaluator và gold self-check đã chạy, phần model thì chưa."
+    },
+    "V-FUZZ-02": {
+      "executedAt": "2026-11-01T06:05:04.959Z",
+      "status": "PASS",
+      "actualOutput": "sentinel dạng bí mật chỉ xuất hiện trong dataset, không đi vào request log"
+    },
+    "F-01": {
+      "executedAt": "2026-11-01T06:05:04.969Z",
+      "status": "PASS",
+      "actualOutput": "405 + Allow: GET, POST"
+    },
+    "F-02": {
+      "executedAt": "2026-11-01T06:05:04.970Z",
+      "status": "PASS",
+      "actualOutput": "400 INVALID_CREDENTIAL_ACTION, không chạm store"
+    },
+    "H-07": {
+      "executedAt": "2026-11-01T06:05:04.971Z",
+      "status": "PASS",
+      "actualOutput": "ủy quyền được kiểm tra trước khi tạo store → 401 Authentication required"
+    },
+    "F-06": {
+      "executedAt": "2026-11-01T06:05:04.972Z",
+      "status": "PASS",
+      "actualOutput": "503 fail-closed, thông báo không lộ cấu hình: AUTH_NOT_CONFIGURED"
+    },
+    "F-07": {
+      "executedAt": "2026-11-01T06:05:04.974Z",
+      "status": "PASS",
+      "actualOutput": "500 với thông báo chung, chi tiết lỗi DB không bị phản hồi cho client"
+    },
+    "H-01": {
+      "executedAt": "2026-11-01T06:05:04.984Z",
+      "status": "PASS",
+      "actualOutput": "403 Administrator access required; service.issue không được gọi"
+    },
+    "H-02": {
+      "executedAt": "2026-11-01T06:05:04.985Z",
+      "status": "PASS",
+      "actualOutput": "403 và không có transaction revoke nào"
+    },
+    "V-PAIR-02": {
+      "executedAt": "2026-11-01T06:05:04.989Z",
+      "status": "PASS",
+      "actualOutput": "pairwise 3 role × 3 action: chỉ admin issue/revoke, learner verify, ẩn danh 401"
+    },
+    "H-03": {
+      "executedAt": "2026-11-01T06:05:04.990Z",
+      "status": "PASS",
+      "actualOutput": "learner GET /api/admin/users → 403"
+    },
+    "H-04": {
+      "executedAt": "2026-11-01T06:05:04.995Z",
+      "status": "PASS",
+      "actualOutput": "admin GET 200, reason sai → 400, reason hợp lệ → 200 suspended + ban_duration 876000h, POST → 405 Allow: GET, PATCH"
+    },
+    "H-05": {
+      "executedAt": "2026-11-01T06:05:04.998Z",
+      "status": "PASS",
+      "actualOutput": "403 ACCOUNT_SUSPENDED + cookie bị xóa (Max-Age=0)"
+    },
+    "H-06": {
+      "executedAt": "2026-11-01T06:05:04.999Z",
+      "status": "PASS",
+      "actualOutput": "owner đọc được session, người dùng khác cùng sessionId → 404 LEARNING_SESSION_NOT_FOUND"
+    },
+    "H-06b": {
+      "executedAt": "2026-11-01T06:05:05.001Z",
+      "status": "PASS",
+      "actualOutput": "GET /api/learning-records?id=<của người khác> → 404 LEARNING_SESSION_NOT_FOUND"
+    },
+    "G-04": {
+      "executedAt": "2026-11-01T06:05:05.017Z",
+      "status": "PASS",
+      "actualOutput": "2 dòng credential_transactions: issue/confirmed, revoke/confirmed"
+    },
+    "V-STATE-01": {
+      "executedAt": "2026-11-01T06:05:05.017Z",
+      "status": "PASS",
+      "actualOutput": "issue → confirmed → revoke → revoked; trạng thái public khớp blockchain_status"
+    },
+    "V-STATE-01b": {
+      "executedAt": "2026-11-01T06:05:05.017Z",
+      "status": "PASS",
+      "actualOutput": "revoke lần hai bị từ chối: CREDENTIAL_ALREADY_REVOKED"
+    },
+    "G-05": {
+      "executedAt": "2026-11-01T06:05:05.018Z",
+      "status": "PASS",
+      "actualOutput": "MOCK_CREDENTIAL_FORBIDDEN, không có dòng nào được ghi"
+    },
+    "G-06": {
+      "executedAt": "2026-11-01T06:05:05.019Z",
+      "status": "PASS",
+      "actualOutput": "bằng chứng của người học khác bị từ chối, không ghi credential"
+    },
+    "L-01": {
+      "executedAt": "2026-11-01T06:05:05.019Z",
+      "status": "PASS",
+      "actualOutput": "fix ở commit 3378f22 vẫn còn hiệu lực sau khi thêm harness Phase E"
+    },
+    "K-01": {
+      "executedAt": "2026-11-01T06:05:05.020Z",
+      "status": "PASS",
+      "actualOutput": "verify mã confirmed → status=verified, verification={\"checked\":true,\"valid\":true,\"exists\":true,\"source\":\"avalanche\",\"checkedAt\":\"2026-11-01T06:05:05.019Z\",\"revoked\":false}"
+    },
+    "K-01b": {
+      "executedAt": "2026-11-01T06:05:05.020Z",
+      "status": "PASS",
+      "actualOutput": "evidence hash sai lệch → blockchain_status=failed, trả về credential"
+    },
+    "K-03": {
+      "executedAt": "2026-11-01T06:05:05.022Z",
+      "status": "PASS",
+      "actualOutput": "credential đã thu hồi được báo cáo revoked, không còn hợp lệ"
+    },
+    "K-02": {
+      "executedAt": "2026-11-01T06:05:05.023Z",
+      "status": "PASS",
+      "actualOutput": "GET ?code=<không tồn tại> → 404 CREDENTIAL_NOT_FOUND"
+    },
+    "G-08": {
+      "executedAt": "2026-11-01T06:05:05.024Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Cần quyền đọc Staging / RPC Fuji được phê duyệt (Package D D2 và CHAIN-01)."
+    },
+    "K-04": {
+      "executedAt": "2026-11-01T06:05:05.024Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Cần quyền đọc Staging / RPC Fuji được phê duyệt (Package D D2 và CHAIN-01)."
+    },
+    "G-01": {
+      "executedAt": "2026-11-01T06:05:05.047Z",
+      "status": "PASS",
+      "actualOutput": "RLS được bật cho learning_credentials và credential_transactions"
+    },
+    "G-02": {
+      "executedAt": "2026-11-01T06:05:05.047Z",
+      "status": "PASS",
+      "actualOutput": "quyền anon/authenticated bị thu hồi, chỉ service_role còn quyền"
+    },
+    "G-03": {
+      "executedAt": "2026-11-01T06:05:05.049Z",
+      "status": "PASS",
+      "actualOutput": "CHECK constraint chứa đủ 6 trạng thái: submitting, pending, confirmed, revoke_pending, revoked, failed"
+    },
+    "G-07": {
+      "executedAt": "2026-11-01T06:05:05.050Z",
+      "status": "PASS",
+      "actualOutput": "created_by not-null và assessment_score bị chặn 0..100"
+    },
+    "J-01": {
+      "executedAt": "2026-11-01T06:05:05.080Z",
+      "status": "PASS",
+      "actualOutput": "attempts=3, retryCount=2, trace=UPSTREAM_ERROR>RATE_LIMITED>OK"
+    },
+    "V-STATE-03": {
+      "executedAt": "2026-11-01T06:05:05.080Z",
+      "status": "PASS",
+      "actualOutput": "chuỗi provider: gemini -> gemini -> gemini, fallbackUsed=false"
+    },
+    "J-02": {
+      "executedAt": "2026-11-01T06:05:05.141Z",
+      "status": "PASS",
+      "actualOutput": "timeout cắt lời gọi và trả mã TIMEOUT (504)"
+    },
+    "J-03": {
+      "executedAt": "2026-11-01T06:05:05.161Z",
+      "status": "PASS",
+      "actualOutput": "gemini lỗi → anyrouter trả kết quả, fallbackUsed=true"
+    },
+    "J-04": {
+      "executedAt": "2026-11-01T06:05:05.165Z",
+      "status": "PASS",
+      "actualOutput": "RATE_LIMITED→provider, RATE_LIMIT→client, AI_CONTRACT_BROKEN→server, INVALID_OUTPUT→model, NOT_CONFIGURED→server, TIMEOUT→model"
+    },
+    "I-01": {
+      "executedAt": "2026-11-01T06:05:05.215Z",
+      "status": "PASS",
+      "actualOutput": "mã lỗi API được ánh xạ sang thông báo; không in stack trace ra console (kiểm tra ở cấp source)"
+    },
+    "I-02": {
+      "executedAt": "2026-11-01T06:05:05.216Z",
+      "status": "PASS",
+      "actualOutput": "views/admin.js ẩn UI khi role !== 'admin'; server check là controlling (H-03)"
+    },
+    "I-03": {
+      "executedAt": "2026-11-01T06:05:05.218Z",
+      "status": "PASS",
+      "actualOutput": "Verify phân biệt not-found / network-error / revoked và cho phép thử lại"
+    },
+    "I-04": {
+      "executedAt": "2026-11-01T06:05:05.219Z",
+      "status": "NOT_RUN",
+      "actualOutput": "Cần người thao tác trong trình duyệt; chưa có bằng chứng tự động."
+    },
+    "I-05": {
+      "executedAt": "2026-11-01T06:05:05.219Z",
+      "status": "NOT_RUN",
+      "actualOutput": "Cần người thao tác trong trình duyệt; chưa có bằng chứng tự động."
+    },
+    "J-07": {
+      "executedAt": "2026-11-01T06:05:05.219Z",
+      "status": "NOT_RUN",
+      "actualOutput": "Cần người thao tác trong trình duyệt; chưa có bằng chứng tự động."
+    },
+    "E-03": {
+      "executedAt": "2026-11-01T06:05:05.242Z",
+      "status": "PASS",
+      "actualOutput": "server quyết định bước cho cả 7 STEP: 0→[analyze] 1→[discuss,practice,finish] 2→[discuss,hint,resubmit] 3→[discuss,hint,resubmit] 4→[discuss,resubmit] 5→[discuss,explain,resubmit,practice,finish] 6→[discuss,explain,exercise,finish]"
+    },
+    "E-04": {
+      "executedAt": "2026-11-01T06:05:05.243Z",
+      "status": "PASS",
+      "actualOutput": "analyze + incorrect → REFLECT (step 2), skipped=[] — không bỏ qua bước gợi ý"
+    },
+    "E-05": {
+      "executedAt": "2026-11-01T06:05:05.245Z",
+      "status": "PASS",
+      "actualOutput": "analyze + correct → step 1, skipped=[2,3,4,5], allowedActions=[discuss,practice,finish]"
+    },
+    "E-11": {
+      "executedAt": "2026-11-01T06:05:05.246Z",
+      "status": "PASS",
+      "actualOutput": "mode=explain giữ verdict đã lưu (incorrect) và trả explanation + sources qua hợp đồng module"
+    },
+    "E-15": {
+      "executedAt": "2026-11-01T06:05:08.933Z",
+      "status": "PASS",
+      "actualOutput": "PGlite: 2/2 check replay đạt — cùng request id trả kết quả đã lưu, không tính phí và không gọi lại model (58/58 checks passed)"
+    },
+    "E-14": {
+      "executedAt": "2026-11-01T06:05:08.934Z",
+      "status": "NOT_RUN",
+      "actualOutput": null,
+      "statusNote": "refund + chặn action chồng lấn đã chạy trong PGlite (3/3 check); phần \"claim lại sau khi lease 10 phút hết hạn\" chưa được kiểm chứng bằng đồng hồ thật"
+    },
+    "CAPABILITY-PROBE": {
+      "executedAt": "2026-11-01T06:05:08.935Z",
+      "status": "PASS",
+      "actualOutput": "machine: present | modes: explain+exercise có trong hợp đồng | ai_flow_v2 migration: present | npm run test:sql → 58/58 checks passed"
+    },
+    "E-08": {
+      "executedAt": "2026-11-01T06:05:08.935Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "Câu hỏi phản biện do model sinh → cần provider (R-02)."
+    },
+    "J-08": {
+      "executedAt": "2026-11-01T06:05:08.935Z",
+      "status": "BLOCKED",
+      "actualOutput": null,
+      "statusNote": "p95/p99 với provider thật cần key (R-02)."
+    },
+    "J-05": {
+      "executedAt": "2026-11-01T06:05:09.747Z",
+      "status": "PASS",
+      "actualOutput": "2 request được ghi; p50/p95/p99 tính trong metrics"
+    }
+  },
+  "grader": {
+    "compliantAccepted": 46,
+    "compliantRejected": 0,
+    "mutantCount": 187,
+    "mutantsAccepted": 0,
+    "pairs": [
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "insufficient"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "insufficient"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "insufficient"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "insufficient"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "compliant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "insufficient"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "insufficient"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "insufficient"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "insufficient"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "insufficient"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "insufficient"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "insufficient",
+        "predictedVerdict": "insufficient"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "incorrect",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "maybe"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "incorrect"
+      },
+      {
+        "kind": "mutant",
+        "expectedVerdict": "correct",
+        "predictedVerdict": "correct"
+      }
+    ],
+    "byClass": {
+      "flip-verdict": {
+        "total": 46,
+        "accepted": 0
+      },
+      "break-contract": {
+        "total": 46,
+        "accepted": 0
+      },
+      "verdict-without-evidence": {
+        "total": 46,
+        "accepted": 0
+      },
+      "generic-issue": {
+        "total": 24,
+        "accepted": 0
+      },
+      "no-remediation": {
+        "total": 9,
+        "accepted": 0
+      },
+      "invented-datum": {
+        "total": 3,
+        "accepted": 0
+      },
+      "silent-no-question": {
+        "total": 4,
+        "accepted": 0
+      },
+      "secret-echo": {
+        "total": 9,
+        "accepted": 0
+      }
+    }
+  },
+  "logs": [],
+  "sqlHarness": {
+    "command": "npm run test:sql",
+    "summary": "58/58 checks passed",
+    "exitCode": 0,
+    "total": 58,
+    "failed": []
+  },
+  "metrics": {
+    "totals": {
+      "designed": 171,
+      "executed": 120,
+      "pass": 120,
+      "fail": 0,
+      "blocked": 46,
+      "notRun": 4,
+      "notImplemented": 0,
+      "pendingExpertReview": 171
+    },
+    "verdictAccuracy": 1,
+    "latency": {
+      "count": 1,
+      "average": 4,
+      "min": 4,
+      "max": 4,
+      "p50": 4,
+      "p95": 4,
+      "p99": 4
+    },
+    "retryRate": null,
+    "providerErrorRate": 0,
+    "byCategory": {
+      "perCategory": [
+        {
+          "category": "C-cpp-review",
+          "total": 10,
+          "pass": 0,
+          "fail": 0,
+          "blocked": 10,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 0,
+          "executedCoverage": 0,
+          "executedAccuracy": null
+        },
+        {
+          "category": "A-math-verdict",
+          "total": 15,
+          "pass": 1,
+          "fail": 0,
+          "blocked": 14,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 1,
+          "executedCoverage": 0.0667,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "B-insufficient-and-hard",
+          "total": 13,
+          "pass": 1,
+          "fail": 0,
+          "blocked": 12,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 1,
+          "executedCoverage": 0.0769,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "D-ai-security",
+          "total": 11,
+          "pass": 5,
+          "fail": 0,
+          "blocked": 6,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 5,
+          "executedCoverage": 0.4545,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "I-frontend-ux",
+          "total": 5,
+          "pass": 3,
+          "fail": 0,
+          "blocked": 0,
+          "notRun": 2,
+          "notImplemented": 0,
+          "executed": 3,
+          "executedCoverage": 0.6,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "J-performance-reliability",
+          "total": 8,
+          "pass": 6,
+          "fail": 0,
+          "blocked": 1,
+          "notRun": 1,
+          "notImplemented": 0,
+          "executed": 6,
+          "executedCoverage": 0.75,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "K-certificate-verify",
+          "total": 5,
+          "pass": 4,
+          "fail": 0,
+          "blocked": 1,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 4,
+          "executedCoverage": 0.8,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "grader-internal",
+          "total": 6,
+          "pass": 5,
+          "fail": 0,
+          "blocked": 0,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 5,
+          "executedCoverage": 0.8333,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "G-database-integrity",
+          "total": 8,
+          "pass": 7,
+          "fail": 0,
+          "blocked": 1,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 7,
+          "executedCoverage": 0.875,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "E-ai-learning-flow",
+          "total": 18,
+          "pass": 16,
+          "fail": 0,
+          "blocked": 1,
+          "notRun": 1,
+          "notImplemented": 0,
+          "executed": 16,
+          "executedCoverage": 0.8889,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "grader",
+          "total": 1,
+          "pass": 1,
+          "fail": 0,
+          "blocked": 0,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 1,
+          "executedCoverage": 1,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "V-grader-metamorphic",
+          "total": 8,
+          "pass": 8,
+          "fail": 0,
+          "blocked": 0,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 8,
+          "executedCoverage": 1,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "gold-integrity",
+          "total": 46,
+          "pass": 46,
+          "fail": 0,
+          "blocked": 0,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 46,
+          "executedCoverage": 1,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "F-api-backend",
+          "total": 8,
+          "pass": 8,
+          "fail": 0,
+          "blocked": 0,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 8,
+          "executedCoverage": 1,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "H-authentication-authorization",
+          "total": 8,
+          "pass": 8,
+          "fail": 0,
+          "blocked": 0,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 8,
+          "executedCoverage": 1,
+          "executedAccuracy": 1
+        },
+        {
+          "category": "L-regression",
+          "total": 1,
+          "pass": 1,
+          "fail": 0,
+          "blocked": 0,
+          "notRun": 0,
+          "notImplemented": 0,
+          "executed": 1,
+          "executedCoverage": 1,
+          "executedAccuracy": 1
+        }
+      ],
+      "weakestCategory": {
+        "category": "A-math-verdict",
+        "total": 15,
+        "pass": 1,
+        "fail": 0,
+        "blocked": 14,
+        "notRun": 0,
+        "notImplemented": 0,
+        "executed": 1,
+        "executedCoverage": 0.0667,
+        "executedAccuracy": 1
+      },
+      "leastCoveredCategory": {
+        "category": "C-cpp-review",
+        "total": 10,
+        "pass": 0,
+        "fail": 0,
+        "blocked": 10,
+        "notRun": 0,
+        "notImplemented": 0,
+        "executed": 0,
+        "executedCoverage": 0,
+        "executedAccuracy": null
+      },
+      "note": "Category accuracy is reported separately; the overall figure must never be used to mask a weak category. Coverage is reported next to accuracy so a group that barely ran cannot read as a group that passed."
+    },
+    "graderConfusionMatrix": {
+      "description": "Ma trận nhãn theo từng nhóm phản hồi của evaluator. Không phải độ chính xác của mô hình.",
+      "compliantResponses": {
+        "labels": [
+          "correct",
+          "incorrect",
+          "insufficient"
+        ],
+        "matrix": {
+          "correct": {
+            "correct": 18,
+            "incorrect": 0,
+            "insufficient": 0
+          },
+          "incorrect": {
+            "correct": 0,
+            "incorrect": 24,
+            "insufficient": 0
+          },
+          "insufficient": {
+            "correct": 0,
+            "incorrect": 0,
+            "insufficient": 4
+          },
+          "__unclassifiable": {
+            "none": 0
+          }
+        },
+        "perClass": {
+          "correct": {
+            "support": 18,
+            "truePositive": 18,
+            "falsePositive": 0,
+            "falseNegative": 0,
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "incorrect": {
+            "support": 24,
+            "truePositive": 24,
+            "falsePositive": 0,
+            "falseNegative": 0,
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          },
+          "insufficient": {
+            "support": 4,
+            "truePositive": 4,
+            "falsePositive": 0,
+            "falseNegative": 0,
+            "precision": 1,
+            "recall": 1,
+            "f1": 1
+          }
+        },
+        "accuracy": 1,
+        "macroF1": 1,
+        "evaluatedCount": 46,
+        "unclassifiableCount": 0
+      },
+      "corruptedResponses": {
+        "labels": [
+          "correct",
+          "incorrect",
+          "insufficient"
+        ],
+        "matrix": {
+          "correct": {
+            "correct": 8,
+            "incorrect": 36,
+            "insufficient": 0
+          },
+          "incorrect": {
+            "correct": 24,
+            "incorrect": 58,
+            "insufficient": 0
+          },
+          "insufficient": {
+            "correct": 4,
+            "incorrect": 4,
+            "insufficient": 7
+          },
+          "__unclassifiable": {
+            "none": 46
+          }
+        },
+        "perClass": {
+          "correct": {
+            "support": 44,
+            "truePositive": 8,
+            "falsePositive": 28,
+            "falseNegative": 36,
+            "precision": 0.2222222222222222,
+            "recall": 0.18181818181818182,
+            "f1": 0.19999999999999998
+          },
+          "incorrect": {
+            "support": 82,
+            "truePositive": 58,
+            "falsePositive": 40,
+            "falseNegative": 24,
+            "precision": 0.5918367346938775,
+            "recall": 0.7073170731707317,
+            "f1": 0.6444444444444445
+          },
+          "insufficient": {
+            "support": 15,
+            "truePositive": 7,
+            "falsePositive": 0,
+            "falseNegative": 8,
+            "precision": 1,
+            "recall": 0.4666666666666667,
+            "f1": 0.6363636363636364
+          }
+        },
+        "accuracy": 0.5177304964539007,
+        "macroF1": 0.4936026936026936,
+        "evaluatedCount": 141,
+        "unclassifiableCount": 46
+      }
+    },
+    "grader": {
+      "compliantAccepted": 46,
+      "compliantRejected": 0,
+      "mutantCount": 187,
+      "mutantsAccepted": 0,
+      "pairs": [
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "insufficient"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "insufficient"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "insufficient"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "insufficient"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "compliant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "insufficient"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "insufficient"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "insufficient"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "insufficient"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "insufficient"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "insufficient"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "insufficient",
+          "predictedVerdict": "insufficient"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "incorrect",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "maybe"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "incorrect"
+        },
+        {
+          "kind": "mutant",
+          "expectedVerdict": "correct",
+          "predictedVerdict": "correct"
+        }
+      ],
+      "byClass": {
+        "flip-verdict": {
+          "total": 46,
+          "accepted": 0
+        },
+        "break-contract": {
+          "total": 46,
+          "accepted": 0
+        },
+        "verdict-without-evidence": {
+          "total": 46,
+          "accepted": 0
+        },
+        "generic-issue": {
+          "total": 24,
+          "accepted": 0
+        },
+        "no-remediation": {
+          "total": 9,
+          "accepted": 0
+        },
+        "invented-datum": {
+          "total": 3,
+          "accepted": 0
+        },
+        "silent-no-question": {
+          "total": 4,
+          "accepted": 0
+        },
+        "secret-echo": {
+          "total": 9,
+          "accepted": 0
+        }
+      }
+    },
+    "requestLogStats": {
+      "entries": 2,
+      "retryRate": 0,
+      "providerErrorRate": 0,
+      "businessErrorRate": 0.5,
+      "averageLatencyMs": 7.5
+    },
+    "notes": [
+      "Chỉ số \"verdictAccuracy\" ở trên tính trên các test hạ tầng đã chạy, không phải độ chính xác của mô hình.",
+      "Toàn bộ case requiresProvider = true mang status BLOCKED vì GEMINI_API_KEY/ANYROUTER_LEARNING_API_KEY absent.",
+      "executedAccuracy được báo cáo riêng theo từng nhóm A–L, V-*; con số tổng không được dùng để che nhóm yếu."
+    ],
+    "logHygiene": {
+      "entries": 2,
+      "secretLeaks": 0,
+      "injectionSentinelsInLogs": 0,
+      "payloadStorage": "hash-only (fnv1a32), never the raw problem or solution"
+    }
+  }
+}

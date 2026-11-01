@@ -64,7 +64,7 @@ test.describe('auth', () => {
   });
 
   test('signup initializes empty learning data, logout returns to landing', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?auth=account');
     await page.click('#hero-start');
     await page.fill('input[name="name"]', SESSION.name);
     await page.fill('input[name="email"]', SESSION.email);
@@ -99,7 +99,7 @@ test.describe('auth', () => {
   });
 
   test('signup rejects mismatched passwords', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?auth=account');
     await page.click('#hero-start');
     await page.fill('input[name="name"]', SESSION.name);
     await page.fill('input[name="email"]', SESSION.email);
@@ -108,6 +108,19 @@ test.describe('auth', () => {
     await page.click('.auth-submit');
     await expect(page.locator('#auth-error')).not.toBeEmpty();
     expect(await page.evaluate(() => localStorage.getItem('paradox-session'))).toBeNull();
+  });
+
+  test('local entry button signs in a device-local account without OTP', async ({ page }) => {
+    await page.goto('/');
+    await page.click('#landing-login');
+    const localButton = page.locator('#auth-local');
+    await expect(page.locator('#auth-form')).toBeHidden();
+    await expect(localButton).toBeVisible();
+    await localButton.click();
+    await expect(page.locator('.sidebar')).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('paradox-session'))?.email)).toBe('local@paradox.test');
+    await page.reload();
+    await expect(page.locator('.sidebar')).toBeVisible();
   });
 
   test('an open browser session logs out when the account becomes suspended', async ({ page }) => {
@@ -145,7 +158,7 @@ test.describe('auth', () => {
 
 test.describe('route guard', () => {
   test('protected hash prompts login, then lands on the requested view', async ({ page }) => {
-    await page.goto('/#/history');
+    await page.goto('/?auth=account#/history');
     await expect(page.locator('#auth-backdrop')).toBeVisible();
 
     await page.click('#auth-switch');
@@ -176,7 +189,7 @@ test.describe('route guard', () => {
 
 test.describe('admin', () => {
   test('verified configured admin can open user management', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?auth=account');
     await page.click('#hero-start');
     await page.fill('input[name="name"]', 'PARADOX Admin');
     await page.fill('input[name="email"]', 'admin@paradox.ai');

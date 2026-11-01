@@ -7,8 +7,8 @@
  *   1. Groq        - primary (OpenAI-compatible)
  *   2. Gemini      - fallback
  *
- * The website support widget uses its own separate provider configuration; it is
- * not part of this catalogue.
+ * The website support widget shares this provider catalogue through the same
+ * gateway; it has no separate key namespace.
  */
 
 export const AI_PROVIDER_ENV = Object.freeze({
@@ -86,7 +86,7 @@ export const AI_PROVIDERS = Object.freeze([
     role: 'fallback',
     apiKeyEnv: AI_PROVIDER_ENV.gemini.apiKey,
     modelEnv: AI_PROVIDER_ENV.gemini.model,
-    defaultModel: 'gemini-3.5-flash',
+    defaultModel: 'gemini-3.5-flash-lite',
     docsUrl: 'https://ai.google.dev/gemini-api/docs/api-key',
     buildRequest({ apiKey, model, systemPrompt, userPrompt, temperature, maxOutputTokens, json }) {
       return {
