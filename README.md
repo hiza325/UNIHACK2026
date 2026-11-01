@@ -223,14 +223,14 @@ npm run fonts:vendor
 
 Widget trợ lý nổi chỉ hướng dẫn cách sử dụng PARADOX; system prompt không cho phép giải bài hoặc trả lời câu hỏi học thuật. Frontend gọi endpoint cùng domain `/api/support`; key không được gửi xuống trình duyệt.
 
-Backend/serverless function tại `api/support.js` gọi AnyRouter Chat Completions:
+Backend/serverless function tại `api/support.js` dùng chung AI Gateway với AI Learning (`api/_ai/`):
 
-- Endpoint: `https://anyrouter.dev/api/v1/chat/completions`
-- Model mặc định: `anyrouter/free`
-- Key: biến môi trường `ANYROUTER_API_KEY`
-- Model tùy chọn: biến môi trường `ANYROUTER_MODEL`
+- Provider chính: Groq Cloud — `https://api.groq.com/openai/v1/chat/completions`, model mặc định `openai/gpt-oss-120b`
+- Provider dự phòng: Google Gemini — model mặc định `gemini-3.5-flash`
+- Key: biến môi trường `GROQ_API_KEY` (dự phòng `GEMINI_API_KEY`)
+- Model tùy chọn: `GROQ_MODEL` / `GEMINI_MODEL`, thứ tự provider đổi bằng `AI_PROVIDER_ORDER`
 
-Tạo file `.env` từ `.env.example` để ghi nhớ tên biến (file `.env` đã được gitignore). Key inference AnyRouter hiện tại phải bắt đầu bằng `sk-ar-v1-` và được tạo tại [AnyRouter Dashboard](https://anyrouter.dev/dashboard/keys). Không dùng key quản trị hoặc ghi key vào `support-ai-config.js`.
+Tạo file `.env` từ `.env.example` để ghi nhớ tên biến (file `.env` đã được gitignore). Key Groq bắt đầu bằng `gsk_` và được tạo tại [Groq Console](https://console.groq.com/keys); key Gemini tại [Google AI Studio](https://ai.google.dev/gemini-api/docs/api-key). Không ghi key vào `support-ai-config.js`.
 
 Khi chạy local, sao chép `.env.example` thành `.env`, thay key rồi chạy:
 
@@ -240,7 +240,7 @@ npm run serve
 
 Static server dành cho local tự đọc `.env`; biến môi trường hệ thống vẫn được ưu tiên nếu đã đặt.
 
-Khi deploy Vercel, thêm `ANYROUTER_API_KEY` trong Project Settings → Environment Variables; `api/support.js` sẽ được nhận diện là serverless function. GitHub Pages thuần tĩnh không chạy được endpoint này, nên cần deploy frontend/backend lên Vercel hoặc trỏ `proxyUrl` đến một backend riêng.
+Khi deploy Vercel, thêm `GROQ_API_KEY` (và tùy chọn `GEMINI_API_KEY`) trong Project Settings → Environment Variables; `api/support.js` sẽ được nhận diện là serverless function. GitHub Pages thuần tĩnh không chạy được endpoint này, nên cần deploy frontend/backend lên Vercel hoặc trỏ `proxyUrl` đến một backend riêng.
 
 Frontend gửi:
 
@@ -254,7 +254,7 @@ Backend trả về:
 { "text": "Nội dung hướng dẫn", "grounded": true, "sources": [{ "id": "A17", "question": "17. Tôi xem lại các phiên cũ ở đâu?" }] }
 ```
 
-Endpoint truy xuất các mục FAQ liên quan từ knowledge base sinh ra `api/_support-faq.js` (trích từ `PARADOX-AI-FAQ-Support-keywords-4.docx`) và chỉ gửi các mục đó cho mô hình. Người dùng không cần nhập đúng câu hỏi gốc: bộ truy xuất chuẩn hoá tiếng Việt (bỏ dấu, không phân biệt hoa thường), ưu tiên từ khoá và mở rộng các cách diễn đạt/tiếng Anh phổ biến (ví dụ `màu nền`, `tiếng nhật`, `logout`, `pdf`). Khi không có mục FAQ nào khớp, backend trả lời thông báo "chưa có hướng dẫn" theo ngôn ngữ giao diện thay vì để mô hình tự suy diễn. Khi thiếu `ANYROUTER_API_KEY` hoặc upstream lỗi/timeout, backend trả về nội dung FAQ liên quan nhất kèm `degraded: true`.
+Endpoint truy xuất các mục FAQ liên quan từ knowledge base sinh ra `api/_support-faq.js` (trích từ `PARADOX-AI-FAQ-Support-keywords-4.docx`) và chỉ gửi các mục đó cho mô hình. Người dùng không cần nhập đúng câu hỏi gốc: bộ truy xuất chuẩn hoá tiếng Việt (bỏ dấu, không phân biệt hoa thường), ưu tiên từ khoá và mở rộng các cách diễn đạt/tiếng Anh phổ biến (ví dụ `màu nền`, `tiếng nhật`, `logout`, `pdf`). Khi không có mục FAQ nào khớp, backend trả lời thông báo "chưa có hướng dẫn" theo ngôn ngữ giao diện thay vì để mô hình tự suy diễn. Khi thiếu `GROQ_API_KEY`/`GEMINI_API_KEY` hoặc upstream lỗi/timeout, backend trả về nội dung FAQ liên quan nhất kèm `degraded: true`.
 
 System prompt được áp đặt lại ở backend; trường `system` từ client bị bỏ qua để người dùng không thể thay đổi phạm vi trợ lý. Input giới hạn 10 lượt hội thoại, 1.200 ký tự mỗi lượt; upstream có timeout 20 giây; endpoint giới hạn 12 request/phút/IP, kiểm tra `Origin` cùng domain (có thể mở rộng bằng biến môi trường `SUPPORT_ALLOWED_ORIGINS`, phân tách bằng dấu phẩy) và không trả về API key. Nếu proxy nằm ở domain khác, cần đổi `proxyUrl` trong `support-ai-config.js` và thêm domain đó vào `connect-src` trong CSP của `index.html`.
 
@@ -291,7 +291,7 @@ Server tự tính tổng và không tin tổng điểm/trạng thái do mô hìn
 ### Tối ưu và Proof of Learning
 
 - Frontend gộp các request giống nhau đang chạy và cache mode `analyze` trong 2 phút, tối đa 50 kết quả. `discuss`, `hint` và `resubmit` không cache để tránh dùng lại ngữ cảnh cũ.
-- API giới hạn 15 request/phút/client; gateway chỉ đọc `GROQ_API_KEY`, `GEMINI_API_KEY` và các biến model tương ứng ở server. Support widget vẫn dùng `ANYROUTER_API_KEY` riêng.
+- API giới hạn 15 request/phút/client; gateway chỉ đọc `GROQ_API_KEY`, `GEMINI_API_KEY` và các biến model tương ứng ở server. Support widget dùng chung gateway và hai key này, không còn provider riêng.
 - Mọi output AI được chuẩn hóa và kiểm tra lại; trạng thái rubric được suy ra phía server.
 - Mỗi lần nộp lại tạo `proofRecord` phiên bản `paradox-proof-of-learning-v1`, gồm SHA-256 content hash, rubric version, attempt number, thời gian, model, confidence, trạng thái và các tiêu chí. Backend lưu cấu trúc này cùng evaluation; đây chỉ là bằng chứng off-chain chuẩn bị cho credential, không tự tạo transaction hoặc chứng nhận blockchain.
 

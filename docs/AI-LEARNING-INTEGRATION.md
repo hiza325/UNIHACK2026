@@ -19,7 +19,7 @@
 | Provider chính | Gemini | **Groq Cloud** |
 | Provider dự phòng | DeepSeek/Mistral | **Gemini** |
 | Key AI Learning | `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY` | `GROQ_API_KEY`, `GEMINI_API_KEY` |
-| Support widget | `ANYROUTER_API_KEY` | Giữ nguyên, không thay đổi |
+| Support widget | `ANYROUTER_API_KEY` | Dùng chung gateway: `GROQ_API_KEY` → `GEMINI_API_KEY`; không còn AnyRouter trong code |
 | Prompt | `debate-prompt.js` (`DEBATE_PROMPT`) | Giữ nguyên, server luôn tự gắn prompt |
 
 ### Prompt đang có trong repo
@@ -224,8 +224,7 @@ Probe dùng chung rate limit 15 request/phút/IP với Analyze và **không** t�
 | `AI_MAX_RETRIES` | Không | `0` | Tối đa 3 |
 | `AI_RETRY_DELAY_MS` | Không | `300` | Backoff cơ sở |
 | `AI_PROVIDER_ORDER` | Không | `groq,gemini` | Chỉ dùng khi cần đảo thứ tự/kiểm thử |
-| `ANYROUTER_API_KEY` | Support widget | — | Không dùng cho AI Learning |
-| `ANYROUTER_MODEL` | Support widget | `anyrouter/free` | Không dùng cho AI Learning |
+| `SUPPORT_ALLOWED_ORIGINS` | Không | — | Danh sách origin được gọi `/api/support`, cách nhau bằng dấu phẩy |
 
 ---
 
@@ -327,7 +326,7 @@ git diff --check
 
 - Không có key thật trong repo, test, tài liệu hay `docs/` — chỉ tên biến.
 - Không thêm biến public cho frontend; không import `api/_ai/*` từ browser.
-- Support widget giữ nguyên `ANYROUTER_API_KEY`, không bị AI Learning dùng chung.
+- Support widget dùng chung gateway/provider như AI Learning (`GROQ_API_KEY` → `GEMINI_API_KEY`); không còn provider riêng.
 - Gateway không log prompt/lời giải của người học; `details` chỉ chứa metadata kỹ thuật.
 - Rate limit 15 request/phút/IP vẫn giữ nguyên ở `api/debate.js`.
 - Không thay đổi Smart Contract, không gửi giao dịch, không tạo credential hay dữ liệu production.

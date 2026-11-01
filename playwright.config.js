@@ -45,8 +45,6 @@ export default defineConfig({
       GEMINI_API_KEY_3: '',
       GEMINI_MODEL: '',
       AI_PROVIDER_ORDER: '',
-      ANYROUTER_API_KEY: '',
-      ANYROUTER_MODEL: '',
       OTP_SEND_COOLDOWN_SECONDS: '0',
       OTP_SEND_EMAIL_LIMIT: '3',
       OTP_SEND_IP_LIMIT: '500',

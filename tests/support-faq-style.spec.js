@@ -22,7 +22,7 @@ test('common support topics retrieve the rewritten documented answer', () => {
     ['Quên mật khẩu thì làm gì?', /Quên mật khẩu/i],
     ['Dữ liệu của tôi được lưu ở đâu?', /trình duyệt|Supabase/i],
     ['Làm sao mở khoá First Step?', /phiên học đầu tiên/i],
-    ['Chatbot không trả lời thì kiểm tra gì?', /ANYROUTER_API_KEY|503/i],
+    ['Chatbot không trả lời thì kiểm tra gì?', /GROQ_API_KEY|GEMINI_API_KEY|503/i],
     ['Xoá dữ liệu trình duyệt có mất tiến độ không?', /chế độ khách|máy chủ/i],
     ['Làm sao mở khoá Consistency?', /7 ngày/i],
     ['Tôi xem tiến độ thành tựu ở đâu?', /Profile/i],

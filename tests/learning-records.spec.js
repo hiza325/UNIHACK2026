@@ -396,7 +396,7 @@ test('Debate API without an AI key records analysis failure without creating an 
     async recordAiResult() { throw new Error('must not persist a result'); },
   };
   const handler = createDebateHandler({
-    analysisFactory: async () => { throw Object.assign(new Error('ANYROUTER_API_KEY is not configured'), { status: 503, code: 'NOT_CONFIGURED' }); },
+    analysisFactory: async () => { throw Object.assign(new Error('GROQ_API_KEY is not configured'), { status: 503, code: 'NOT_CONFIGURED' }); },
     sessionResolver: async () => ({ user: { id: LEARNER.id } }),
     storeFactory: () => ({}),
     recordServiceFactory: () => fakeRecordService,
