@@ -542,7 +542,8 @@ export const actionMethods = {
     try {
       const learningRecord = this.currentLearningRecordContext();
       const result = await requestDebateAnalysis({ mode: 'discuss', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: value, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints, ...(learningRecord ? { learningRecord } : {}) });
-      this.auditResult = { ...result, comparison: this.auditResult?.comparison || result.comparison };
+      // A discuss turn answers in "reply"; its own status/issues are only context
+      // and must not replace the assessment the learner is looking at.
       const reply = result.reply || result.summary;
       session.conversation.push({ role: 'assistant', text: reply });
       session.conversation = session.conversation.slice(-40);

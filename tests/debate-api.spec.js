@@ -126,6 +126,62 @@ test('Debate API enforces requested hint levels, unique hints and resubmission c
   expect(comparison.evaluation.status).toBe('needs_improvement');
 });
 
+test('Hint turns accept the hint payload without forcing a duplicate reply', async () => {
+  const fetcher = async () => geminiResponse(JSON.stringify({
+    status: 'incorrect', summary: 'Cần nhớ lại cơ số.', confidence: 0.9, issues: [], strengths: [], nextQuestion: '', reply: '',
+    hint: { level: 1, content: 'Hãy đưa hai vế về cùng cơ số 2.' },
+  }));
+  const analysis = await createDebateAnalysis(
+    { mode: 'hint', problem: 'Giải 2^x = 8', solution: 'x = 8', hintLevel: 1, question: 'Cho mình gợi ý cấp 1.', previousHints: [] },
+    { env: GEMINI_ENV, fetcher },
+  );
+  expect(analysis.hint).toEqual({ level: 1, content: 'Hãy đưa hai vế về cùng cơ số 2.' });
+  expect(analysis.reply).toBe('');
+  expect(analysis.issues).toEqual([]);
+});
+
+test('Hint turns normalise a reply-only answer and reject skipping a level', async () => {
+  await expect(createDebateAnalysis(
+    { mode: 'hint', problem: 'Giải 2^x = 8', solution: 'x = 8', hintLevel: 3, question: 'Cho gợi ý', previousHints: [] },
+    { env: GEMINI_ENV, fetcher: async () => geminiResponse('{}') },
+  )).rejects.toMatchObject({ code: 'INVALID_INPUT', status: 400 });
+
+  const fetcher = async () => geminiResponse(JSON.stringify({
+    status: 'incorrect', summary: 'Cần nhớ lại cơ số.', confidence: 0.8, issues: [], strengths: [], nextQuestion: '',
+    reply: 'Hãy viết 8 thành 2 mũ mấy.',
+  }));
+  const analysis = await createDebateAnalysis(
+    { mode: 'hint', problem: 'Giải 2^x = 8', solution: 'x = 8', hintLevel: 1, question: 'Cho mình gợi ý', previousHints: [] },
+    { env: GEMINI_ENV, fetcher },
+  );
+  expect(analysis.hint).toEqual({ level: 1, content: 'Hãy viết 8 thành 2 mũ mấy.' });
+});
+
+test('Follow-up turns send a compact previous analysis instead of a truncated object', async () => {
+  let userPrompt = '';
+  const fetcher = async (_url, options) => {
+    userPrompt = JSON.parse(options.body).contents[0].parts[0].text;
+    return geminiResponse(JSON.stringify({
+      status: 'incorrect', summary: 'Vẫn còn lỗi phép chia.', confidence: 0.9, issues: [], strengths: [], nextQuestion: '', reply: 'Em hãy thử chia hai vế cho 2.',
+    }));
+  };
+  await createDebateAnalysis({
+    mode: 'discuss', problem: 'Giải 2x = 8', solution: 'x = 6', question: 'Sai ở đâu?',
+    previousAnalysis: {
+      status: 'incorrect', summary: 'Sai phép chia.', confidence: 0.9,
+      issues: [{ category: 'logic', step: 'x = 6', explanation: 'Phải chia cho 2.', suggestion: 'Thử lại.' }],
+      proofRecord: { contentHash: 'a'.repeat(64), model: 'gemini/hidden' },
+      evaluation: { status: 'needs_improvement', score: 40, evidenceSufficient: true, comment: 'Chưa đạt.', criteria: {} },
+    },
+  }, { env: GEMINI_ENV, fetcher });
+
+  const serialized = userPrompt.match(/<previous_analysis>([\s\S]*?)<\/previous_analysis>/)[1];
+  const parsed = JSON.parse(serialized);
+  expect(parsed.proofRecord).toBeUndefined();
+  expect(parsed.evaluation.score).toBe(40);
+  expect(parsed.issues[0]).toMatchObject({ category: 'logic', step: 'x = 6' });
+});
+
 test('Debate rubric derives pass and insufficient states instead of trusting the model', () => {
   const base = { status: 'correct', summary: 'Lời giải đúng.', issues: [], strengths: [], nextQuestion: '', reply: '', comparison: { summary: 'Đã sửa đúng.', improvements: ['Đã sửa lỗi.'], remainingIssues: [] } };
   const passed = validateDebateAnalysis({ ...base, confidence: 0.9, evaluation: rubric() }, { mode: 'resubmit' });
@@ -380,4 +436,58 @@ test('Debate API rate-limits repeated requests from one client', async () => {
   };
   for (let index = 0; index < 15; index += 1) expect((await invoke()).status).not.toBe(429);
   expect(await invoke()).toMatchObject({ status: 429, body: { code: 'RATE_LIMIT' } });
+});
+
+test('an authorized hint flow uses the stored hint ladder and rejects skipped levels', async () => {
+  const analysisCalls = [];
+  const handler = createDebateHandler({
+    sessionResolver: async () => ({ user: { id: 'user-id' } }),
+    storeFactory: () => ({}),
+    recordServiceFactory: () => ({
+      async authorizeAiRequest() {
+        return { session: { id: 'session' }, submission: { id: 'submission' }, learnerId: 'user-id', servedHints: [{ level: 1, content: 'Stored hint one.' }] };
+      },
+      async recordAiResult() {},
+    }),
+    analysisFactory: async payload => {
+      analysisCalls.push(payload);
+      return {
+        analysis: {
+          status: 'insufficient', summary: 'Continue from the stored hint.', confidence: 0.4, issues: [], strengths: [],
+          nextQuestion: '', reply: '', hint: { level: payload.hintLevel, content: 'Second hint.' }, comparison: null, evaluation: null,
+        },
+        meta: null,
+      };
+    },
+    logger: null,
+  });
+  const makeResponse = () => ({
+    statusCode: 200,
+    payload: null,
+    setHeader() { return this; },
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  });
+  const makeRequest = (body, ip) => ({
+    method: 'POST',
+    headers: { 'x-forwarded-for': ip },
+    body: {
+      problem: 'Solve 2x = 8', solution: 'x = 6', mode: 'hint', question: 'One hint please.',
+      previousHints: ['client hint one', 'client hint two'],
+      learningRecord: { sessionId: 'session-id', submissionId: 'submission-id' },
+      ...body,
+    },
+  });
+
+  const skipped = makeResponse();
+  await handler(makeRequest({ hintLevel: 3 }, '203.0.113.71'), skipped);
+  expect(skipped.statusCode).toBe(400);
+  expect(skipped.payload.code).toBe('HINT_LEVEL_OUT_OF_ORDER');
+  expect(analysisCalls).toHaveLength(0);
+
+  const accepted = makeResponse();
+  await handler(makeRequest({ hintLevel: 2 }, '203.0.113.72'), accepted);
+  expect(accepted.statusCode).toBe(200);
+  expect(analysisCalls).toHaveLength(1);
+  expect(analysisCalls[0]).toMatchObject({ hintLevel: 2, previousHints: ['Stored hint one.'] });
 });

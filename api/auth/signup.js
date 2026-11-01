@@ -1,4 +1,4 @@
-import { findAuthUserByEmail, noStore, normalizeCredentials, parseBody, publicUser, sendError, setSession, supabaseRequest } from './_supabase.js';
+import { authConfig, findAuthUserByEmail, noStore, normalizeCredentials, parseBody, publicUser, sendError, setSession, supabaseRequest } from './_supabase.js';
 import { emailOtpConfigured } from './_mail.js';
 import { guardOtpSend } from './_rate-limit.js';
 import { processOtpRequest } from './otp.js';
@@ -10,6 +10,10 @@ export default async function handler(req, res) {
     const body = parseBody(req);
     const { email, password, name } = normalizeCredentials(body, true);
     if (emailOtpConfigured()) {
+      // Fail on missing Supabase config before the send throttle is consumed:
+      // the client then retries OTP locally, and that send must not be blocked
+      // by a cooldown that never delivered an email.
+      authConfig();
       guardOtpSend(req, email);
       let user;
       let created = false;

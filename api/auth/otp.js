@@ -132,7 +132,16 @@ export async function processOtpRequest(payload, options = {}) {
   if (action === 'send') {
     const code = String(randomInt(0, 1000000)).padStart(6, '0');
     const challenge = createChallenge(email, code, secret, purpose, options.now?.() ?? Date.now(), context);
-    const delivered = await sendEmail(email, code, ['vi', 'en', 'jp'].includes(payload?.language) ? payload.language : 'vi', payload?.purpose, env, fetcher, options.transporter, options.transportFactory);
+    let delivered = false;
+    try {
+      delivered = await sendEmail(email, code, ['vi', 'en', 'jp'].includes(payload?.language) ? payload.language : 'vi', payload?.purpose, env, fetcher, options.transporter, options.transportFactory);
+    } catch (error) {
+      // Local development often has SMTP credentials but no network or relay.
+      // Keep signup usable there by returning the development code instead of a
+      // 502; production still fails closed.
+      if (production) throw error;
+      delivered = false;
+    }
     if (!delivered && production) throw Object.assign(new Error('Email service is not configured'), { status: 503 });
     return { challenge, expiresIn: OTP_LIFETIME_MS / 1000, ...(delivered ? {} : { developmentCode: code }) };
   }

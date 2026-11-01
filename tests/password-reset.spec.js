@@ -101,7 +101,7 @@ test('forgot-password UI requests an OTP and submits the new password', async ({
     });
   });
 
-  await page.goto('/?auth=account');
+  await page.goto('/');
   await page.click('#landing-login');
   await page.click('#auth-forgot');
   await expect(page.locator('#auth-title')).toHaveText('Khôi phục mật khẩu');

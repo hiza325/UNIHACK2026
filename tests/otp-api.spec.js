@@ -117,6 +117,23 @@ test('SMTP delivery failures do not leak into OTP responses', async () => {
     .rejects.toMatchObject({ status: 502, code: 'EMAIL_DELIVERY_FAILED', message: 'Email delivery failed' });
 });
 
+test('local development falls back to the development code when delivery fails', async () => {
+  const localEnv = {
+    OTP_SECRET: env.OTP_SECRET,
+    SMTP_HOST: 'smtp.example.com',
+    SMTP_FROM_EMAIL: 'no-reply@example.com',
+  };
+  const sent = await processOtpRequest({ action: 'send', email: 'learner@example.com' }, {
+    env: localEnv,
+    transportFactory() {
+      return { async sendMail() { throw new Error('ECONNREFUSED'); } };
+    },
+  });
+  expect(sent.developmentCode).toMatch(/^\d{6}$/);
+  await expect(processOtpRequest({ action: 'verify', email: 'learner@example.com', code: sent.developmentCode, challenge: sent.challenge }, { env: localEnv }))
+    .resolves.toEqual({ verified: true });
+});
+
 test('custom OTP email is enabled for SMTP and still requires a strong OTP secret', () => {
   const smtpEnv = { OTP_SECRET: env.OTP_SECRET, SMTP_HOST: 'smtp.example.com', SMTP_FROM_EMAIL: 'no-reply@example.com' };
   expect(emailOtpConfigured(smtpEnv)).toBe(true);

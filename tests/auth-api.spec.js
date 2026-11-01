@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import signupHandler from '../api/auth/signup.js';
+import otpHandler from '../api/auth/otp.js';
+import { resetRateLimitState } from '../api/auth/_rate-limit.js';
 import verifyHandler from '../api/auth/verify.js';
 import adminUsersHandler from '../api/admin/users.js';
 import sessionHandler from '../api/auth/session.js';
@@ -668,5 +670,47 @@ test('admin users endpoint ignores forged client role hints', async () => {
   } finally {
     global.fetch = originalFetch;
     restoreEnv(previousEnv);
+  }
+});
+
+test('a signup that cannot reach Supabase does not burn the OTP send cooldown', async () => {
+  const previousEnv = {
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    SMTP_HOST: process.env.SMTP_HOST,
+    SMTP_PORT: process.env.SMTP_PORT,
+    SMTP_SECURE: process.env.SMTP_SECURE,
+    SMTP_FROM_EMAIL: process.env.SMTP_FROM_EMAIL,
+    OTP_SECRET: process.env.OTP_SECRET,
+    NODE_ENV: process.env.NODE_ENV,
+  };
+  delete process.env.SUPABASE_URL;
+  delete process.env.SUPABASE_ANON_KEY;
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.NODE_ENV = 'test';
+  Object.assign(process.env, {
+    SMTP_HOST: '127.0.0.1',
+    SMTP_PORT: '1',
+    SMTP_SECURE: 'false',
+    SMTP_FROM_EMAIL: 'no-reply@example.com',
+    OTP_SECRET: 'a-secure-test-secret-that-is-at-least-32-characters',
+  });
+  resetRateLimitState();
+
+  try {
+    const email = `fallback-${Date.now()}@example.com`;
+    const signupRes = responseRecorder();
+    await signupHandler({ method: 'POST', headers: {}, body: { name: 'Fallback', email, password: 'Password123!' } }, signupRes);
+    expect(signupRes.statusCode).toBe(503);
+    expect(signupRes.payload.code).toBe('AUTH_NOT_CONFIGURED');
+
+    const otpRes = responseRecorder();
+    await otpHandler({ method: 'POST', headers: {}, body: { action: 'send', email, language: 'vi' } }, otpRes);
+    expect(otpRes.statusCode).toBe(200);
+    expect(otpRes.payload.error).toBeUndefined();
+  } finally {
+    resetRateLimitState();
+    for (const [key, value] of Object.entries(previousEnv)) value === undefined ? delete process.env[key] : process.env[key] = value;
   }
 });

@@ -84,6 +84,53 @@ function normalizedComparableText(value) {
   return String(value || '').trim().toLocaleLowerCase().replace(/\s+/g, ' ');
 }
 
+// The follow-up turns only need the facts of the earlier assessment. Sending the
+// whole stored object (proof record, comparison, analysis model) both wastes
+// context and used to be cut mid-JSON at a fixed character offset, which made the
+// model reason about a truncated payload.
+function compactPreviousAnalysis(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+  const text = (input, max) => (typeof input === 'string' ? input.trim().slice(0, max) : '');
+  const compact = {
+    status: STATUSES.has(value.status) ? value.status : 'insufficient',
+    summary: text(value.summary, 700),
+    confidence: Number.isFinite(Number(value.confidence)) ? Number(value.confidence) : 0.5,
+    issues: Array.isArray(value.issues) ? value.issues.slice(0, 8).map(issue => ({
+      category: CATEGORIES.has(issue?.category) ? issue.category : 'logic',
+      step: text(issue?.step, 180),
+      explanation: text(issue?.explanation, 300),
+      suggestion: text(issue?.suggestion, 180),
+    })) : [],
+    strengths: Array.isArray(value.strengths) ? value.strengths.slice(0, 4).map(item => text(item, 160)).filter(Boolean) : [],
+    hint: value.hint && typeof value.hint === 'object'
+      ? { level: Number(value.hint.level) || 0, content: text(value.hint.content, 400) }
+      : null,
+    comparison: value.comparison && typeof value.comparison === 'object'
+      ? {
+          summary: text(value.comparison.summary, 500),
+          remainingIssues: Array.isArray(value.comparison.remainingIssues) ? value.comparison.remainingIssues.slice(0, 6).map(item => text(item, 160)).filter(Boolean) : [],
+        }
+      : null,
+    evaluation: value.evaluation && typeof value.evaluation === 'object'
+      ? {
+          status: text(value.evaluation.status, 40),
+          score: Number.isFinite(Number(value.evaluation.score)) ? Number(value.evaluation.score) : null,
+          evidenceSufficient: value.evaluation.evidenceSufficient === true,
+          remainingIssues: Array.isArray(value.evaluation.remainingIssues) ? value.evaluation.remainingIssues.slice(0, 6).map(item => text(item, 160)).filter(Boolean) : [],
+          criteria: value.evaluation.criteria && typeof value.evaluation.criteria === 'object'
+            ? Object.fromEntries(RUBRIC_KEYS.map(key => [key, Number(value.evaluation.criteria[key]?.score) || 0]))
+            : null,
+        }
+      : null,
+  };
+  for (const field of ['strengths', 'comparison', 'hint']) {
+    if (JSON.stringify(compact).length <= 6000) break;
+    compact[field] = Array.isArray(compact[field]) ? [] : null;
+  }
+  if (JSON.stringify(compact).length > 6000) compact.issues = compact.issues.slice(0, 4);
+  return JSON.stringify(compact);
+}
+
 function validateEvaluation(raw, context, analysisStatus, confidence) {
   if (context.mode !== 'resubmit') return null;
   if (!raw || typeof raw !== 'object' || !raw.criteria || typeof raw.criteria !== 'object') throw Object.assign(new Error('AI output is missing the resubmission evaluation'), { status: 502, code: 'INVALID_OUTPUT' });
@@ -125,11 +172,16 @@ export function validateDebateAnalysis(raw, context = {}) {
       suggestion: safeOutputText(issue.suggestion, 'issue.suggestion', 800),
     };
   }) : [];
-  if (raw.status === 'incorrect' && !issues.length) throw Object.assign(new Error('Incorrect analysis must identify an issue'), { status: 502, code: 'INVALID_OUTPUT' });
+  // In hint/discuss turns the model re-states the earlier verdict only as
+  // context; the hint or reply is the payload. Demanding fresh issues there made
+  // valid hints fail with INVALID_OUTPUT.
+  if (raw.status === 'incorrect' && !issues.length && ['analyze', 'resubmit'].includes(context.mode)) {
+    throw Object.assign(new Error('Incorrect analysis must identify an issue'), { status: 502, code: 'INVALID_OUTPUT' });
+  }
   let hint = null;
   if (context.mode === 'hint') {
-    const level = Number(raw.hint?.level);
-    const content = safeOutputText(raw.hint?.content, 'hint.content', 1400);
+    const level = raw.hint?.level == null ? context.hintLevel : Number(raw.hint.level);
+    const content = safeOutputText(raw.hint?.content || raw.reply, 'hint.content', 1400);
     if (level !== context.hintLevel) throw Object.assign(new Error('AI output changed the requested hint level'), { status: 502, code: 'INVALID_OUTPUT' });
     if ((context.previousHints || []).some(previous => normalizedComparableText(previous) === normalizedComparableText(content))) {
       throw Object.assign(new Error('AI output repeated a previous hint'), { status: 502, code: 'INVALID_OUTPUT' });
@@ -153,7 +205,7 @@ export function validateDebateAnalysis(raw, context = {}) {
     issues,
     strengths: Array.isArray(raw.strengths) ? raw.strengths.slice(0, 5).map(value => safeOutputText(value, 'strength', 500)).filter(Boolean) : [],
     nextQuestion: safeOutputText(raw.nextQuestion, 'nextQuestion', 800, false),
-    reply: safeOutputText(raw.reply, 'reply', 1800, ['discuss', 'hint'].includes(context.mode)),
+    reply: safeOutputText(raw.reply, 'reply', 1800, context.mode === 'discuss'),
     hint,
     comparison,
     evaluation,
@@ -172,6 +224,7 @@ export function normalizeDebatePayload(payload) {
     text: optionalText(item?.text, 1200),
   })).filter(item => item.text) : [];
   const previousHints = Array.isArray(payload?.previousHints) ? payload.previousHints.slice(0, 3).map(value => optionalText(typeof value === 'string' ? value : value?.content, 1400)).filter(Boolean) : [];
+  if (mode === 'hint' && hintLevel > previousHints.length + 1) throw inputError('Hint level must follow the previous hint level');
   const previousSolution = optionalText(payload?.previousSolution, 16000);
   const question = optionalText(payload?.question, 1200);
   if (mode === 'resubmit' && !previousSolution) throw inputError('Previous solution is required for resubmission');
@@ -183,9 +236,7 @@ export function normalizeDebatePayload(payload) {
     hintLevel: mode === 'hint' ? hintLevel : 0,
     language: LANGUAGES.has(payload?.language) ? payload.language : 'vi',
     question,
-    previousAnalysis: payload?.previousAnalysis && typeof payload.previousAnalysis === 'object'
-      ? JSON.stringify(payload.previousAnalysis).slice(0, 6000)
-      : '',
+    previousAnalysis: compactPreviousAnalysis(payload?.previousAnalysis),
     conversation,
     previousHints,
     previousSolution,
@@ -419,6 +470,17 @@ export function createDebateHandler({
           userId: session.user.id,
           input: normalizedInput,
         });
+        if (authorizedRecord?.servedHints) {
+          // The stored record owns the hint ladder: ignore whatever history the
+          // client sent and continue from the last hint actually delivered.
+          const servedLevel = authorizedRecord.servedHints.reduce((max, item) => Math.max(max, Number(item.level) || 0), 0);
+          if (normalizedInput.hintLevel !== servedLevel + 1) {
+            throw Object.assign(inputError('Hint level must follow the previous hint level'), { code: 'HINT_LEVEL_OUT_OF_ORDER' });
+          }
+          const serverHints = authorizedRecord.servedHints.map(item => String(item.content || '')).filter(Boolean);
+          normalizedInput.previousHints = serverHints;
+          payload.previousHints = serverHints;
+        }
       }
       if (authorizedRecord?.storedAnalysis) {
         const analysis = authorizedRecord.storedAnalysis;

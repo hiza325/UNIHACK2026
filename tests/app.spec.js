@@ -64,7 +64,7 @@ test.describe('auth', () => {
   });
 
   test('signup initializes empty learning data, logout returns to landing', async ({ page }) => {
-    await page.goto('/?auth=account');
+    await page.goto('/');
     await page.click('#hero-start');
     await page.fill('input[name="name"]', SESSION.name);
     await page.fill('input[name="email"]', SESSION.email);
@@ -99,7 +99,7 @@ test.describe('auth', () => {
   });
 
   test('signup rejects mismatched passwords', async ({ page }) => {
-    await page.goto('/?auth=account');
+    await page.goto('/');
     await page.click('#hero-start');
     await page.fill('input[name="name"]', SESSION.name);
     await page.fill('input[name="email"]', SESSION.email);
@@ -114,7 +114,8 @@ test.describe('auth', () => {
     await page.goto('/');
     await page.click('#landing-login');
     const localButton = page.locator('#auth-local');
-    await expect(page.locator('#auth-form')).toBeHidden();
+    await expect(page.locator('#auth-form')).toBeVisible();
+    await expect(page.locator('input[name="email"]')).toBeVisible();
     await expect(localButton).toBeVisible();
     await localButton.click();
     await expect(page.locator('.sidebar')).toBeVisible();
@@ -158,7 +159,7 @@ test.describe('auth', () => {
 
 test.describe('route guard', () => {
   test('protected hash prompts login, then lands on the requested view', async ({ page }) => {
-    await page.goto('/?auth=account#/history');
+    await page.goto('/#/history');
     await expect(page.locator('#auth-backdrop')).toBeVisible();
 
     await page.click('#auth-switch');
@@ -189,7 +190,7 @@ test.describe('route guard', () => {
 
 test.describe('admin', () => {
   test('verified configured admin can open user management', async ({ page }) => {
-    await page.goto('/?auth=account');
+    await page.goto('/');
     await page.click('#hero-start');
     await page.fill('input[name="name"]', 'PARADOX Admin');
     await page.fill('input[name="email"]', 'admin@paradox.ai');

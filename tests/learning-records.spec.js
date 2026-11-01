@@ -112,6 +112,8 @@ test('learning records persist sessions, revisions, analysis and reloadable hist
   const hintInput = { mode: 'hint', problem: 'Solve 2x = 8', solution: 'x = 6', question: 'Give me one hint.', hintLevel: 1 };
   const hintAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: created.submission.id, userId: LEARNER.id, input: hintInput });
   await service.recordAiResult({ authorized: hintAuthorization, input: hintInput, result: { status: 'incorrect', summary: 'Review division.', hint: { level: 1, content: 'Divide both sides by 2.' }, reply: '' }, model: 'test-model' });
+  const nextHintAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: created.submission.id, userId: LEARNER.id, input: { ...hintInput, hintLevel: 2 } });
+  expect(nextHintAuthorization.servedHints).toEqual([{ level: 1, content: 'Divide both sides by 2.' }]);
 
   const discussionInput = { mode: 'discuss', problem: 'Solve 2x = 8', solution: 'x = 6', question: 'Why divide by 2?', hintLevel: 0 };
   const discussionAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: created.submission.id, userId: LEARNER.id, input: discussionInput });

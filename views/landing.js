@@ -48,19 +48,9 @@ export const landingViews = {
     const forgot = this.authMode === 'forgot';
     const reset = this.authMode === 'reset';
     const localEntry = this.querySelector('#auth-local');
-    const localOnly = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).get('auth') !== 'account';
-    this.querySelector('.auth-panel')?.classList.toggle('local-only', localOnly);
-    if (localEntry) localEntry.hidden = !localOnly || !['login', 'signup'].includes(this.authMode);
-    if (localEntry) localEntry.textContent = this.t('authLocalEntry');
-    if (localOnly) {
-      this.querySelector('#auth-title').textContent = this.t('authLocalTitle');
-      this.querySelector('.auth-subtitle').textContent = this.t('authLocalSubtitle');
-      this.querySelector('#auth-form').hidden = true;
-      this.querySelector('#auth-switch').hidden = true;
-      this.querySelector('#auth-forgot').hidden = true;
-      this.querySelector('#auth-resend').hidden = true;
-      this.querySelector('#auth-demo-code').textContent = '';
-      return;
+    if (localEntry) {
+      localEntry.hidden = !['localhost', '127.0.0.1'].includes(location.hostname) || !['login', 'signup'].includes(this.authMode);
+      localEntry.textContent = this.t('authLocalEntry');
     }
     this.querySelector('#auth-form').hidden = false;
     this.querySelector('#auth-title').textContent = reset ? this.t('authResetTitle') : forgot ? this.t('authForgotTitle') : otp ? this.t('authOtpTitle') : signup ? text.signupTitle : text.loginTitle;
