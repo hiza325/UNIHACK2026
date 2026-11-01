@@ -44,6 +44,10 @@ export const routerMethods = {
   },
   async logout() {
     try { await this.requestServerAuth('logout', {}); } catch { /* Always clear the browser session. */ }
+    if (localStorage.getItem('paradox-local-server') === '1') {
+      localStorage.removeItem('paradox-local-server');
+      try { await fetch('/api/auth/local', { method: 'DELETE', credentials: 'same-origin' }); } catch { /* Always clear the browser session. */ }
+    }
     localStorage.removeItem('paradox-session');
     this.resetInMemoryUserData();
     this.user = null;

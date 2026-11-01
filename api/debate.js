@@ -95,6 +95,7 @@ function compactPreviousAnalysis(value) {
     status: STATUSES.has(value.status) ? value.status : 'insufficient',
     summary: text(value.summary, 700),
     confidence: Number.isFinite(Number(value.confidence)) ? Number(value.confidence) : 0.5,
+    nextQuestion: text(value.nextQuestion, 400),
     issues: Array.isArray(value.issues) ? value.issues.slice(0, 8).map(issue => ({
       category: CATEGORIES.has(issue?.category) ? issue.category : 'logic',
       step: text(issue?.step, 180),
@@ -160,6 +161,16 @@ function validateEvaluation(raw, context, analysisStatus, confidence) {
   };
 }
 
+function previousAnalysisNextQuestion(compact) {
+  if (!compact || typeof compact !== 'string') return '';
+  try {
+    const data = JSON.parse(compact);
+    return typeof data?.nextQuestion === 'string' ? data.nextQuestion.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
 export function validateDebateAnalysis(raw, context = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw Object.assign(new Error('AI output must be an object'), { status: 502, code: 'INVALID_OUTPUT' });
   if (!STATUSES.has(raw.status)) throw Object.assign(new Error('AI output has an invalid status'), { status: 502, code: 'INVALID_OUTPUT' });
@@ -197,6 +208,13 @@ export function validateDebateAnalysis(raw, context = {}) {
     };
   }
   const confidence = Math.max(0, Math.min(1, Number.isFinite(Number(raw.confidence)) ? Number(raw.confidence) : 0.5));
+  const nextQuestion = safeOutputText(raw.nextQuestion, 'nextQuestion', 800, false);
+  if (nextQuestion) {
+    const priorQuestions = [...(context.previousQuestions || []), previousAnalysisNextQuestion(context.previousAnalysis)];
+    if (priorQuestions.some(prior => prior && normalizedComparableText(prior) === normalizedComparableText(nextQuestion))) {
+      throw Object.assign(new Error('AI output repeated a previous question'), { status: 502, code: 'INVALID_OUTPUT' });
+    }
+  }
   const evaluation = validateEvaluation(raw.evaluation, context, raw.status, confidence);
   return {
     status: raw.status,
@@ -204,7 +222,7 @@ export function validateDebateAnalysis(raw, context = {}) {
     confidence,
     issues,
     strengths: Array.isArray(raw.strengths) ? raw.strengths.slice(0, 5).map(value => safeOutputText(value, 'strength', 500)).filter(Boolean) : [],
-    nextQuestion: safeOutputText(raw.nextQuestion, 'nextQuestion', 800, false),
+    nextQuestion,
     reply: safeOutputText(raw.reply, 'reply', 1800, context.mode === 'discuss'),
     hint,
     comparison,
@@ -226,6 +244,7 @@ export function normalizeDebatePayload(payload) {
   const previousHints = Array.isArray(payload?.previousHints) ? payload.previousHints.slice(0, 3).map(value => optionalText(typeof value === 'string' ? value : value?.content, 1400)).filter(Boolean) : [];
   if (mode === 'hint' && hintLevel > previousHints.length + 1) throw inputError('Hint level must follow the previous hint level');
   const previousSolution = optionalText(payload?.previousSolution, 16000);
+  const previousQuestions = Array.isArray(payload?.previousQuestions) ? payload.previousQuestions.slice(0, 10).map(value => optionalText(typeof value === 'string' ? value : value?.question || value?.nextQuestion, 800)).filter(Boolean) : [];
   const question = optionalText(payload?.question, 1200);
   if (mode === 'resubmit' && !previousSolution) throw inputError('Previous solution is required for resubmission');
   if (['discuss', 'hint'].includes(mode) && !question) throw inputError('A follow-up question is required');
@@ -240,12 +259,13 @@ export function normalizeDebatePayload(payload) {
     conversation,
     previousHints,
     previousSolution,
+    previousQuestions,
     attemptNumber: Math.max(1, Math.min(1000, Math.round(Number(payload?.attemptNumber) || 1))),
   };
 }
 
 function debateUserContent(input) {
-  return `<mode>${input.mode}</mode>\n<problem>\n${input.problem}\n</problem>\n<learner_solution>\n${input.solution}\n</learner_solution>${input.previousSolution ? `\n<previous_solution>${input.previousSolution}</previous_solution>` : ''}${input.previousAnalysis ? `\n<previous_analysis>${input.previousAnalysis}</previous_analysis>` : ''}${input.conversation.length ? `\n<conversation_history>${JSON.stringify(input.conversation)}</conversation_history>` : ''}${input.previousHints.length ? `\n<prior_hints>${JSON.stringify(input.previousHints)}</prior_hints>` : ''}${input.hintLevel ? `\n<requested_hint_level>${input.hintLevel}</requested_hint_level>` : ''}${input.question ? `\n<follow_up_question>${input.question}</follow_up_question>` : ''}`;
+  return `<mode>${input.mode}</mode>\n<problem>\n${input.problem}\n</problem>\n<learner_solution>\n${input.solution}\n</learner_solution>${input.previousSolution ? `\n<previous_solution>${input.previousSolution}</previous_solution>` : ''}${input.previousAnalysis ? `\n<previous_analysis>${input.previousAnalysis}</previous_analysis>` : ''}${input.conversation.length ? `\n<conversation_history>${JSON.stringify(input.conversation)}</conversation_history>` : ''}${input.previousHints.length ? `\n<prior_hints>${JSON.stringify(input.previousHints)}</prior_hints>` : ''}${input.previousQuestions.length ? `\n<prior_questions>${JSON.stringify(input.previousQuestions)}</prior_questions>` : ''}${input.hintLevel ? `\n<requested_hint_level>${input.hintLevel}</requested_hint_level>` : ''}${input.question ? `\n<follow_up_question>${input.question}</follow_up_question>` : ''}`;
 }
 
 function debateSystemPrompt(language) {
@@ -271,12 +291,20 @@ export async function createDebateAnalysisWithMeta(payload, options = {}) {
     maxRetries: options.maxRetries,
     retryDelayMs: options.retryDelayMs,
   });
-  const context = { mode: input.mode, hintLevel: input.hintLevel, previousHints: input.previousHints };
+  const context = {
+    mode: input.mode,
+    hintLevel: input.hintLevel,
+    previousHints: input.previousHints,
+    previousQuestions: input.previousQuestions,
+    previousAnalysis: input.previousAnalysis,
+  };
   const result = await gateway.complete({
     systemPrompt: debateSystemPrompt(input.language),
     userPrompt: debateUserContent(input),
     temperature: 0.1,
-    maxOutputTokens: 2200,
+    // Resubmissions carry the comparison plus the full rubric evaluation; the
+    // larger budget keeps that JSON from being cut mid-object.
+    maxOutputTokens: input.mode === 'resubmit' ? 3000 : 2200,
     json: true,
     validate: text => validateDebateAnalysis(parseJsonContent(text), context),
   });

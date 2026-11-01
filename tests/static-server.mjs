@@ -11,6 +11,7 @@ import loginHandler from '../api/auth/login.js';
 import resendHandler from '../api/auth/resend.js';
 import sessionHandler from '../api/auth/session.js';
 import logoutHandler from '../api/auth/logout.js';
+import localAuthHandler from '../api/auth/local.js';
 import adminUsersHandler from '../api/admin/users.js';
 import debateHandler from '../api/debate.js';
 import credentialsHandler from '../api/credentials/index.js';
@@ -54,6 +55,7 @@ const API_HANDLERS = new Map([
   ['/api/auth/otp', otpHandler],
   ['/api/auth/login', loginHandler], ['/api/auth/resend', resendHandler],
   ['/api/auth/session', sessionHandler], ['/api/auth/logout', logoutHandler],
+  ['/api/auth/local', localAuthHandler],
   ['/api/admin/users', adminUsersHandler],
   ['/api/debate', debateHandler],
   ['/api/ai/status', debateHandler],

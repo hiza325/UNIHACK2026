@@ -1,4 +1,3 @@
-import { ADMIN_EMAILS } from './app-config.js';
 import { DISPLAY_TIME_ZONE, deriveAchievements, learningRecordDataState, passportDataState, summarizeLearningData } from './learning-data.js';
 
 const ACCOUNT_KEY = 'paradox-accounts';
@@ -22,7 +21,7 @@ export const dataMethods = {
   },
   publicAccount(account) {
     const email = this.normalizeEmail(account.email);
-    return { id: account.id, name: account.name, email, role: ADMIN_EMAILS.includes(email) ? 'admin' : (account.role || 'user'), status: account.status || 'active', createdAt: account.createdAt, verifiedAt: account.verifiedAt, lastLoginAt: account.lastLoginAt || null };
+    return { id: account.id, name: account.name, email, role: account.role || 'user', status: account.status || 'active', createdAt: account.createdAt, verifiedAt: account.verifiedAt, lastLoginAt: account.lastLoginAt || null };
   },
   async registerAccount({ name, email, password }) {
     const normalizedEmail = this.normalizeEmail(email);
@@ -36,7 +35,9 @@ export const dataMethods = {
       email: normalizedEmail,
       passwordHash: await this.hashPassword(password, salt),
       salt,
-      role: ADMIN_EMAILS.includes(normalizedEmail) ? 'admin' : 'user',
+      // Client-side accounts are never administrators; admin roles come only
+      // from the server session (app_metadata or ADMIN_EMAILS environment).
+      role: 'user',
       status: 'active',
       createdAt: now,
       verifiedAt: now,

@@ -73,6 +73,30 @@ export const actionMethods = {
         localStorage.removeItem('paradox-session');
       }
     }
+    await this.restoreLocalServerSession();
+  },
+  async restoreLocalServerSession() {
+    if (!['localhost', '127.0.0.1'].includes(location.hostname)) return;
+    if (localStorage.getItem('paradox-local-server') !== '1') return;
+    try {
+      const data = await this.requestLocalAuth('GET');
+      if (data?.available && data.user) {
+        if (this.authProvider !== 'remote') {
+          this.authProvider = 'local';
+          this.user = data.user;
+          localStorage.setItem('paradox-session', JSON.stringify(data.user));
+        }
+      } else {
+        localStorage.removeItem('paradox-local-server');
+        if (this.authProvider !== 'remote') {
+          this.user = null;
+          localStorage.removeItem('paradox-session');
+        }
+      }
+    } catch {
+      // The server owns the session state; on a network error keep the stored
+      // session until the next periodic check.
+    }
   },
   async checkRemoteSession() {
     if (!this.user || this.authProvider !== 'remote' || this.authSessionCheckPending) return;
@@ -274,20 +298,41 @@ export const actionMethods = {
     this.authDemoCode = '';
     this.navigate(target);
   },
-  async enterLocalSession() {
-    const email = this.normalizeEmail('local@paradox.test');
-    const existing = this.getAccounts().find(account => this.normalizeEmail(account.email) === email);
-    let account = existing;
-    if (!account) {
-      const created = await this.registerAccount({
-        name: this.t('authLocalName'),
-        email,
-        password: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
-      });
-      account = this.getAccounts().find(item => item.id === created.id) || created;
+  async requestLocalAuth(method = 'GET') {
+    const response = await fetch('/api/auth/local', { method, credentials: 'same-origin' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data.error || this.t('authLocalNotConfigured'));
+      error.status = response.status;
+      error.code = data.code || '';
+      throw error;
     }
-    this.authProvider = 'local';
-    await this.completeAuthentication(this.publicAccount(account));
+    return data;
+  },
+  async enterLocalSession() {
+    if (!['localhost', '127.0.0.1'].includes(location.hostname)) return;
+    const error = this.querySelector('#auth-error');
+    error.textContent = '';
+    this.setAuthLoading(true);
+    try {
+      // The server decides whether local sign-in is configured; the button is
+      // only a shortcut. When it is not configured, show a clear message and
+      // never fall back to a client-created account.
+      const availability = await this.requestLocalAuth('GET');
+      if (!availability?.available) {
+        error.textContent = this.t('authLocalNotConfigured');
+        return;
+      }
+      const result = await this.requestLocalAuth('POST');
+      if (!result?.user) throw new Error(this.t('authLocalNotConfigured'));
+      this.authProvider = 'local';
+      localStorage.setItem('paradox-local-server', '1');
+      await this.completeAuthentication(result.user);
+    } catch (requestError) {
+      error.textContent = requestError.message || this.t('authLocalNotConfigured');
+    } finally {
+      this.setAuthLoading(false);
+    }
   },
   hydrateFilePreviews() {
     ['problem', 'work'].forEach(async type => {
@@ -456,7 +501,8 @@ export const actionMethods = {
     if (initialSubmit) initialSubmit.hidden = Boolean(this.auditResult);
   },
   ensureDebateSession() {
-    if (!this.debateSession || typeof this.debateSession !== 'object') this.debateSession = { revisionCount: 0, hintLevel: 0, hints: [], attempts: [], conversation: [] };
+    if (!this.debateSession || typeof this.debateSession !== 'object') this.debateSession = { revisionCount: 0, hintLevel: 0, hints: [], attempts: [], conversation: [], questions: [] };
+    if (!Array.isArray(this.debateSession.questions)) this.debateSession.questions = [];
     return this.debateSession;
   },
   async startAudit() {
@@ -481,7 +527,7 @@ export const actionMethods = {
     this.auditText = solution;
     if (mode === 'analyze') {
       this.auditResult = null;
-      this.debateSession = { revisionCount: 0, hintLevel: 0, hints: [], attempts: [], conversation: [] };
+      this.debateSession = { revisionCount: 0, hintLevel: 0, hints: [], attempts: [], conversation: [], questions: [] };
       if (!this.learningRecordsService?.enabled) this.recordAuditSession(`${problem}\n${solution}`);
     }
     const activeSession = this.ensureDebateSession();
@@ -500,6 +546,7 @@ export const actionMethods = {
         previousAnalysis: mode === 'resubmit' ? previousAttempt.analysis : null,
         conversation: activeSession.conversation,
         previousHints: activeSession.hints,
+        previousQuestions: activeSession.questions,
         attemptNumber: mode === 'resubmit' ? (this.learningRecordPendingRevision?.attemptNumber || activeSession.revisionCount + 2) : 1,
         ...(learningRecord ? { learningRecord } : {}),
       });
@@ -514,6 +561,7 @@ export const actionMethods = {
       activeSession.attempts = activeSession.attempts.slice(-10);
       activeSession.conversation.push({ role: 'assistant', text: result.summary });
       activeSession.conversation = activeSession.conversation.slice(-40);
+      if (result.nextQuestion) { activeSession.questions.push(result.nextQuestion); activeSession.questions = activeSession.questions.slice(-10); }
       this.advance(result.status === 'correct' ? 5 : result.status === 'incorrect' ? 2 : 1);
       this.appendMessage(this.escape(result.summary));
       this.updateDebateResult();
@@ -541,12 +589,13 @@ export const actionMethods = {
     this.setAnalyzing(true);
     try {
       const learningRecord = this.currentLearningRecordContext();
-      const result = await requestDebateAnalysis({ mode: 'discuss', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: value, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints, ...(learningRecord ? { learningRecord } : {}) });
+      const result = await requestDebateAnalysis({ mode: 'discuss', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: value, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints, previousQuestions: session.questions, ...(learningRecord ? { learningRecord } : {}) });
       // A discuss turn answers in "reply"; its own status/issues are only context
       // and must not replace the assessment the learner is looking at.
       const reply = result.reply || result.summary;
       session.conversation.push({ role: 'assistant', text: reply });
       session.conversation = session.conversation.slice(-40);
+      if (result.nextQuestion) { session.questions.push(result.nextQuestion); session.questions = session.questions.slice(-10); }
       this.appendMessage(this.escape(reply));
       this.updateDebateResult();
       this.addReplies();
@@ -570,12 +619,13 @@ export const actionMethods = {
     this.setAnalyzing(true);
     try {
       const learningRecord = this.currentLearningRecordContext();
-      const result = await requestDebateAnalysis({ mode: 'hint', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: requestText, hintLevel: nextLevel, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints, ...(learningRecord ? { learningRecord } : {}) });
+      const result = await requestDebateAnalysis({ mode: 'hint', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: requestText, hintLevel: nextLevel, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints, previousQuestions: session.questions, ...(learningRecord ? { learningRecord } : {}) });
       const hint = result.hint;
       if (!hint || hint.level !== nextLevel) throw Object.assign(new Error('Invalid hint'), { code: 'INVALID_OUTPUT' });
       session.hintLevel = nextLevel;
       session.hints.push(hint);
       session.hints = session.hints.slice(0, 3);
+      if (result.nextQuestion) { session.questions.push(result.nextQuestion); session.questions = session.questions.slice(-10); }
       const reply = hint.content;
       session.conversation.push({ role: 'assistant', text: reply });
       session.conversation = session.conversation.slice(-40);
@@ -606,13 +656,14 @@ export const actionMethods = {
     const messages = this.querySelector('#messages');
     if (!messages) return;
     messages.querySelectorAll('.quick-replies').forEach(el => el.remove());
-    const wrap = document.createElement('div'); wrap.className = 'quick-replies'; wrap.innerHTML = `<button class="reply-chip" data-action="hint">${this.lang === 'en' ? 'I need a hint' : this.lang === 'jp' ? 'ヒントがほしい' : 'Mình cần gợi ý'}</button><button class="reply-chip" data-action="explain">${this.lang === 'en' ? 'Explain the next step' : this.lang === 'jp' ? '次のステップを説明して' : 'Giải thích bước tiếp theo'}</button><button class="reply-chip" data-action="practice">${this.lang === 'en' ? 'Give me a similar problem' : this.lang === 'jp' ? '似た問題を出して' : 'Cho bài tương tự'}</button>`;
+    const wrap = document.createElement('div'); wrap.className = 'quick-replies'; wrap.innerHTML = `<button class="reply-chip" data-action="hint">${this.lang === 'en' ? 'I need a hint' : this.lang === 'jp' ? 'ヒントがほしい' : 'Mình cần gợi ý'}</button><button class="reply-chip" data-action="explain">${this.lang === 'en' ? 'Explain the next step' : this.lang === 'jp' ? '次のステップを説明して' : 'Giải thích bước tiếp theo'}</button><button class="reply-chip" data-action="practice">${this.lang === 'en' ? 'Give me a similar problem' : this.lang === 'jp' ? '似た問題を出して' : 'Cho bài tương tự'}</button><button class="reply-chip" data-action="rescue">${this.lang === 'en' ? 'Rescue' : this.lang === 'jp' ? '解説を見る' : 'Cứu trợ'}</button>`;
     const questions = {
       hint: this.lang === 'en' ? 'Give me one hint without revealing the answer.' : this.lang === 'jp' ? '答えを明かさずにヒントを一つください。' : 'Cho mình một gợi ý nhưng chưa tiết lộ đáp án.',
       explain: this.lang === 'en' ? 'Ask me a question that helps me find the next step without giving the complete answer.' : this.lang === 'jp' ? '完全な答えを出さず、次のステップを見つける質問をしてください。' : 'Hãy hỏi để giúp mình tìm bước tiếp theo mà chưa đưa đáp án hoàn chỉnh.',
       practice: this.lang === 'en' ? 'Suggest one similar practice problem.' : this.lang === 'jp' ? '似た練習問題を一つ提案してください。' : 'Gợi ý một bài luyện tập tương tự.',
+      rescue: this.lang === 'en' ? 'Please show me the full reference solution with its reasoning and a credible source.' : this.lang === 'jp' ? '出典付きの完全な解答例とその考え方を見せてください。' : 'Cho mình xem lời giải tham khảo đầy đủ kèm lập luận và nguồn đáng tin cậy.',
     };
-    wrap.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', () => { const action = btn.dataset.action; wrap.remove(); if (action === 'hint') this.requestDebateHint(); else this.sendMessage(questions[action]); }));
+    wrap.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', async () => { const action = btn.dataset.action; wrap.remove(); if (action === 'hint') { this.requestDebateHint(); return; } await this.sendMessage(questions[action]); if (action === 'rescue') this.advance(5); }));
     messages.append(wrap);
   },
   appendMessage(html, user = false) {
