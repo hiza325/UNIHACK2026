@@ -203,7 +203,7 @@ function debateSystemPrompt(language) {
 
 /**
  * Runs the multi-step PARADOX debate through the shared AI gateway.
- * Gemini answers first; AnyRouter is the fallback. They are only used when the
+ * Groq answers first; Gemini is the fallback. They are only used when the
  * previous provider is missing, fails, times out, or returns output that fails
  * schema validation. The Socratic rules in DEBATE_PROMPT are always sent from
  * the server and are never client-supplied.

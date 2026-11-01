@@ -2,7 +2,7 @@
  * Shared server-only AI gateway for AI Learning.
  *
  * Responsibilities:
- * - resolve provider order (Groq primary, Gemini fallback, AnyRouter last resort,
+ * - resolve provider order (Groq primary, Gemini fallback,
  *   optional AI_PROVIDER_ORDER override);
  * - read API keys from environment variables only and never expose them downstream;
  * - enforce a per-attempt timeout and a bounded total deadline;
@@ -12,7 +12,7 @@
  * - return normalised provenance metadata and redact secrets from every error surface.
  */
 
-import { AI_PROVIDERS, findAiProvider, GROQ_PRIMARY_API_KEY_ENV, GROQ_SECONDARY_API_KEY_ENV, GEMINI_PRIMARY_API_KEY_ENV, GEMINI_SECONDARY_API_KEY_ENV, ANYROUTER_PRIMARY_API_KEY_ENV, ANYROUTER_SECONDARY_API_KEY_ENV } from './providers.js';
+import { AI_PROVIDERS, findAiProvider, GROQ_PRIMARY_API_KEY_ENV, GROQ_SECONDARY_API_KEY_ENV, GEMINI_PRIMARY_API_KEY_ENV, GEMINI_SECONDARY_API_KEY_ENV } from './providers.js';
 
 export const AI_GATEWAY_DEFAULTS = Object.freeze({
   timeoutMs: 25000,
@@ -64,7 +64,7 @@ function redact(text, env) {
     if (value.length >= 8) output = output.split(value).join('[redacted]');
   }
   for (const keyName of Object.keys(env || {})) {
-    if (/^(GROQ_API_KEY|GEMINI_API_KEY|ANYROUTER_LEARNING_API_KEY)(?:_\d+)?$/.test(keyName)) {
+    if (/^(GROQ_API_KEY|GEMINI_API_KEY)(?:_\d+)?$/.test(keyName)) {
       const value = String(env?.[keyName] || '').trim();
       if (value.length >= 8) output = output.split(value).join('[redacted]');
     }
@@ -140,7 +140,6 @@ export function describeAiProviderStatus({ env = process.env, providers = AI_PRO
   const fallback = described.length > 1 ? described[described.length - 1] : null;
   const groqKeysConfigured = Object.keys(env || {}).filter(name => /^GROQ_API_KEY(?:_\d+)?$/.test(name) && String(env?.[name] || '').trim().length > 0).length;
   const geminiKeysConfigured = Object.keys(env || {}).filter(name => /^GEMINI_API_KEY(?:_\d+)?$/.test(name) && String(env?.[name] || '').trim().length > 0).length;
-  const anyrouterKeysConfigured = Object.keys(env || {}).filter(name => /^ANYROUTER_LEARNING_API_KEY(?:_\d+)?$/.test(name) && String(env?.[name] || '').trim().length > 0).length;
   return {
     ready: entries.some(entry => entry.configured),
     order: entries.map(entry => entry.provider.id),
@@ -165,14 +164,6 @@ export function describeAiProviderStatus({ env = process.env, providers = AI_PRO
     },
     geminiKeyCount: geminiKeysConfigured,
     geminiBackupKeyConfigured: geminiKeysConfigured > 1,
-    anyrouterKeys: {
-      activeEnv: ANYROUTER_PRIMARY_API_KEY_ENV,
-      configuredCount: anyrouterKeysConfigured,
-      backupEnv: ANYROUTER_SECONDARY_API_KEY_ENV,
-      backupConfigured: anyrouterKeysConfigured > 1,
-    },
-    anyrouterKeyCount: anyrouterKeysConfigured,
-    anyrouterBackupKeyConfigured: anyrouterKeysConfigured > 1,
   };
 }
 
