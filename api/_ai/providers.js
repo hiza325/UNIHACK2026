@@ -4,49 +4,129 @@
  * Only the variable NAMES live here; actual key values come from process.env.
  *
  * Order is intentional:
- *   1. Gemini      — primary
- *   2. AnyRouter   — fallback
+ *   1. GroqCloud      — primary
+ *   2. Cloudflare     — fallback
+ *   3. Gemini         — optional legacy provider
+ *   4. AnyRouter       — optional legacy fallback
  *
- * AnyRouter uses a dedicated AI Learning key so it cannot consume or expose the
- * key used by the website support widget (ANYROUTER_API_KEY).
+ * AI_PROVIDER_ORDER can override this order at runtime.
  */
-
 export const AI_PROVIDER_ENV = Object.freeze({
+  groq: Object.freeze({ apiKey: 'GROQ_API_KEY', model: 'GROQ_MODEL' }),
+  cloudflare: Object.freeze({ apiKey: 'CLOUDFLARE_API_TOKEN', model: 'CLOUDFLARE_AI_MODEL', accountId: 'CLOUDFLARE_ACCOUNT_ID' }),
   gemini: Object.freeze({ apiKey: 'GEMINI_API_KEY', model: 'GEMINI_MODEL' }),
   anyrouter: Object.freeze({ apiKey: 'ANYROUTER_LEARNING_API_KEY', model: 'ANYROUTER_LEARNING_MODEL' }),
 });
 
-// Gemini may be configured with a primary key and an optional second key for a
-// separate project/environment. The gateway deliberately uses only the primary
-// key; the second key is never rotated into a request to bypass quota.
+export const GROQ_PRIMARY_API_KEY_ENV = 'GROQ_API_KEY';
+export const GROQ_SECONDARY_API_KEY_ENV = 'GROQ_API_KEY_2';
+export const CLOUDFLARE_ACCOUNT_ID_ENV = 'CLOUDFLARE_ACCOUNT_ID';
+export const CLOUDFLARE_API_TOKEN_ENV = 'CLOUDFLARE_API_TOKEN';
+export const CLOUDFLARE_API_TOKEN_SECONDARY_ENV = 'CLOUDFLARE_API_TOKEN_2';
 export const GEMINI_PRIMARY_API_KEY_ENV = 'GEMINI_API_KEY';
 export const GEMINI_SECONDARY_API_KEY_ENV = 'GEMINI_API_KEY_2';
-
-// AnyRouter uses a dedicated AI Learning key so it cannot consume or expose the
-// key used by the website support widget (ANYROUTER_API_KEY). A second learning
-// key may be stored for a separate project/environment, but it is not rotated.
 export const ANYROUTER_PRIMARY_API_KEY_ENV = 'ANYROUTER_LEARNING_API_KEY';
 export const ANYROUTER_SECONDARY_API_KEY_ENV = 'ANYROUTER_LEARNING_API_KEY_2';
 
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
-const ANYROUTER_API_URL = 'https://anyrouter.dev/api/v1/chat/completions';
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const CLOUDFLARE_API_BASE = 'https://api.cloudflare.com/client/v4/accounts';
 
-function geminiEndpoint(model) {
-  return `${GEMINI_API_BASE}/${encodeURIComponent(model)}:generateContent`;
+function groqConfigured({ apiKey }) {
+  return apiKey.length > 0;
+}
+
+function cloudflareConfigured({ apiKey, accountId }) {
+  return apiKey.length > 0 && accountId.length > 0;
 }
 
 export const AI_PROVIDERS = Object.freeze([
   Object.freeze({
+    id: 'groq',
+    label: 'GroqCloud',
+    role: 'primary',
+    apiKeyEnv: AI_PROVIDER_ENV.groq.apiKey,
+    modelEnv: AI_PROVIDER_ENV.groq.model,
+    accountIdEnv: null,
+    isConfigured: groqConfigured,
+    defaultModel: 'llama-3.3-70b-versatile',
+    docsUrl: 'https://console.groq.com/docs/models',
+    buildRequest({ apiKey, model, systemPrompt, userPrompt, temperature, maxOutputTokens, json }) {
+      return {
+        url: GROQ_API_URL,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature,
+          max_tokens: maxOutputTokens,
+          ...(json ? { response_format: { type: 'json_object' } } : {}),
+        }),
+      };
+    },
+    extractText(data) {
+      const content = data?.choices?.[0]?.message?.content;
+      return typeof content === 'string' ? content : '';
+    },
+    extractError(data) {
+      return data?.error?.message || data?.message || '';
+    },
+  }),
+  Object.freeze({
+    id: 'cloudflare',
+    label: 'Cloudflare Workers AI',
+    role: 'fallback',
+    apiKeyEnv: AI_PROVIDER_ENV.cloudflare.apiKey,
+    modelEnv: AI_PROVIDER_ENV.cloudflare.model,
+    accountIdEnv: AI_PROVIDER_ENV.cloudflare.accountId,
+    isConfigured: cloudflareConfigured,
+    defaultModel: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    docsUrl: 'https://developers.cloudflare.com/workers-ai/models/',
+    buildRequest({ apiKey, model, accountId, systemPrompt, userPrompt, temperature, maxOutputTokens, json }) {
+      return {
+        url: `${CLOUDFLARE_API_BASE}/${encodeURIComponent(accountId)}/ai/v1/chat/completions`,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature,
+          max_tokens: maxOutputTokens,
+          ...(json ? { response_format: { type: 'json_object' } } : {}),
+        }),
+      };
+    },
+    extractText(data) {
+      const content = data?.choices?.[0]?.message?.content || data?.result?.response;
+      return typeof content === 'string' ? content : '';
+    },
+    extractError(data) {
+      return data?.errors?.[0]?.message || data?.error?.message || data?.message || '';
+    },
+  }),
+  Object.freeze({
     id: 'gemini',
     label: 'Google Gemini',
-    role: 'primary',
+    role: 'optional',
     apiKeyEnv: AI_PROVIDER_ENV.gemini.apiKey,
     modelEnv: AI_PROVIDER_ENV.gemini.model,
+    accountIdEnv: null,
+    isConfigured: groqConfigured,
     defaultModel: 'gemini-3.5-flash',
     docsUrl: 'https://ai.google.dev/gemini-api/docs/api-key',
     buildRequest({ apiKey, model, systemPrompt, userPrompt, temperature, maxOutputTokens, json }) {
       return {
-        url: geminiEndpoint(model),
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         headers: {
           'Content-Type': 'application/json',
           'x-goog-api-key': apiKey,
@@ -74,14 +154,16 @@ export const AI_PROVIDERS = Object.freeze([
   Object.freeze({
     id: 'anyrouter',
     label: 'AnyRouter',
-    role: 'fallback',
+    role: 'optional',
     apiKeyEnv: AI_PROVIDER_ENV.anyrouter.apiKey,
     modelEnv: AI_PROVIDER_ENV.anyrouter.model,
+    accountIdEnv: null,
+    isConfigured: groqConfigured,
     defaultModel: 'anyrouter/free',
     docsUrl: 'https://docs.anyrouter.dev/api-reference/chat-completions',
     buildRequest({ apiKey, model, systemPrompt, userPrompt, temperature, maxOutputTokens, json }) {
       return {
-        url: ANYROUTER_API_URL,
+        url: 'https://anyrouter.dev/api/v1/chat/completions',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,

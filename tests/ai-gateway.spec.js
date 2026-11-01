@@ -155,8 +155,8 @@ test('An unconfigured gateway fails fast without any network request', async () 
 
   expect(error).toMatchObject({ code: 'NOT_CONFIGURED', status: 503 });
   expect(error.details.ready).toBe(false);
-  expect(error.details.missingEnv).toEqual(['GEMINI_API_KEY', 'ANYROUTER_LEARNING_API_KEY']);
-  expect(error.details.primary).toMatchObject({ id: 'gemini', configured: false, requiredEnv: 'GEMINI_API_KEY' });
+  expect(error.details.missingEnv).toEqual(['GROQ_API_KEY', 'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'GEMINI_API_KEY', 'ANYROUTER_LEARNING_API_KEY']);
+  expect(error.details.primary).toMatchObject({ id: 'groq', configured: false, requiredEnv: 'GROQ_API_KEY' });
   expect(error.details.fallback).toMatchObject({ id: 'anyrouter', configured: false, requiredEnv: 'ANYROUTER_LEARNING_API_KEY' });
   expect(networkCalls).toBe(0);
 });
@@ -258,13 +258,13 @@ test('Readiness diagnostics expose only provider names and booleans', () => {
   const unconfigured = describeAiProviderStatus({ env: {} });
   expect(unconfigured).toMatchObject({
     ready: false,
-    order: ['gemini', 'anyrouter'],
+    order: ['groq', 'cloudflare', 'gemini', 'anyrouter'],
     configured: [],
-    missingEnv: ['GEMINI_API_KEY', 'ANYROUTER_LEARNING_API_KEY'],
+    missingEnv: ['GROQ_API_KEY', 'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'GEMINI_API_KEY', 'ANYROUTER_LEARNING_API_KEY'],
   });
-  expect(unconfigured.primary).toMatchObject({ id: 'gemini', role: 'primary', configured: false, model: 'gemini-3.5-flash' });
-  expect(unconfigured.fallback).toMatchObject({ id: 'anyrouter', role: 'fallback', configured: false, model: 'anyrouter/free' });
-  expect(unconfigured.providers.map(provider => provider.id)).toEqual(['gemini', 'anyrouter']);
+  expect(unconfigured.primary).toMatchObject({ id: 'groq', role: 'primary', configured: false, model: 'llama-3.3-70b-versatile' });
+  expect(unconfigured.fallback).toMatchObject({ id: 'anyrouter', role: 'optional', configured: false, model: 'anyrouter/free' });
+  expect(unconfigured.providers.map(provider => provider.id)).toEqual(['groq', 'cloudflare', 'gemini', 'anyrouter']);
   expect(unconfigured.geminiKeyCount).toBe(0);
   expect(unconfigured.geminiBackupKeyConfigured).toBe(false);
   expect(unconfigured.anyrouterKeyCount).toBe(0);
@@ -287,7 +287,7 @@ test('Readiness diagnostics expose only provider names and booleans', () => {
   expect(twoAnyRouterKeys.anyrouterBackupKeyConfigured).toBe(true);
 
   const configured = describeAiProviderStatus({ env: { ANYROUTER_LEARNING_API_KEY: ANYROUTER_KEY } });
-  expect(configured).toMatchObject({ ready: true, configured: ['anyrouter'], missingEnv: ['GEMINI_API_KEY'] });
+  expect(configured).toMatchObject({ ready: true, configured: ['anyrouter'], missingEnv: ['GROQ_API_KEY', 'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'GEMINI_API_KEY'] });
   expect(configured.fallback).toMatchObject({ id: 'anyrouter', configured: true });
   expect(JSON.stringify(configured)).not.toContain(ANYROUTER_KEY);
 
@@ -359,6 +359,13 @@ test('Debate keeps the multi-step Socratic flow for every mode through the gatew
 
 test('Provider schemas stay server-side only and never reach browser bundles', () => {
   const serverOnlyMarkers = [
+    'GROQ_API_KEY',
+    'GROQ_API_KEY_2',
+    'GROQ_MODEL',
+    'CLOUDFLARE_ACCOUNT_ID',
+    'CLOUDFLARE_API_TOKEN',
+    'CLOUDFLARE_API_TOKEN_2',
+    'CLOUDFLARE_AI_MODEL',
     'GEMINI_API_KEY',
     'GEMINI_API_KEY_2',
     'GEMINI_API_KEY_3',
@@ -367,6 +374,8 @@ test('Provider schemas stay server-side only and never reach browser bundles', (
     'ANYROUTER_LEARNING_API_KEY_3',
     'GEMINI_MODEL',
     'ANYROUTER_LEARNING_MODEL',
+    'api.groq.com',
+    'api.cloudflare.com',
     'generativelanguage.googleapis.com',
     'anyrouter.dev',
     'x-goog-api-key',
@@ -394,10 +403,10 @@ test('Provider schemas stay server-side only and never reach browser bundles', (
   expect(html).not.toContain('process.env');
 });
 
-test('Provider catalogue defines Gemini and AnyRouter in fallback order', () => {
-  expect(AI_PROVIDERS.map(provider => provider.id)).toEqual(['gemini', 'anyrouter']);
-  expect(AI_PROVIDERS[0]).toMatchObject({ role: 'primary', apiKeyEnv: 'GEMINI_API_KEY', defaultModel: 'gemini-3.5-flash' });
-  expect(AI_PROVIDERS[1]).toMatchObject({ role: 'fallback', apiKeyEnv: 'ANYROUTER_LEARNING_API_KEY', defaultModel: 'anyrouter/free' });
+test('Provider catalogue defines Groq and Cloudflare in fallback order', () => {
+  expect(AI_PROVIDERS.map(provider => provider.id)).toEqual(['groq', 'cloudflare', 'gemini', 'anyrouter']);
+  expect(AI_PROVIDERS[0]).toMatchObject({ role: 'primary', apiKeyEnv: 'GROQ_API_KEY', defaultModel: 'llama-3.3-70b-versatile' });
+  expect(AI_PROVIDERS[1]).toMatchObject({ role: 'fallback', apiKeyEnv: 'CLOUDFLARE_API_TOKEN', defaultModel: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' });
 });
 
 test('AI status endpoint reports both providers without exposing secrets', async ({ request }) => {
@@ -405,15 +414,20 @@ test('AI status endpoint reports both providers without exposing secrets', async
   expect(response.status()).toBe(200);
   expect(response.headers()['cache-control']).toBe('no-store');
   const body = await response.json();
-  expect(body.ai).toMatchObject({ order: ['gemini', 'anyrouter'] });
-  expect(body.ai.primary).toMatchObject({ id: 'gemini', configured: false, requiredEnv: 'GEMINI_API_KEY' });
+  expect(body.ai).toMatchObject({ order: ['groq', 'cloudflare', 'gemini', 'anyrouter'] });
+  expect(body.ai.primary).toMatchObject({ id: 'groq', configured: false, requiredEnv: 'GROQ_API_KEY' });
   expect(body.ai.fallback).toMatchObject({ id: 'anyrouter', configured: false, requiredEnv: 'ANYROUTER_LEARNING_API_KEY' });
-  expect(body.ai.providers.map(provider => provider.id)).toEqual(['gemini', 'anyrouter']);
+  expect(body.ai.providers.map(provider => provider.id)).toEqual(['groq', 'cloudflare', 'gemini', 'anyrouter']);
+  expect(body.ai.groqKeyCount).toBe(0);
+  expect(body.ai.groqBackupKeyConfigured).toBe(false);
+  expect(body.ai.cloudflareKeyCount).toBe(0);
+  expect(body.ai.cloudflareAccountCount).toBe(0);
+  expect(body.ai.cloudflareBackupKeyConfigured).toBe(false);
   expect(body.ai.geminiKeyCount).toBe(0);
   expect(body.ai.geminiBackupKeyConfigured).toBe(false);
   expect(body.ai.anyrouterKeyCount).toBe(0);
   expect(body.ai.anyrouterBackupKeyConfigured).toBe(false);
-  expect(body.gateway).toMatchObject({ maxRetries: 1, fallback: 'gemini -> anyrouter' });
+  expect(body.gateway).toMatchObject({ maxRetries: 1, fallback: 'groq -> cloudflare -> gemini -> anyrouter' });
   expect(JSON.stringify(body)).not.toMatch(/AIza[0-9A-Za-z\-_]{20,}|sk-ar-[A-Za-z0-9\-_]{10,}/);
 
   const methodNotAllowed = await request.post('/api/ai/status');
@@ -447,4 +461,93 @@ test('All providers failing returns a clear error and no fabricated analysis', a
   const serialised = JSON.stringify(error.details);
   expect(serialised).not.toContain(GEMINI_KEY);
   expect(serialised).not.toContain(ANYROUTER_KEY);
+});
+const GROQ_MOCK_KEY = 'groq-mock-key-value';
+const CLOUDFLARE_MOCK_TOKEN = 'cloudflare-mock-token-value';
+const CLOUDFLARE_MOCK_ACCOUNT = 'cloudflare-account-id';
+const GROQ_CF_ENV_LOCAL = Object.freeze({
+  GROQ_API_KEY: GROQ_MOCK_KEY,
+  CLOUDFLARE_ACCOUNT_ID: CLOUDFLARE_MOCK_ACCOUNT,
+  CLOUDFLARE_API_TOKEN: CLOUDFLARE_MOCK_TOKEN,
+});
+
+function cloudflareOk(text) {
+  return new Response(JSON.stringify({ choices: [{ message: { content: text } }] }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+test('Groq is the primary provider and receives an OpenAI-compatible request', async () => {
+  const recorder = createRecorder(() => openAiOk('{"ok":true}'));
+  const gateway = createAiGateway({ env: { GROQ_API_KEY: GROQ_MOCK_KEY }, fetcher: recorder.fetcher });
+
+  const result = await gateway.complete({ systemPrompt: 'SYSTEM RULES', userPrompt: 'LEARNER INPUT', validate: text => JSON.parse(text) });
+
+  expect(result.provider).toBe('groq');
+  expect(result.model).toBe('llama-3.3-70b-versatile');
+  expect(result.providerModel).toBe('groq/llama-3.3-70b-versatile');
+  const [request] = recorder.calls;
+  expect(request.url).toBe('https://api.groq.com/openai/v1/chat/completions');
+  expect(request.options.headers.Authorization).toBe(`Bearer ${GROQ_MOCK_KEY}`);
+  expect(request.body.model).toBe('llama-3.3-70b-versatile');
+  expect(request.body.messages).toEqual([
+    { role: 'system', content: 'SYSTEM RULES' },
+    { role: 'user', content: 'LEARNER INPUT' },
+  ]);
+  expect(request.body.response_format).toEqual({ type: 'json_object' });
+});
+
+test('Groq rate limit falls back to Cloudflare with a valid request', async () => {
+  const recorder = createRecorder(({ url }) => (url.includes('api.groq.com') ? httpError(429, 'rate limited') : cloudflareOk('{"ok":true}')));
+  const gateway = createAiGateway({ env: GROQ_CF_ENV_LOCAL, fetcher: recorder.fetcher, retryDelayMs: 0 });
+
+  const result = await gateway.complete({ systemPrompt: 'SYS', userPrompt: 'USER', validate: text => JSON.parse(text) });
+
+  expect(result.provider).toBe('cloudflare');
+  expect(result.model).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
+  expect(result.fallbackUsed).toBe(true);
+  const cfRequest = recorder.calls.find(call => call.url.includes('api.cloudflare.com'));
+  expect(cfRequest.url).toBe(`https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_MOCK_ACCOUNT}/ai/v1/chat/completions`);
+  expect(cfRequest.options.headers.Authorization).toBe(`Bearer ${CLOUDFLARE_MOCK_TOKEN}`);
+  expect(cfRequest.body.model).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
+});
+
+test('Invalid JSON from Groq triggers Cloudflare fallback', async () => {
+  const recorder = createRecorder(({ url }) => (url.includes('api.groq.com') ? openAiOk('not-json') : cloudflareOk('{"ok":true}')));
+  const gateway = createAiGateway({ env: GROQ_CF_ENV_LOCAL, fetcher: recorder.fetcher, maxRetries: 0, retryDelayMs: 0 });
+
+  const result = await gateway.complete({ systemPrompt: 'S', userPrompt: 'U', validate: text => JSON.parse(text) });
+
+  expect(result.provider).toBe('cloudflare');
+  expect(result.value).toEqual({ ok: true });
+});
+
+test('Invalid JSON from both providers returns an error without fabricated analysis', async () => {
+  const recorder = createRecorder(() => openAiOk('not-json'));
+  const gateway = createAiGateway({ env: GROQ_CF_ENV_LOCAL, fetcher: recorder.fetcher, maxRetries: 0, retryDelayMs: 0 });
+
+  const error = await gateway.complete({ systemPrompt: 'S', userPrompt: 'U', validate: text => JSON.parse(text) }).catch(caught => caught);
+
+  expect(error).toMatchObject({ code: 'INVALID_OUTPUT', status: 502 });
+  expect(error.value).toBeUndefined();
+});
+
+test('Groq and Cloudflare secrets are redacted from errors', async () => {
+  const recorder = createRecorder(() => new Response(JSON.stringify({ error: { message: `upstream rejected ${GROQ_MOCK_KEY} and ${CLOUDFLARE_MOCK_TOKEN}` } }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
+  const gateway = createAiGateway({ env: GROQ_CF_ENV_LOCAL, fetcher: recorder.fetcher, retryDelayMs: 0 });
+
+  const error = await gateway.complete({ systemPrompt: 'S', userPrompt: 'U' }).catch(caught => caught);
+  const serialised = JSON.stringify({ message: error.message, details: error.details });
+
+  expect(error).toMatchObject({ code: 'UPSTREAM_ERROR', status: 502 });
+  expect(serialised).not.toContain(GROQ_MOCK_KEY);
+  expect(serialised).not.toContain(CLOUDFLARE_MOCK_TOKEN);
+  expect(serialised).toContain('[redacted]');
+});
+
+test('Cloudflare configuration requires both account ID and API token', async () => {
+  const status = describeAiProviderStatus({ env: { CLOUDFLARE_API_TOKEN: CLOUDFLARE_MOCK_TOKEN } });
+  expect(status.configured).not.toContain('cloudflare');
+  expect(status.missingEnv).toContain('CLOUDFLARE_ACCOUNT_ID');
 });

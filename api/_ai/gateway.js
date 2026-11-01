@@ -11,7 +11,7 @@
  * - return normalised provenance metadata and redact secrets from every error surface.
  */
 
-import { AI_PROVIDERS, findAiProvider, GEMINI_PRIMARY_API_KEY_ENV, GEMINI_SECONDARY_API_KEY_ENV, ANYROUTER_PRIMARY_API_KEY_ENV, ANYROUTER_SECONDARY_API_KEY_ENV } from './providers.js';
+import { AI_PROVIDERS, findAiProvider, GROQ_PRIMARY_API_KEY_ENV, GROQ_SECONDARY_API_KEY_ENV, CLOUDFLARE_ACCOUNT_ID_ENV, CLOUDFLARE_API_TOKEN_ENV, CLOUDFLARE_API_TOKEN_SECONDARY_ENV, GEMINI_PRIMARY_API_KEY_ENV, GEMINI_SECONDARY_API_KEY_ENV, ANYROUTER_PRIMARY_API_KEY_ENV, ANYROUTER_SECONDARY_API_KEY_ENV } from './providers.js';
 
 export const AI_GATEWAY_DEFAULTS = Object.freeze({
   timeoutMs: 15000,
@@ -111,8 +111,15 @@ export function resolveAiProviders({ env = process.env, providers = AI_PROVIDERS
     })
     .map(provider => {
       const apiKey = String(env?.[provider.apiKeyEnv] || '').trim();
+      const accountId = provider.accountIdEnv ? String(env?.[provider.accountIdEnv] || '').trim() : '';
       const model = String(env?.[provider.modelEnv] || '').trim() || provider.defaultModel;
-      return { provider, apiKey, model, configured: apiKey.length > 0 };
+      const configured = typeof provider.isConfigured === 'function'
+        ? provider.isConfigured({ env, apiKey, model, accountId })
+        : apiKey.length > 0;
+      const missingEnv = [];
+      if (provider.apiKeyEnv && !apiKey) missingEnv.push(provider.apiKeyEnv);
+      if (provider.accountIdEnv && !accountId) missingEnv.push(provider.accountIdEnv);
+      return { provider, apiKey, accountId, model, configured, missingEnv };
     });
 }
 
@@ -137,6 +144,9 @@ export function describeAiProviderStatus({ env = process.env, providers = AI_PRO
   const described = entries.map(describeEntry);
   const [primary] = described;
   const fallback = described.length > 1 ? described[described.length - 1] : null;
+  const groqKeysConfigured = Object.keys(env || {}).filter(name => /^GROQ_API_KEY(?:_\d+)?$/.test(name) && String(env?.[name] || '').trim().length > 0).length;
+  const cloudflareTokensConfigured = Object.keys(env || {}).filter(name => /^CLOUDFLARE_API_TOKEN(?:_\d+)?$/.test(name) && String(env?.[name] || '').trim().length > 0).length;
+  const cloudflareAccountsConfigured = Object.keys(env || {}).filter(name => /^CLOUDFLARE_ACCOUNT_ID(?:_\d+)?$/.test(name) && String(env?.[name] || '').trim().length > 0).length;
   const geminiKeysConfigured = Object.keys(env || {}).filter(name => /^GEMINI_API_KEY(?:_\d+)?$/.test(name) && String(env?.[name] || '').trim().length > 0).length;
   const anyrouterKeysConfigured = Object.keys(env || {}).filter(name => /^ANYROUTER_LEARNING_API_KEY(?:_\d+)?$/.test(name) && String(env?.[name] || '').trim().length > 0).length;
   return {
@@ -146,7 +156,25 @@ export function describeAiProviderStatus({ env = process.env, providers = AI_PRO
     fallback,
     providers: described,
     configured: entries.filter(entry => entry.configured).map(entry => entry.provider.id),
-    missingEnv: entries.filter(entry => !entry.configured).map(entry => entry.provider.apiKeyEnv),
+    missingEnv: entries.flatMap(entry => entry.missingEnv || (entry.configured ? [] : [entry.provider.apiKeyEnv])),
+    groqKeys: {
+      activeEnv: GROQ_PRIMARY_API_KEY_ENV,
+      configuredCount: groqKeysConfigured,
+      backupEnv: GROQ_SECONDARY_API_KEY_ENV,
+      backupConfigured: groqKeysConfigured > 1,
+    },
+    groqKeyCount: groqKeysConfigured,
+    groqBackupKeyConfigured: groqKeysConfigured > 1,
+    cloudflareKeys: {
+      activeEnv: CLOUDFLARE_API_TOKEN_ENV,
+      accountIdEnv: CLOUDFLARE_ACCOUNT_ID_ENV,
+      configuredCount: Math.min(cloudflareTokensConfigured, cloudflareAccountsConfigured),
+      backupEnv: CLOUDFLARE_API_TOKEN_SECONDARY_ENV,
+      backupConfigured: cloudflareTokensConfigured > 1,
+    },
+    cloudflareKeyCount: cloudflareTokensConfigured,
+    cloudflareAccountCount: cloudflareAccountsConfigured,
+    cloudflareBackupKeyConfigured: cloudflareTokensConfigured > 1,
     geminiKeys: {
       activeEnv: GEMINI_PRIMARY_API_KEY_ENV,
       configuredCount: geminiKeysConfigured,
@@ -199,6 +227,7 @@ export function createAiGateway({
   async function requestFromProvider(entry, { systemPrompt, userPrompt, temperature, maxOutputTokens, json, attemptTimeoutMs }) {
     const request = entry.provider.buildRequest({
       apiKey: entry.apiKey,
+      accountId: entry.accountId,
       model: entry.model,
       systemPrompt,
       userPrompt,
@@ -306,17 +335,7 @@ export function createAiGateway({
     const failures = [];
 
     for (const entry of entries) {
-      if (!entry.configured) {
-        trace.push({
-          provider: entry.provider.id,
-          model: entry.model,
-          attempt: 0,
-          code: 'NOT_CONFIGURED',
-          retryable: false,
-          durationMs: 0,
-        });
-        continue;
-      }
+      if (!entry.configured) continue;
 
       for (let attempt = 1; attempt <= maxAttemptsPerProvider; attempt += 1) {
         const remainingMs = deadline - now();
