@@ -28,17 +28,45 @@ function baseRow(overrides = {}) {
     issue_tx_hash: ISSUE_TX,
     evidence_hash: EVIDENCE_HASH,
     is_test: false,
+    updated_at: '2026-10-30T00:00:00.000Z',
     ...overrides,
   };
 }
 
 function memoryStore(row) {
-  let current = row ? { ...row } : null;
+  let current = row ? { ...row, updated_at: row.updated_at || new Date().toISOString(), confirmation_started_at: row.confirmation_started_at || null, confirmation_attempts: row.confirmation_attempts || 0 } : null;
   return {
     async findByCode() { return current ? { ...current } : null; },
+    async findByEvaluationId(evaluationId) { return current && current.evaluation_id === evaluationId ? { ...current } : null; },
     async updateCredential(id, patch) {
       if (!current) return null;
+      current = { ...current, ...patch, updated_at: new Date().toISOString() };
+      return { ...current };
+    },
+    async updateCredentialForVerify(id, patch, expectedUpdatedAt) {
+      if (!current) return null;
+      if (!expectedUpdatedAt || current.updated_at !== expectedUpdatedAt) return null;
+      if (current.blockchain_status === 'revoked') return null;
+      if (current.confirmation_started_at != null) return null;
+      current = { ...current, ...patch, updated_at: new Date().toISOString() };
+      return { ...current };
+    },
+    async updateCredentialIf(id, patch, claimedAt) {
+      if (!current) return null;
+      if (!['submitting', 'pending'].includes(current.blockchain_status)) return null;
+      if (!claimedAt || current.confirmation_started_at !== claimedAt) return null;
       current = { ...current, ...patch };
+      return { ...current };
+    },
+    async claimConfirm(id) {
+      if (!current) return null;
+      if (!['submitting', 'pending'].includes(current.blockchain_status)) return null;
+      if (current.confirmation_started_at) {
+        const cutoff = Date.now() - 60000;
+        if (new Date(current.confirmation_started_at).getTime() > cutoff) return null;
+      }
+      current.confirmation_started_at = new Date().toISOString();
+      current.confirmation_attempts = (current.confirmation_attempts || 0) + 1;
       return { ...current };
     },
   };

@@ -14,7 +14,7 @@ const ADMIN = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', role: 'admin' };
 function createMemoryStore(seed = null) {
   const credentials = [];
   const transactions = [];
-  if (seed) credentials.push({ ...seed });
+  if (seed) credentials.push({ updated_at: new Date().toISOString(), confirmation_started_at: null, confirmation_attempts: 0, ...seed });
   return {
     credentials,
     transactions,
@@ -29,7 +29,8 @@ function createMemoryStore(seed = null) {
     },
     async listByLearner(id) { return credentials.filter(item => item.learner_id === id); },
     async insertCredential(record) {
-      const row = { id: `credential-${credentials.length + 1}`, created_at: new Date().toISOString(), onchain_valid: false, verification_checked_at: null, confirmation_started_at: null, confirmation_attempts: 0, ...record };
+      const now = new Date().toISOString();
+      const row = { id: `credential-${credentials.length + 1}`, created_at: now, updated_at: now, onchain_valid: false, verification_checked_at: null, confirmation_started_at: null, confirmation_attempts: 0, ...record };
       credentials.push(row);
       return { ...row };
     },
