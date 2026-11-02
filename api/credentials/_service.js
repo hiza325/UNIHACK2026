@@ -738,6 +738,16 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       throw credentialError('Previous Avalanche revocation is still unconfirmed', 'AVALANCHE_TRANSACTION_STATUS_UNKNOWN', 409);
     }
 
+    // Atomic claim: only one request can transition confirmed -> revoke_pending.
+    if (typeof store.claimRevoke === 'function') {
+      const claimed = await store.claimRevoke(row.id);
+      if (!claimed) {
+        const current = await store.findByCode(credentialCode);
+        return toPublicCredential(current);
+      }
+      row = claimed;
+    }
+
     let transaction = await store.insertTransaction({ credential_id: row.id, operation: 'revoke', status: 'submitting' });
     let current = row;
     let broadcastTransactionHash = null;
@@ -857,15 +867,21 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       }
       if (onchain.exists) {
         if (!sameHash(onchain.evidenceHash, row.evidence_hash)) {
-          const updated = await store.updateCredential(row.id, {
-            blockchain_status: 'failed', onchain_valid: false,
-            ...safeFailure(credentialError('On-chain evidence hash does not match the database', 'EVIDENCE_HASH_MISMATCH', 409)),
-            confirmation_started_at: null,
-          }).catch(() => row);
+          const updated = await (store.updateCredentialForReconcile
+            ? store.updateCredentialForReconcile(row.id, {
+                blockchain_status: 'failed', onchain_valid: false,
+                ...safeFailure(credentialError('On-chain evidence hash does not match the database', 'EVIDENCE_HASH_MISMATCH', 409)),
+                confirmation_started_at: null,
+              }, row.updated_at)
+            : store.updateCredential(row.id, {
+                blockchain_status: 'failed', onchain_valid: false,
+                ...safeFailure(credentialError('On-chain evidence hash does not match the database', 'EVIDENCE_HASH_MISMATCH', 409)),
+                confirmation_started_at: null,
+              })).catch(() => row);
           throw credentialError('On-chain evidence hash does not match the database', 'EVIDENCE_HASH_MISMATCH', 409);
         }
         const now = new Date().toISOString();
-        const updated = await store.updateCredential(row.id, {
+        const patch = {
           blockchain_status: 'confirmed',
           issued_at: isoFromUnix(onchain.issuedAt),
           verification_checked_at: now,
@@ -874,7 +890,10 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
           failure_code: null,
           failure_message: null,
           confirmation_started_at: null,
-        });
+        };
+        const updated = await (store.updateCredentialForReconcile
+          ? store.updateCredentialForReconcile(row.id, patch, row.updated_at)
+          : store.updateCredential(row.id, patch)) || row;
         await markEvaluationIssued(learningRecordStore, updated);
         return { credential: toPublicCredential(updated), status: 'confirmed' };
       }
