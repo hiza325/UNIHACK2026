@@ -1,4 +1,4 @@
-import { Contract, Interface, JsonRpcProvider, Wallet, getAddress, id, isAddress } from 'ethers';
+import { Contract, FallbackProvider, Interface, JsonRpcProvider, Wallet, getAddress, id, isAddress } from 'ethers';
 import { AVALANCHE_FUJI_CONFIG } from '../../avalanche-config.js';
 
 export const AVALANCHE_FUJI_CHAIN_ID = BigInt(AVALANCHE_FUJI_CONFIG.chainId);
@@ -32,19 +32,25 @@ function serviceError(message, code, status, cause) {
 }
 
 export function avalancheConfig(env = process.env, { requireSigner = false } = {}) {
-  const rpcUrl = String(env.AVALANCHE_FUJI_RPC_URL || AVALANCHE_FUJI_CONFIG.rpcUrl).trim();
+  const primary = String(env.AVALANCHE_FUJI_RPC_URL || AVALANCHE_FUJI_CONFIG.rpcUrl).trim();
+  const extras = String(env.AVALANCHE_FUJI_RPC_URLS || '').trim();
+  const rawUrls = [primary, ...extras.split(',').map(s => s.trim()).filter(Boolean)];
+  const rpcUrls = [...new Set(rawUrls)];
+  if (!rpcUrls.length || !rpcUrls[0]) throw serviceError('Avalanche Fuji RPC is not configured', 'AVALANCHE_RPC_NOT_CONFIGURED', 503);
+  for (const u of rpcUrls) {
+    let parsedUrl;
+    try { parsedUrl = new URL(u); } catch { throw serviceError('Avalanche Fuji RPC URL is invalid', 'AVALANCHE_RPC_INVALID', 503); }
+    if (!['https:', 'http:'].includes(parsedUrl.protocol)) throw serviceError('Avalanche Fuji RPC URL is invalid', 'AVALANCHE_RPC_INVALID', 503);
+  }
+  const rpcUrl = rpcUrls[0];
   const contractAddress = String(env.AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS || AVALANCHE_FUJI_CONFIG.contractAddress).trim();
   const privateKey = String(env.AVALANCHE_ISSUER_PRIVATE_KEY || '').trim();
-  if (!rpcUrl) throw serviceError('Avalanche Fuji RPC is not configured', 'AVALANCHE_RPC_NOT_CONFIGURED', 503);
-  let parsedUrl;
-  try { parsedUrl = new URL(rpcUrl); } catch { throw serviceError('Avalanche Fuji RPC URL is invalid', 'AVALANCHE_RPC_INVALID', 503); }
-  if (!['https:', 'http:'].includes(parsedUrl.protocol)) throw serviceError('Avalanche Fuji RPC URL is invalid', 'AVALANCHE_RPC_INVALID', 503);
   if (!isAddress(contractAddress) || /^0x0{40}$/i.test(contractAddress)) throw serviceError('Credential registry address is not configured', 'AVALANCHE_CONTRACT_NOT_CONFIGURED', 503);
   if (getAddress(contractAddress) !== getAddress(AVALANCHE_FUJI_CONFIG.contractAddress)) {
     throw serviceError('Credential registry address does not match the PARADOX Fuji deployment', 'AVALANCHE_CONTRACT_MISMATCH', 503);
   }
   if (requireSigner && (!PRIVATE_KEY.test(privateKey) || /^0x0{64}$/i.test(privateKey))) throw serviceError('Avalanche issuer wallet is not configured', 'AVALANCHE_ISSUER_NOT_CONFIGURED', 503);
-  return { rpcUrl, contractAddress: getAddress(contractAddress), privateKey };
+  return { rpcUrl, rpcUrls, contractAddress: getAddress(contractAddress), privateKey };
 }
 
 export async function assertFujiNetwork(provider) {
@@ -112,19 +118,81 @@ function receiptSummary(receipt) {
   };
 }
 
-export async function createAvalancheGateway({ env = process.env, write = false, provider: suppliedProvider, contract: suppliedContract, wallet: suppliedWallet } = {}) {
+const RPC_TIMEOUT_MS = 5000;
+
+async function validateProviderChain(provider, timeoutMs = RPC_TIMEOUT_MS) {
+  let timer;
+  try {
+    const result = await Promise.race([
+      provider.send('eth_chainId', []),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('RPC timeout')), timeoutMs); }),
+    ]);
+    clearTimeout(timer);
+    const chainId = typeof result === 'string' ? parseInt(result, 16) : Number(result);
+    if (chainId !== Number(AVALANCHE_FUJI_CHAIN_ID)) {
+      throw serviceError('Refusing chain ' + chainId + '; Avalanche Fuji (43113) is required', 'AVALANCHE_WRONG_CHAIN', 503);
+    }
+    return true;
+  } catch (error) {
+    clearTimeout(timer);
+    if (error && error.code === 'AVALANCHE_WRONG_CHAIN') throw error;
+    throw serviceError('Unable to connect to Avalanche Fuji', 'AVALANCHE_RPC_UNAVAILABLE', 503, error);
+  }
+}
+
+export async function createAvalancheGateway({ env = process.env, write = false, provider: suppliedProvider, providers: suppliedProviders, contract: suppliedContract, wallet: suppliedWallet } = {}) {
   const config = avalancheConfig(env, { requireSigner: write });
-  const provider = suppliedProvider || new JsonRpcProvider(config.rpcUrl);
-  await assertFujiNetwork(provider);
-  const wallet = write ? (suppliedWallet || new Wallet(config.privateKey, provider)) : null;
-  const contract = suppliedContract || new Contract(config.contractAddress, LEARNING_CREDENTIAL_REGISTRY_ABI, wallet || provider);
+
+  let candidates = [];
+  if (suppliedProvider) {
+    candidates = [suppliedProvider];
+  } else if (Array.isArray(suppliedProviders) && suppliedProviders.length) {
+    candidates = suppliedProviders;
+  } else {
+    candidates = config.rpcUrls.map((u) => new JsonRpcProvider(u, undefined, { staticNetwork: true, timeout: RPC_TIMEOUT_MS }));
+  }
+
+  const valid = [];
+  for (const p of candidates) {
+    try {
+      await validateProviderChain(p, RPC_TIMEOUT_MS);
+      valid.push(p);
+    } catch (error) {
+      // Wrong-chain or unavailable endpoints are dropped.
+    }
+  }
+  if (!valid.length) {
+    throw serviceError('Unable to connect to Avalanche Fuji', 'AVALANCHE_RPC_UNAVAILABLE', 503);
+  }
+
+  // Write provider is the PRIMARY candidate only. If the primary is invalid,
+  // writes fail (no automatic fallback / retry of sendTransaction).
+  const primary = candidates[0];
+  const primaryValid = valid.indexOf(primary) !== -1;
+  if (write && !primaryValid) {
+    throw serviceError('Primary Avalanche RPC is unavailable', 'AVALANCHE_RPC_UNAVAILABLE', 503);
+  }
+
+  let provider;
+  if (valid.length === 1) {
+    provider = valid[0];
+  } else {
+    provider = new FallbackProvider(valid.map((p, i) => ({ provider: p, priority: i + 1, weight: 1, stallTimeout: 3000 })), 1);
+  }
+  const writeProvider = primaryValid ? primary : valid[0];
+  const wallet = write ? (suppliedWallet || new Wallet(config.privateKey, writeProvider)) : null;
+  const readContract = suppliedContract || new Contract(config.contractAddress, LEARNING_CREDENTIAL_REGISTRY_ABI, provider);
+  const writeContract = write && wallet
+    ? new Contract(config.contractAddress, LEARNING_CREDENTIAL_REGISTRY_ABI, wallet)
+    : readContract;
+  const contract = suppliedContract || (write ? writeContract : readContract);
   const issuerAddress = wallet ? (typeof wallet.address === 'string' ? wallet.address : await wallet.getAddress?.()) : null;
 
   async function verifyCredential(credentialId) {
     try {
-      const exists = await contract.credentialExists(credentialId);
+      const exists = await readContract.credentialExists(credentialId);
       if (!exists) return { exists: false, valid: false, revoked: false, credentialId };
-      const [record, valid] = await Promise.all([contract.getCredential(credentialId), contract.isCredentialValid(credentialId)]);
+      const [record, valid] = await Promise.all([readContract.getCredential(credentialId), readContract.isCredentialValid(credentialId)]);
       return {
         exists: true,
         valid: Boolean(valid),
@@ -140,7 +208,7 @@ export async function createAvalancheGateway({ env = process.env, write = false,
 
   async function credentialIdForEvidence(evidenceHash) {
     try {
-      const credentialId = await contract.credentialIdForEvidence(evidenceHash);
+      const credentialId = await readContract.credentialIdForEvidence(evidenceHash);
       return String(credentialId).toLowerCase() === ZERO_BYTES32 ? null : credentialId;
     } catch (error) { throw mapAvalancheError(error); }
   }
@@ -279,6 +347,7 @@ export async function createAvalancheGateway({ env = process.env, write = false,
     network: AVALANCHE_FUJI_NETWORK,
     contractAddress: config.contractAddress,
     issuerAddress: issuerAddress || null,
+    rpcUrls: config.rpcUrls,
     preflight,
     readPreflight,
     isAuthorizedIssuer,
