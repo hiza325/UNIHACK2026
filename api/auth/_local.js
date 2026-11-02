@@ -4,6 +4,10 @@ import { noStore } from './_supabase.js';
 /*
  * Server-side "enter locally" sign-in for development machines only.
  *
+ * This module is intentionally not a route of its own: the Vercel Hobby plan
+ * caps a deployment at 12 serverless functions, so api/auth/session.js
+ * delegates to it for /api/auth/local (see vercel.json and isLocalAuthRequest).
+ *
  * Availability is decided entirely by the server: the endpoint exists in every
  * deployment but refuses to issue a session unless it is NOT production
  * (no VERCEL, NODE_ENV !== 'production') AND LOCAL_AUTH_ENABLED=1 is set
@@ -85,6 +89,18 @@ function requestCookie(req) {
     if (name === LOCAL_COOKIE && rest.length) return decodeURIComponent(rest.join('='));
   }
   return '';
+}
+
+export function isLocalAuthRequest(req) {
+  if (req?.query?.localAuth === '1' || req?.query?.localAuth === 1) return true;
+  const host = String(req?.headers?.host || 'localhost');
+  try {
+    const url = new URL(String(req?.url || '/'), `http://${host}`);
+    if (url.searchParams.get('localAuth') === '1') return true;
+    return url.pathname === '/api/auth/local';
+  } catch {
+    return false;
+  }
 }
 
 export function createLocalAuthHandler({ env = process.env, now = Date.now } = {}) {

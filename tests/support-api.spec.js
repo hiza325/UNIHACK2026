@@ -261,6 +261,7 @@ test('Support handler returns grounded replies and rate-limits abusive clients',
       body: { language: 'vi', messages: [{ role: 'user', text: 'Xem lịch sử ở đâu?' }] },
     }, response);
     expect(response.statusCode).toBe(200);
+    expect(response.headers['Cache-Control']).toBe('no-store');
     expect(response.body.text).toBe('Mở mục Lịch sử.');
     expect(response.body.grounded).toBe(true);
     expect(response.body.sources[0].id).toBe('A17');

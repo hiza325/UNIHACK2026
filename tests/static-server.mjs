@@ -11,7 +11,7 @@ import loginHandler from '../api/auth/login.js';
 import resendHandler from '../api/auth/resend.js';
 import sessionHandler from '../api/auth/session.js';
 import logoutHandler from '../api/auth/logout.js';
-import localAuthHandler from '../api/auth/local.js';
+import localAuthHandler from '../api/auth/_local.js';
 import adminUsersHandler from '../api/admin/users.js';
 import debateHandler from '../api/debate.js';
 import credentialsHandler from '../api/credentials/index.js';

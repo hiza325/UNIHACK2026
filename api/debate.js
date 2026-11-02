@@ -457,6 +457,8 @@ export function createDebateHandler({
   }
 
   return async function handler(req, res) {
+    res.setHeader('Cache-Control', 'no-store');
+
     if (isAiStatusRequest(req)) {
       if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.setHeader('Allow', 'GET, HEAD');

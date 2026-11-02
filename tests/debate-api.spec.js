@@ -463,8 +463,9 @@ test('an authorized hint flow uses the stored hint ladder and rejects skipped le
   });
   const makeResponse = () => ({
     statusCode: 200,
+    headers: {},
     payload: null,
-    setHeader() { return this; },
+    setHeader(name, value) { this.headers[name] = value; return this; },
     status(code) { this.statusCode = code; return this; },
     json(payload) { this.payload = payload; return this; },
   });
@@ -488,6 +489,7 @@ test('an authorized hint flow uses the stored hint ladder and rejects skipped le
   const accepted = makeResponse();
   await handler(makeRequest({ hintLevel: 2 }, '203.0.113.72'), accepted);
   expect(accepted.statusCode).toBe(200);
+  expect(accepted.headers['Cache-Control']).toBe('no-store');
   expect(analysisCalls).toHaveLength(1);
   expect(analysisCalls[0]).toMatchObject({ hintLevel: 2, previousHints: ['Stored hint one.'] });
 });
