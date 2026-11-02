@@ -97,11 +97,12 @@ function isAmbiguousChainError(error) {
 // Projection for lookups made by credential code, which any signed-in user
 // can attempt. It keeps what the verification page renders and drops
 // learner-private fields: holder name, assessment score, evaluation and
-// evidence identifiers.
+// evidence identifiers. The issue transaction hash is public on-chain data
+// and is required by the client to recognise a genuinely verified credential.
 const VERIFICATION_VIEW_FIELDS = [
   'id', 'code', 'name', 'skill', 'issuedAt', 'revokedAt', 'status',
   'network', 'chainId', 'contractAddress', 'transactionHash',
-  'transactionStatus', 'verification', 'isTest', 'source',
+  'issueTransactionHash', 'transactionStatus', 'verification', 'isTest', 'source',
 ];
 
 export function toVerificationView(credential) {
