@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+﻿import { expect, test } from '@playwright/test';
 import { createCredentialService, toPublicCredential } from '../api/credentials/_service.js';
 
 // Hardening regression coverage for certificate confirmation & reconciliation.
@@ -36,6 +36,24 @@ function createMemoryStore(seed = null) {
     async updateCredential(id, patch) {
       const row = credentials.find(item => item.id === id);
       if (!row) return null;
+      Object.assign(row, patch);
+      return { ...row };
+    },
+    async updateCredentialForVerify(id, patch, expectedUpdatedAt) {
+      const row = credentials.find(item => item.id === id);
+      if (!row) return null;
+      if (!expectedUpdatedAt || row.updated_at !== expectedUpdatedAt) return null;
+      if (row.blockchain_status === 'revoked') return null;
+      if (row.confirmation_started_at != null) return null;
+      Object.assign(row, patch);
+      row.updated_at = new Date().toISOString();
+      return { ...row };
+    },
+    async updateCredentialIf(id, patch, claimedAt) {
+      const row = credentials.find(item => item.id === id);
+      if (!row) return null;
+      if (!['submitting', 'pending'].includes(row.blockchain_status)) return null;
+      if (!claimedAt || row.confirmation_started_at !== claimedAt) return null;
       Object.assign(row, patch);
       return { ...row };
     },
@@ -214,6 +232,7 @@ test('reconciliation via verify converts pending to confirmed', async () => {
     network: 'avalanche-fuji', chain_id: 43113, contract_address: '0x1111111111111111111111111111111111111111',
     issuer_address: '0x2222222222222222222222222222222222222222', issue_tx_hash: ISSUE_TX,
     evaluation_id: null, onchain_valid: false,
+    updated_at: '2026-11-02T10:00:00.000Z',
   });
 
   const gateway = successfulGateway();
@@ -400,4 +419,116 @@ test('revoked credential is not treated as verified', async () => {
   const result = await service.verify(CODE);
   expect(result.status).toBe('revoked');
   expect(store.credentials[0].blockchain_status).toBe('revoked');
+});
+
+test('stale verify response must not restore a revoked credential', async () => {
+  const store = createMemoryStore({
+    id: 'verify-race-1',
+    updated_at: '2026-11-02T10:00:00.000Z',
+    credential_code: CODE,
+    credential_id_hash: `0x${'cd'.repeat(32)}`,
+    evidence_hash: EVIDENCE_HASH,
+    blockchain_status: 'confirmed',
+    onchain_valid: true,
+    confirmation_started_at: null,
+  });
+
+  let releaseRpc;
+  let notifyRpc;
+  const rpcStarted = new Promise(resolve => { notifyRpc = resolve; });
+  const rpcReleased = new Promise(resolve => { releaseRpc = resolve; });
+
+  const gateway = successfulGateway({
+    async verifyCredential() {
+      notifyRpc();
+      await rpcReleased;
+      return {
+        exists: true,
+        valid: true,
+        revoked: false,
+        evidenceHash: EVIDENCE_HASH,
+        issuer: '0x2222222222222222222222222222222222222222',
+        issuedAt: 1800000000,
+        revokedAt: 0,
+      };
+    },
+  });
+
+  const service = createCredentialService({
+    store,
+    avalancheFactory: async () => gateway,
+  });
+
+  const requestA = service.verify(CODE);
+  await rpcStarted;
+
+  // Another request revokes the credential while verify() is waiting.
+  await store.updateCredential('verify-race-1', {
+    blockchain_status: 'revoked',
+    onchain_valid: false,
+    updated_at: '2026-11-02T10:01:00.000Z',
+    revoked_at: new Date().toISOString(),
+  });
+
+  releaseRpc();
+  const resultA = await requestA;
+
+  expect(store.credentials[0].blockchain_status).toBe('revoked');
+  expect(store.credentials[0].onchain_valid).toBe(false);
+  expect(resultA.transactionStatus).toBe('revoked');
+});
+
+test('verify must not overwrite a credential locked by confirmation', async () => {
+  const store = createMemoryStore({
+    id: 'verify-lock-1',
+    credential_code: CODE,
+    credential_id_hash: `0x${'cd'.repeat(32)}`,
+    evidence_hash: EVIDENCE_HASH,
+    blockchain_status: 'pending',
+    onchain_valid: false,
+    confirmation_started_at: null,
+    updated_at: '2026-11-02T10:00:00.000Z',
+  });
+
+  let releaseRpc;
+  let notifyRpc;
+
+  const rpcStarted = new Promise(resolve => { notifyRpc = resolve; });
+  const rpcReleased = new Promise(resolve => { releaseRpc = resolve; });
+
+  const gateway = successfulGateway({
+    async verifyCredential() {
+      notifyRpc();
+      await rpcReleased;
+      return {
+        exists: true,
+        valid: true,
+        revoked: false,
+        evidenceHash: EVIDENCE_HASH,
+        issuer: '0x2222222222222222222222222222222222222222',
+        issuedAt: 1800000000,
+        revokedAt: 0,
+      };
+    },
+  });
+
+  const service = createCredentialService({
+    store,
+    avalancheFactory: async () => gateway,
+  });
+
+  const requestA = service.verify(CODE);
+  await rpcStarted;
+
+  const claimed = await store.claimConfirm('verify-lock-1');
+  expect(claimed).not.toBeNull();
+
+  releaseRpc();
+
+  const resultA = await requestA;
+
+  expect(store.credentials[0].blockchain_status).toBe('pending');
+  expect(store.credentials[0].onchain_valid).toBe(false);
+  expect(store.credentials[0].confirmation_started_at).not.toBeNull();
+  expect(resultA.transactionStatus).toBe('pending');
 });

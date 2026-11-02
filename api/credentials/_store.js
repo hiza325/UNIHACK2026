@@ -93,13 +93,38 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
         single: true,
       });
     },
+    async updateCredentialForVerify(id, patch, expectedUpdatedAt) {
+      if (!expectedUpdatedAt) {
+        throw storeError('Credential version is missing', 'CREDENTIAL_VERSION_REQUIRED', 409);
+      }
+
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
+      if (Object.keys(patch).some(key => !allowed.has(key))) {
+        throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
+      }
+
+      const query = filters({
+        id: `eq.${id}`,
+        updated_at: `eq.${expectedUpdatedAt}`,
+        blockchain_status: 'neq.revoked',
+        confirmation_started_at: 'is.null',
+        select: '*',
+      });
+
+      return request('learning_credentials', {
+        method: 'PATCH',
+        query,
+        body: patch,
+        single: true,
+      });
+    },
     async updateCredentialIf(id, patch, claimedAt) {
       const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
       if (Object.keys(patch).some(key => !allowed.has(key))) {
         throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
       }
       const qClaimed = claimedAt ? '&confirmation_started_at=eq.' + encodeURIComponent(claimedAt) : '';
-      const response = await fetcher(config.url + '/rest/v1/learning_credentials?id=eq.' + encodeURIComponent(id) + qClaimed + '&select=*', {
+      const response = await fetcher(config.url + '/rest/v1/learning_credentials?id=eq.' + encodeURIComponent(id) + qClaimed + '&blockchain_status=in.(submitting,pending)&select=*', {
         method: 'PATCH',
         headers: {
           apikey: config.serviceKey,

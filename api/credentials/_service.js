@@ -893,6 +893,39 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     }
     row = claimed;
 
+    // Guard confirmation updates with the current claim token.
+    async function updateIfStillOwner(patch) {
+      if (typeof store.updateCredentialIf !== 'function' || !row.confirmation_started_at) {
+        throw credentialError('Conditional update unavailable', 'CONFIRMATION_CAS_UNAVAILABLE', 500);
+      }
+      return store.updateCredentialIf(row.id, patch, row.confirmation_started_at);
+    }
+
+    // Preserve newer confirmation results when a stale request fails.
+    async function failIfStillOwner(error) {
+      const updated = await updateIfStillOwner({
+        blockchain_status: 'failed',
+        onchain_valid: false,
+        issue_tx_hash: hash,
+        confirmation_started_at: null,
+        ...safeFailure(error),
+      });
+
+      if (!updated) {
+        const current = await store.findByCode(credentialCode);
+        if (!current) {
+          throw credentialError('Credential was not found', 'CREDENTIAL_NOT_FOUND', 404);
+        }
+        return {
+          credential: toPublicCredential(current),
+          status: current.blockchain_status,
+          reason: 'confirmation_in_progress',
+        };
+      }
+
+      throw error;
+    }
+
     const gateway = await avalancheFactory({ write: false });
     const contractAddress = gateway.contractAddress;
     const issuerAddress = row.issuer_address;
@@ -902,15 +935,16 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     try { tx = await gateway.getTransaction(hash); }
     catch (error) {
       if (isRpcError(error)) {
-        await store.updateCredential(row.id, { blockchain_status: 'pending', issue_tx_hash: hash, confirmation_started_at: null, failure_code: null, failure_message: null }).catch(() => {});
-        return { credential: toPublicCredential(await store.findByCode(credentialCode)), status: 'pending', reason: 'rpc_error' };
+        const updated = await updateIfStillOwner({ blockchain_status: 'pending', issue_tx_hash: hash, confirmation_started_at: null, failure_code: null, failure_message: null });
+        const current = updated || await store.findByCode(credentialCode);
+        return { credential: toPublicCredential(current), status: current.blockchain_status, reason: updated ? 'rpc_error' : 'confirmation_in_progress' };
       }
-      await store.updateCredential(row.id, { blockchain_status: 'failed', onchain_valid: false, issue_tx_hash: hash, confirmation_started_at: null, ...safeFailure(error) }).catch(() => {});
-      throw error;
+      return failIfStillOwner(error);
     }
     if (!tx) {
-      await store.updateCredential(row.id, { blockchain_status: 'pending', issue_tx_hash: hash, confirmation_started_at: null, failure_code: null, failure_message: null }).catch(() => {});
-      return { credential: toPublicCredential(await store.findByCode(credentialCode)), status: 'pending', reason: 'transaction_not_found' };
+      const updated = await updateIfStillOwner({ blockchain_status: 'pending', issue_tx_hash: hash, confirmation_started_at: null, failure_code: null, failure_message: null });
+      const current = updated || await store.findByCode(credentialCode);
+      return { credential: toPublicCredential(current), status: current.blockchain_status, reason: updated ? 'transaction_not_found' : 'confirmation_in_progress' };
     }
 
     // Validate transaction fields (fatal mismatches -> failed).
@@ -933,7 +967,12 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
         throw credentialError('Transaction calldata does not match the credential', 'INVALID_TRANSACTION_CALLDATA', 409);
       }
     } catch (error) {
-      await store.updateCredential(row.id, { blockchain_status: 'failed', onchain_valid: false, issue_tx_hash: hash, confirmation_started_at: null, ...safeFailure(error) }).catch(() => {});
+      const updated = await updateIfStillOwner({ blockchain_status: 'failed', onchain_valid: false, issue_tx_hash: hash, confirmation_started_at: null, ...safeFailure(error) });
+      if (!updated) {
+        const current = await store.findByCode(credentialCode);
+        if (!current) throw credentialError('Credential was not found', 'CREDENTIAL_NOT_FOUND', 404);
+        return { credential: toPublicCredential(current), status: current.blockchain_status, reason: 'confirmation_in_progress' };
+      }
       throw error;
     }
 
@@ -942,19 +981,19 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     try { receipt = await gateway.getTransactionReceipt(hash); }
     catch (error) {
       if (isRpcError(error)) {
-        await store.updateCredential(row.id, { blockchain_status: 'pending', issue_tx_hash: hash, confirmation_started_at: null, failure_code: null, failure_message: null }).catch(() => {});
-        return { credential: toPublicCredential(await store.findByCode(credentialCode)), status: 'pending', reason: 'rpc_error' };
+        const updated = await updateIfStillOwner({ blockchain_status: 'pending', issue_tx_hash: hash, confirmation_started_at: null, failure_code: null, failure_message: null });
+        const current = updated || await store.findByCode(credentialCode);
+        return { credential: toPublicCredential(current), status: current.blockchain_status, reason: updated ? 'rpc_error' : 'confirmation_in_progress' };
       }
-      await store.updateCredential(row.id, { blockchain_status: 'failed', onchain_valid: false, issue_tx_hash: hash, confirmation_started_at: null, ...safeFailure(error) }).catch(() => {});
-      throw error;
+      return failIfStillOwner(error);
     }
     if (!receipt) {
-      await store.updateCredential(row.id, { blockchain_status: 'pending', issue_tx_hash: hash, confirmation_started_at: null, failure_code: null, failure_message: null }).catch(() => {});
-      return { credential: toPublicCredential(await store.findByCode(credentialCode)), status: 'pending', reason: 'transaction_pending' };
+      const updated = await updateIfStillOwner({ blockchain_status: 'pending', issue_tx_hash: hash, confirmation_started_at: null, failure_code: null, failure_message: null });
+      const current = updated || await store.findByCode(credentialCode);
+      return { credential: toPublicCredential(current), status: current.blockchain_status, reason: updated ? 'transaction_pending' : 'confirmation_in_progress' };
     }
     if (Number(receipt.status) !== 1) {
-      await store.updateCredential(row.id, { blockchain_status: 'failed', onchain_valid: false, issue_tx_hash: hash, confirmation_started_at: null, ...safeFailure(credentialError('Avalanche transaction was mined but failed', 'AVALANCHE_TRANSACTION_REVERTED', 502)) }).catch(() => {});
-      throw credentialError('Avalanche transaction was mined but failed', 'AVALANCHE_TRANSACTION_REVERTED', 502);
+      return failIfStillOwner(credentialError('Avalanche transaction was mined but failed', 'AVALANCHE_TRANSACTION_REVERTED', 502));
     }
 
     // On-chain verification (RPC errors transient).
@@ -962,19 +1001,17 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     try { onchain = await gateway.verifyCredential(row.credential_id_hash); }
     catch (error) {
       if (isRpcError(error)) {
-        await store.updateCredential(row.id, { blockchain_status: 'pending', issue_tx_hash: hash, confirmation_started_at: null, failure_code: null, failure_message: null }).catch(() => {});
-        return { credential: toPublicCredential(await store.findByCode(credentialCode)), status: 'pending', reason: 'rpc_error' };
+        const updated = await updateIfStillOwner({ blockchain_status: 'pending', issue_tx_hash: hash, confirmation_started_at: null, failure_code: null, failure_message: null });
+        const current = updated || await store.findByCode(credentialCode);
+        return { credential: toPublicCredential(current), status: current.blockchain_status, reason: updated ? 'rpc_error' : 'confirmation_in_progress' };
       }
-      await store.updateCredential(row.id, { blockchain_status: 'failed', onchain_valid: false, issue_tx_hash: hash, confirmation_started_at: null, ...safeFailure(error) }).catch(() => {});
-      throw error;
+      return failIfStillOwner(error);
     }
     if (!onchain.exists) {
-      await store.updateCredential(row.id, { blockchain_status: 'failed', onchain_valid: false, issue_tx_hash: hash, confirmation_started_at: null, ...safeFailure(credentialError('Credential does not exist on Avalanche', 'CREDENTIAL_NOT_CONFIRMED', 409)) }).catch(() => {});
-      throw credentialError('Credential does not exist on Avalanche', 'CREDENTIAL_NOT_CONFIRMED', 409);
+      return failIfStillOwner(credentialError('Credential does not exist on Avalanche', 'CREDENTIAL_NOT_CONFIRMED', 409));
     }
     if (!sameHash(onchain.evidenceHash, row.evidence_hash)) {
-      await store.updateCredential(row.id, { blockchain_status: 'failed', onchain_valid: false, issue_tx_hash: hash, confirmation_started_at: null, ...safeFailure(credentialError('On-chain evidence hash does not match the database', 'EVIDENCE_HASH_MISMATCH', 409)) }).catch(() => {});
-      throw credentialError('On-chain evidence hash does not match the database', 'EVIDENCE_HASH_MISMATCH', 409);
+      return failIfStillOwner(credentialError('On-chain evidence hash does not match the database', 'EVIDENCE_HASH_MISMATCH', 409));
     }
 
     const now = new Date().toISOString();
@@ -989,12 +1026,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       failure_message: null,
       confirmation_started_at: null,
     };
-    let updated = null;
-    if (typeof store.updateCredentialIf === 'function' && row.confirmation_started_at) {
-      updated = await store.updateCredentialIf(row.id, patch, row.confirmation_started_at);
-    } else {
-      updated = await store.updateCredential(row.id, patch);
-    }
+    const updated = await updateIfStillOwner(patch);
     if (!updated) {
       const current = await store.findByCode(credentialCode);
       return { credential: toPublicCredential(current), status: current.blockchain_status, reason: 'confirmation_in_progress' };
@@ -1018,10 +1050,19 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     } else if (onchain.valid) {
       patch = { ...patch, blockchain_status: 'confirmed', onchain_valid: true, issued_at: isoFromUnix(onchain.issuedAt), issuer_address: onchain.issuer, failure_code: null, failure_message: null };
     }
-    const updatedRow = await store.updateCredential(row.id, patch);
+    if (typeof store.updateCredentialForVerify !== 'function') {
+      throw credentialError('Conditional verification update unavailable', 'VERIFICATION_CAS_UNAVAILABLE', 500);
+    }
+    const casUpdated = await store.updateCredentialForVerify(row.id, patch, row.updated_at);
+    const updatedRow = casUpdated || await store.findByCode(credentialCode);
+    if (!updatedRow) {
+      throw credentialError('Credential was not found', 'CREDENTIAL_NOT_FOUND', 404);
+    }
     const credential = toPublicCredential(updatedRow);
-    credential.verification.exists = Boolean(onchain.exists);
-    credential.verification.revoked = Boolean(onchain.revoked);
+    if (casUpdated) {
+      credential.verification.exists = Boolean(onchain.exists);
+      credential.verification.revoked = Boolean(onchain.revoked);
+    }
     if (updatedRow.blockchain_status === 'confirmed') {
       await markEvaluationIssued(learningRecordStore, updatedRow);
     }
