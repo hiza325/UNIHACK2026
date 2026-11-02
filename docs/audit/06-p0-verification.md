@@ -66,6 +66,21 @@ Vercel Hobby đã từng bị chạm trần một lần ở commit `77b443b` (g�
 | `a1ae9cc` | không có status Vercel |
 | `f9265c6` | Vercel **failure** `2026-11-01T14:26Z`; GitHub Actions (`build`, `playwright`, `lighthouse`, `deploy`) vẫn success |
 | `GET /api/auth/local` trên staging (probe `12:55Z`) | `404 NOT_FOUND` ⇒ xác nhận staging chưa chạy `f9265c6` |
+| `86e5dbb` (bản vá F-03) | Vercel **success** `2026-11-02T13:01:40Z` (`paradox-ai-staging`) và `13:01:54Z` (`unihack2026`) ⇒ giả thuyết 12-function được xác nhận |
+
+## 4b. Kiểm chứng live sau deploy `86e5dbb` (`2026-11-02T13:03Z`)
+
+| Endpoint | Kết quả |
+|---|---|
+| `GET /` | `200`; có `x-content-type-options: nosniff`, `x-frame-options: SAMEORIGIN`, `referrer-policy: strict-origin-when-cross-origin`, `permissions-policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()`, `content-security-policy: frame-ancestors 'self'` |
+| `GET /api/auth/local` | `200` `{"available":false}`, `Cache-Control: private, no-store` ⇒ rewrite chạy, local sign-in vẫn tắt |
+| `POST /api/auth/local` | `403` `LOCAL_AUTH_NOT_CONFIGURED` |
+| `GET /api/auth/session` | `401` `SESSION_INVALID` (route session không bị chiếm) |
+| `POST /api/debate {}` | `400` `INVALID_INPUT`, `Cache-Control: no-store` |
+| `POST /api/support` Origin lạ | `403` `FORBIDDEN_ORIGIN`, `Cache-Control: no-store` |
+| `POST /api/support` câu hỏi thật | `200` 27564 ms, `provider: gemini`, `grounded: true`, sources `A17/B061/B070` |
+| `GET /api/debate?aiStatus=1&probe=1` | `200`, `ok:true`, `gemini/gemini-3.5-flash`, 6691 ms |
+| `GET /api/ai/status` | `200`, `order:["gemini"]`, `groqKeyCount:2` (vẫn chờ sửa biến môi trường) |
 
 ## 5. Bằng chứng phụ
 
@@ -89,4 +104,5 @@ Vercel Hobby đã từng bị chạm trần một lần ở commit `77b443b` (g�
 - Dashboard/History/UI trạng thái cần đăng nhập thật, nên chưa chụp được ảnh đối chiếu.
 - ADM-04 (audit log admin) vẫn chờ migration `supabase/migrations/202611010001_admin_audit_log.sql` chạy trên Supabase staging.
 - Không kiểm quota/rate limit phân tán: bộ đếm nằm trong RAM mỗi serverless instance.
-- Không đọc được log build Vercel (không có token); F-03 suy ra từ số function + lịch sử `77b443b`, và sẽ được xác nhận khi deploy commit này thành công.
+- Không đọc được log build Vercel (không có token); F-03 được suy ra từ số function + lịch sử `77b443b`, và đã được xác nhận gián tiếp: sau khi hạ về 12 function, deploy `86e5dbb` thành công.
+- Probe `13:03Z` cho thấy widget trả lời trong 27.5 s (Gemini) — dưới deadline 45 s nhưng sát ngưỡng; Groq chưa được dùng vì `AI_PROVIDER_ORDER` trên Vercel.
