@@ -4,6 +4,11 @@ import { AVALANCHE_FUJI_CONFIG, AVALANCHE_FUJI_CONTRACT_URL } from '../avalanche
 import { CERTIFICATE_CODE_HTML_PATTERN, getCredentialDisplayStatus, getAvalancheExplorerUrl, getCredentialVerificationState, hasActualAvalancheVerification } from '../learning-passport-service.js';
 
 export const passportViews = {
+  // Explorer links expose raw on-chain infrastructure; only administrators see
+  // them. Unknown or missing roles (including guests) fall back to hidden.
+  canViewAvalancheExplorer() {
+    return this.user?.role === 'admin';
+  },
   passportDate(value) {
     const date = new Date(String(value || '').includes('T') ? value : `${value}T12:00:00Z`);
     if (Number.isNaN(date.getTime())) return this.escape(value || '—');
@@ -86,6 +91,7 @@ export const passportViews = {
     const t = key => this.t(key);
     if (!credential) return this.passportVerificationStateMarkup('not-found');
     const explorerUrl = getAvalancheExplorerUrl(credential);
+    const showExplorerLink = this.canViewAvalancheExplorer();
     const actualVerification = hasActualAvalancheVerification(credential);
     const stateCopy = {
       valid: ['passportVerifiedOnAvalanche', 'passportVerifiedOnChain'],
@@ -97,7 +103,7 @@ export const passportViews = {
     const transaction = explorerUrl
       ? `<div class="transaction-box"><span>${t('passportTransactionHash')}</span><code>${this.escape(credential.transactionHash)}</code></div>`
       : '';
-    return `<section class="card passport-verification-result ${state}" id="passport-verification-result" data-verification-state="${state}" tabindex="-1"><header><div><span>${t('passportVerificationResult')}</span><h2>${this.escape(credential.name || t('passportCertificate'))}</h2><code>${this.escape(credential.code)}</code>${credential.isTest ? `<span class="mock-inline">${t('passportTestBadge')}</span>` : credential.source === 'mock' ? `<span class="mock-inline">${t('passportMockBadge')}</span>` : ''}</div><span class="verification-state-badge ${state}">${t(stateCopy[0])}</span></header><div class="verification-grid"><div><span>${t('passportSkill')}</span><strong>${this.escape(credential.skill || '—')}</strong></div><div><span>${t('passportIssuedAt')}</span><strong>${credential.issuedAt ? this.passportDate(credential.issuedAt) : '—'}</strong></div><div><span>${t('passportNetwork')}</span><strong>${credential.network === AVALANCHE_FUJI_CONFIG.network ? `${AVALANCHE_FUJI_CONFIG.networkName} · ${AVALANCHE_FUJI_CONFIG.chainId}` : '—'}</strong></div><div><span>${t('passportVerificationSource')}</span><strong>${actualVerification ? AVALANCHE_FUJI_CONFIG.contractName : t('passportNotConnected')}</strong></div></div>${transaction}<p class="passport-verification-caution ${state}">${t(stateCopy[1])}</p><footer>${explorerUrl ? `<a class="primary-button explorer-button" href="${explorerUrl}" target="_blank" rel="noopener noreferrer">${t('passportExplorer')} ↗</a>` : ''}</footer></section>`;
+    return `<section class="card passport-verification-result ${state}" id="passport-verification-result" data-verification-state="${state}" tabindex="-1"><header><div><span>${t('passportVerificationResult')}</span><h2>${this.escape(credential.name || t('passportCertificate'))}</h2><code>${this.escape(credential.code)}</code>${credential.isTest ? `<span class="mock-inline">${t('passportTestBadge')}</span>` : credential.source === 'mock' ? `<span class="mock-inline">${t('passportMockBadge')}</span>` : ''}</div><span class="verification-state-badge ${state}">${t(stateCopy[0])}</span></header><div class="verification-grid"><div><span>${t('passportSkill')}</span><strong>${this.escape(credential.skill || '—')}</strong></div><div><span>${t('passportIssuedAt')}</span><strong>${credential.issuedAt ? this.passportDate(credential.issuedAt) : '—'}</strong></div><div><span>${t('passportNetwork')}</span><strong>${credential.network === AVALANCHE_FUJI_CONFIG.network ? `${AVALANCHE_FUJI_CONFIG.networkName} · ${AVALANCHE_FUJI_CONFIG.chainId}` : '—'}</strong></div><div><span>${t('passportVerificationSource')}</span><strong>${actualVerification ? AVALANCHE_FUJI_CONFIG.contractName : t('passportNotConnected')}</strong></div></div>${transaction}<p class="passport-verification-caution ${state}">${t(stateCopy[1])}</p><footer>${explorerUrl && showExplorerLink ? `<a class="primary-button explorer-button" href="${explorerUrl}" target="_blank" rel="noopener noreferrer">${t('passportExplorer')} ↗</a>` : ''}</footer></section>`;
   },
   viewPassportVerify() {
     const t = key => this.t(key);
