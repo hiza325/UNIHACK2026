@@ -69,7 +69,7 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
       return request('learning_credentials', { method: 'POST', body: record, single: true });
     },
     async updateCredential(id, patch) {
-      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message']);
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
       if (Object.keys(patch).some(key => !allowed.has(key))) {
         throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
       }
@@ -91,6 +91,72 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
         query: filters({ id: `eq.${id}`, blockchain_status: 'eq.failed' }),
         body: { blockchain_status: 'submitting', failure_code: null, failure_message: null },
         single: true,
+      });
+    },
+    async updateCredentialIf(id, patch, claimedAt) {
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
+      if (Object.keys(patch).some(key => !allowed.has(key))) {
+        throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
+      }
+      const qClaimed = claimedAt ? '&confirmation_started_at=eq.' + encodeURIComponent(claimedAt) : '';
+      const response = await fetcher(config.url + '/rest/v1/learning_credentials?id=eq.' + encodeURIComponent(id) + qClaimed + '&select=*', {
+        method: 'PATCH',
+        headers: {
+          apikey: config.serviceKey,
+          Authorization: 'Bearer ' + config.serviceKey,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify(patch),
+      });
+      const payload = response.status === 204 ? null : await response.json().catch(() => null);
+      if (!response.ok) throw mapStoreError(response, payload);
+      const row = Array.isArray(payload) ? (payload[0] || null) : payload;
+      return row ? { ...row } : null;
+    },
+    async claimConfirm(id) {
+      // Atomic claim: only a row still submitting/pending with an expired (or absent)
+      // confirmation lock can be claimed. Returns the claimed row or null.
+      const now = new Date().toISOString();
+      const cutoff = new Date(Date.now() - 60_000).toISOString();
+      // PostgREST supports `or` for the confirmation_started_at condition.
+      const query = `?id=eq.${encodeURIComponent(id)}&blockchain_status=in.(submitting,pending)&or=(confirmation_started_at.is.null,confirmation_started_at.lt.${encodeURIComponent(cutoff)})&select=*`;
+      const response = await fetcher(`${config.url}/rest/v1/learning_credentials${query}`, {
+        method: 'PATCH',
+        headers: {
+          apikey: config.serviceKey,
+          Authorization: `Bearer ${config.serviceKey}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify({ confirmation_started_at: now, confirmation_attempts: undefined }),
+      });
+      // Increment attempts via a second safe approach is not atomic; instead rely on
+      // the returned row and increment in a follow-up only when claim succeeded.
+      const data = response.status === 204 ? null : await response.json().catch(() => null);
+      if (!response.ok) throw mapStoreError(response, data);
+      const row = Array.isArray(data) ? (data[0] || null) : data;
+      if (!row) return null;
+      // Best-effort increment (non-critical; attempts is advisory).
+      try {
+        await fetcher(`${config.url}/rest/v1/learning_credentials?id=eq.${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { apikey: config.serviceKey, Authorization: `Bearer ${config.serviceKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirmation_attempts: (row.confirmation_attempts || 0) + 1 }),
+        });
+      } catch (_) { /* advisory */ }
+      return { ...row, confirmation_attempts: (row.confirmation_attempts || 0) + 1 };
+    },
+    async findByEvaluationId(evaluationId) {
+      return request('learning_credentials', {
+        query: filters({ select: '*', evaluation_id: `eq.${evaluationId}`, limit: '1' }),
+        single: true,
+      });
+    },
+    async listPendingCredentials(minAgeMinutes = 2) {
+      const cutoff = new Date(Date.now() - minAgeMinutes * 60_000).toISOString();
+      return request('learning_credentials', {
+        query: filters({ select: '*', blockchain_status: 'in.(submitting,pending)', created_at: `lt.${cutoff}`, order: 'created_at.asc', limit: '50' }),
       });
     },
   };

@@ -68,6 +68,12 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
         const result = await service.confirmIssue(body, publicUser(session.user));
         return res.status(200).json(result);
       }
+      if (action === 'reconcile-credential') {
+        const session = await requireAdmin(req, res);
+        guardCredentialLookup(req, session.user?.id);
+        const result = await service.reconcileCredential(body.credentialCode, body.txHash);
+        return res.status(200).json(result);
+      }
       if (action === 'list-eligible-evaluations') {
         await requireAdmin(req, res);
         const learnerId = String(body?.learnerId || '').trim();

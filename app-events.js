@@ -60,6 +60,7 @@ export const eventMethods = {
     if (event.target.closest?.('[data-cert-connect-wallet]')) { this.connectCertificateWallet(); return; }
     if (event.target.closest?.('[data-cert-prepare]')) { this.prepareCertificateIssuance(); return; }
     if (event.target.closest?.('[data-cert-confirm]')) { this.confirmCertificateIssuance(); return; }
+    if (event.target.closest?.('[data-cert-check]')) { this.checkCertificateIssuance(); return; }
     if (event.target.closest?.('[data-cert-reset]')) { this.resetCertificateIssuance(); return; }
     if (event.target.closest?.('[data-cert-load-evaluations]')) { this.loadEligibleEvaluations(); return; }
     const accountStatus = event.target.closest?.('[data-account-status]');

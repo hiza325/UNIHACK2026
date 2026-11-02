@@ -98,6 +98,15 @@ export function createLearningRecordStore({ env = process.env, fetcher = globalT
     async findEvaluation(id, learnerId) {
       return request('learning_evaluations', { query: { select: '*', id: `eq.${id}`, learner_id: `eq.${learnerId}`, limit: '1' }, single: true });
     },
+    async updateEvaluation(id, patch) {
+      const allowed = new Set(['credential_status', 'verification_status', 'credential_id', 'credential_id_hash', 'credential_hash', 'issued_at', 'issue_tx_hash']);
+      if (Object.keys(patch).some(key => !allowed.has(key))) {
+        throw storeError('Evaluation credential metadata cannot be updated', 'EVALUATION_IMMUTABLE_FIELD', 409);
+      }
+      return request('learning_evaluations', {
+        method: 'PATCH', query: { id: `eq.${id}` }, body: patch, single: true,
+      });
+    },
     async listEligibleEvaluations(learnerId, { limit = 50, offset = 0 } = {}) {
       return request('learning_evaluations', { query: { select: '*', learner_id: `eq.${learnerId}`, credential_eligible: 'eq.true', order: 'evaluated_at.desc', limit: String(limit), offset: String(offset) } });
     },
