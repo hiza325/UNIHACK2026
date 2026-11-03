@@ -1,4 +1,4 @@
-import { Contract, FallbackProvider, Interface, JsonRpcProvider, Wallet, getAddress, id, isAddress } from 'ethers';
+import { Contract, FallbackProvider, Interface, JsonRpcProvider, Network, Wallet, getAddress, id, isAddress } from 'ethers';
 import { AVALANCHE_FUJI_CONFIG } from '../../avalanche-config.js';
 
 export const AVALANCHE_FUJI_CHAIN_ID = BigInt(AVALANCHE_FUJI_CONFIG.chainId);
@@ -29,6 +29,14 @@ const ZERO_BYTES32 = `0x${'0'.repeat(64)}`;
 
 function serviceError(message, code, status, cause) {
   return Object.assign(new Error(message, cause ? { cause } : undefined), { code, status });
+}
+
+// Diagnostic text safe for logs: strip any URL (may carry API keys/tokens)
+// and cap the length. Never log request headers or secrets.
+function safeErrorDetail(error, max = 200) {
+  return String(error?.shortMessage || error?.message || '')
+    .replace(/https?:\/\/[^\s]+/g, '[URL]')
+    .slice(0, max);
 }
 
 export function avalancheConfig(env = process.env, { requireSigner = false } = {}) {
@@ -202,7 +210,15 @@ export async function createAvalancheGateway({ env = process.env, write = false,
   if (valid.length === 1) {
     provider = valid[0];
   } else {
-    provider = new FallbackProvider(valid.map((p, i) => ({ provider: p, priority: i + 1, weight: 1, stallTimeout: 3000 })), 1);
+    // ethers v6 signature: new FallbackProvider(providers, network, options).
+    // The network must be Avalanche Fuji; quorum belongs in options. Passing a
+    // bare number as the 2nd arg was interpreted as chainId 1 (mainnet), which
+    // made getNetwork() throw "network changed: 1 => 43113" on readPreflight.
+    provider = new FallbackProvider(
+      valid.map((p, i) => ({ provider: p, priority: i + 1, weight: 1, stallTimeout: 3000 })),
+      Network.from(Number(AVALANCHE_FUJI_CHAIN_ID)),
+      { quorum: 1 },
+    );
   }
   const writeProvider = primaryValid ? primary : valid[0];
   const wallet = write ? (suppliedWallet || new Wallet(config.privateKey, writeProvider)) : null;
@@ -312,7 +328,11 @@ export async function createAvalancheGateway({ env = process.env, write = false,
   async function readPreflight(issuerAddress) {
     let bytecode = '';
     try { bytecode = typeof provider.getCode === 'function' ? await provider.getCode(config.contractAddress) : '0x'; }
-    catch (error) { throw mapAvalancheError(error); }
+    catch (error) {
+      const detail = safeErrorDetail(error);
+      console.error('[avalanche] readPreflight getCode failed', 'code=' + (error?.code || 'unknown'), 'detail=' + detail);
+      throw mapAvalancheError(error);
+    }
     if (!bytecode || bytecode === '0x' || bytecode === '0x0') {
       throw serviceError('Credential registry is not deployed at the configured address', 'AVALANCHE_REGISTRY_NOT_DEPLOYED', 503);
     }
