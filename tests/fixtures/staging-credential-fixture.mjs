@@ -115,3 +115,104 @@ export async function cleanupFixture(config, fixture) {
   }
   return { results, allOk: results.every((r) => r.ok) };
 }
+
+// Create a minimal valid learning-evaluation chain in staging for AI issuance tests.
+// Returns { ok, session, submission, evaluation, evaluationId, ... } or { ok: false, ... }.
+export async function createTestEvaluation(config, runId, learnerId) {
+  const headers = { apikey: config.serviceKey, Authorization: 'Bearer ' + config.serviceKey, 'Content-Type': 'application/json', Prefer: 'return=representation' };
+  const hexSeed = runId.replace(/[^a-f0-9]/g, '').padEnd(64, '0').slice(0, 64);
+  const credentialCode = `PXP-STAGE-${runId.slice(-8).toUpperCase().replace(/[^A-Z0-9]/g, '0')}`;
+  const credentialIdHash = `0x${hexSeed}`;
+  const credentialHash = `0x${hexSeed.split('').reverse().join('').padEnd(64, '1').slice(0, 64)}`;
+
+  // 1. session
+  const sessRes = await fetch(`${config.url}/rest/v1/learning_sessions`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      learner_id: learnerId,
+      title: `Staging test session ${runId}`,
+      subject: 'General',
+      problem_text: 'Staging test problem text for duplicate evaluation.',
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    }),
+  });
+  const sessData = await sessRes.json().catch(() => null);
+  if (!sessRes.ok) return { ok: false, step: 'session', status: sessRes.status, error: sessData };
+  const session = Array.isArray(sessData) ? sessData[0] : sessData;
+
+  // 2. submission
+  const subRes = await fetch(`${config.url}/rest/v1/learning_submissions`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      session_id: session.id,
+      learner_id: learnerId,
+      attempt_number: 1,
+      submission_type: 'initial',
+      solution_text: 'Staging test solution.',
+      analysis_state: 'analyzed',
+    }),
+  });
+  const subData = await subRes.json().catch(() => null);
+  if (!subRes.ok) {
+    // best-effort cleanup
+    await fetch(`${config.url}/rest/v1/learning_sessions?id=eq.${session.id}`, { method: 'DELETE', headers: { apikey: config.serviceKey, Authorization: 'Bearer ' + config.serviceKey } }).catch(() => {});
+    return { ok: false, step: 'submission', status: subRes.status, error: subData };
+  }
+  const submission = Array.isArray(subData) ? subData[0] : subData;
+
+  // 3. evaluation
+  const proofRecord = { schemaVersion: 'paradox-proof-of-learning-v1', evidenceSufficient: true, status: 'pass', score: 90, contentHash: 'cd'.repeat(32) };
+  const evalRes = await fetch(`${config.url}/rest/v1/learning_evaluations`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      session_id: session.id,
+      submission_id: submission.id,
+      learner_id: learnerId,
+      rubric_version: 'paradox-rubric-v1',
+      score: 90,
+      status: 'pass',
+      comment: 'Staging test evaluation for duplicate check.',
+      criteria: {},
+      corrected_issues: [],
+      remaining_issues: [],
+      proof_record: proofRecord,
+      credential_eligible: true,
+      credential_id: credentialCode,
+      credential_id_hash: credentialIdHash,
+      credential_hash: credentialHash,
+      credential_status: 'eligible',
+    }),
+  });
+  const evalData = await evalRes.json().catch(() => null);
+  if (!evalRes.ok) {
+    await fetch(`${config.url}/rest/v1/learning_submissions?id=eq.${submission.id}`, { method: 'DELETE', headers: { apikey: config.serviceKey, Authorization: 'Bearer ' + config.serviceKey } }).catch(() => {});
+    await fetch(`${config.url}/rest/v1/learning_sessions?id=eq.${session.id}`, { method: 'DELETE', headers: { apikey: config.serviceKey, Authorization: 'Bearer ' + config.serviceKey } }).catch(() => {});
+    return { ok: false, step: 'evaluation', status: evalRes.status, error: evalData };
+  }
+  const evaluation = Array.isArray(evalData) ? evalData[0] : evalData;
+
+  return { ok: true, session, submission, evaluation, evaluationId: evaluation.id, credentialCode, credentialIdHash, credentialHash };
+}
+
+// Cleanup an evaluation chain + any credentials referencing it. Exact IDs only.
+export async function cleanupEvaluationChain(config, chain) {
+  const h = { apikey: config.serviceKey, Authorization: 'Bearer ' + config.serviceKey };
+  const results = [];
+  const del = async (table, id) => {
+    try {
+      const res = await fetch(`${config.url}/rest/v1/${table}?id=eq.${id}`, { method: 'DELETE', headers: h });
+      results.push({ table, id, status: res.status, ok: res.ok });
+    } catch (e) {
+      results.push({ table, id, status: 0, ok: false, error: String(e) });
+    }
+  };
+  for (const cid of (chain.credentialIds || [])) await del('learning_credentials', cid);
+  if (chain.evaluationId) await del('learning_evaluations', chain.evaluationId);
+  if (chain.submissionId) await del('learning_submissions', chain.submissionId);
+  if (chain.sessionId) await del('learning_sessions', chain.sessionId);
+  return { results, allOk: results.every((r) => r.ok) };
+}

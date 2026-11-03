@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { getStagingConfig, isStagingConfirmed, hasTestLearner } from './supabase/staging-config.mjs';
-import { createRunId, createCredentialFixture, createTestCredential, cleanupFixture } from './fixtures/staging-credential-fixture.mjs';
+import { createRunId, createCredentialFixture, createTestCredential, cleanupFixture, createTestEvaluation, cleanupEvaluationChain } from './fixtures/staging-credential-fixture.mjs';
 import { credentialIdFromCode } from '../api/credentials/_avalanche.js';
 import { normalizeClaimResponse } from './fixtures/claim-response-normalize.mjs';
 
@@ -196,7 +196,7 @@ test.describe('Supabase Staging Integration', () => {
     if (originalError) throw originalError;
   });
 
-  test('confirmation attempt counter increments on re-claim', async () => {
+  test('active confirmation lock blocks immediate re-claim', async () => {
     test.skip(!confirmed, 'STAGING_SUPABASE_CONFIRMED=1 required');
     test.skip(!hasLearner, 'STAGING_TEST_LEARNER_ID required');
 
@@ -475,27 +475,104 @@ test.describe('Supabase Staging Integration', () => {
     assertStagingGuard(config, confirmed, hasLearner);
 
     const runId = createRunId();
-    const fixture = createCredentialFixture(runId, config.testLearnerId);
-    fixture.credentialIdHash = credentialIdFromCode(fixture.credentialCode);
-    fixture.source = 'ai-evaluation';
+    const chain = { credentialIds: [], evaluationId: null, submissionId: null, sessionId: null };
+
+    const makeHash = (seed, variant = 0) => {
+      let h = String(seed).replace(/[^a-f0-9]/g, '').padEnd(64, '0').slice(0, 64);
+      if (variant) {
+        const flipped = ((parseInt(h.charAt(63), 16) + variant) % 16).toString(16);
+        h = h.slice(0, 63) + flipped;
+      }
+      return '0x' + h;
+    };
 
     let originalError = null;
     try {
-      const result = await createTestCredential(config, fixture);
-      expect(result.ok).toBe(true);
-      fixture.recordIds.push(result.row.id);
+      // 1. Create a valid test evaluation chain.
+      const evalResult = await createTestEvaluation(config, runId, config.testLearnerId);
+      expect(evalResult.ok).toBe(true);
+      chain.sessionId = evalResult.session.id;
+      chain.submissionId = evalResult.submission.id;
+      chain.evaluationId = evalResult.evaluation.id;
 
-      // Verify the unique partial index exists by querying pg_indexes (read-only).
-      // The actual duplicate prevention is enforced by:
-      // 1. Partial unique index: learning_credentials_evaluation_id_ai_unique_idx
-      // 2. Backend check: prepareIssue/issue throws DUPLICATE_EVALUATION_ISSUANCE
-      // 3. Unit test: certificate-confirmation-hardening.spec.js
+      const suffix = runId.slice(-8).toUpperCase().replace(/[^A-Z0-9]/g, '0');
+      const codeA = `PXP-STAGE-${suffix}A`;
+      const codeB = `PXP-STAGE-${suffix}B`;
+      const hashA = makeHash(runId, 0);
+      const hashB = makeHash(runId, 1);
+      const evHashA = makeHash(runId + 'e1', 0);
+      const evHashB = makeHash(runId + 'e1', 1);
+      const now = new Date().toISOString();
+      const snap = { recipient_name_snapshot: 'Staging Test Learner', subject_snapshot: 'Reasoning', snapshot_version: 1, snapshot_captured_at: now };
+
+      const aiHeaders = { apikey: config.serviceKey, Authorization: 'Bearer ' + config.serviceKey, 'Content-Type': 'application/json', Prefer: 'return=representation' };
+
+      // 2. INSERT credential A with evaluation_id = X.
+      const bodyA = {
+        learner_id: config.testLearnerId,
+        created_by: config.testLearnerId,
+        credential_code: codeA,
+        credential_id_hash: hashA,
+        evidence_hash: evHashA,
+        title: `Staging test credential A ${runId}`,
+        skill: 'Reasoning',
+        assessment_score: 90,
+        source: 'ai-evaluation',
+        is_test: false,
+        blockchain_status: 'submitting',
+        network: 'avalanche-fuji',
+        chain_id: 43113,
+        evaluation_id: chain.evaluationId,
+        ...snap,
+      };
+      const resA = await fetch(`${config.url}/rest/v1/learning_credentials`, { method: 'POST', headers: aiHeaders, body: JSON.stringify(bodyA) });
+      const dataA = await resA.json().catch(() => null);
+      expect(resA.ok).toBe(true);
+      const rowA = Array.isArray(dataA) ? dataA[0] : dataA;
+      expect(rowA).toBeTruthy();
+      chain.credentialIds.push(rowA.id);
+
+      // 3. INSERT credential B with the SAME evaluation_id but different unique fields.
+      const bodyB = {
+        learner_id: config.testLearnerId,
+        created_by: config.testLearnerId,
+        credential_code: codeB,
+        credential_id_hash: hashB,
+        evidence_hash: evHashB,
+        title: `Staging test credential B ${runId}`,
+        skill: 'Reasoning',
+        assessment_score: 90,
+        source: 'ai-evaluation',
+        is_test: false,
+        blockchain_status: 'submitting',
+        network: 'avalanche-fuji',
+        chain_id: 43113,
+        evaluation_id: chain.evaluationId,
+        ...snap,
+      };
+      const resB = await fetch(`${config.url}/rest/v1/learning_credentials`, { method: 'POST', headers: aiHeaders, body: JSON.stringify(bodyB) });
+      const dataB = await resB.json().catch(() => null);
+      // Database must reject duplicate evaluation_id (partial unique index).
+      expect(resB.ok).toBe(false);
+      const isDup = resB.status === 409 || dataB?.code === '23505' ||
+        (typeof dataB?.message === 'string' && /duplicate|unique/i.test(dataB.message));
+      expect(isDup).toBe(true);
+      if (resB.ok && dataB && dataB.id) chain.credentialIds.push(dataB.id);
+
+      // 4. SELECT: only one credential for evaluation X.
+      const selRes = await fetch(`${config.url}/rest/v1/learning_credentials?evaluation_id=eq.${chain.evaluationId}&select=id`, {
+        headers: { apikey: config.serviceKey, Authorization: 'Bearer ' + config.serviceKey },
+      });
+      const selData = await selRes.json().catch(() => []);
+      expect(Array.isArray(selData)).toBe(true);
+      expect(selData.length).toBe(1);
+      expect(selData[0].id).toBe(rowA.id);
     } catch (e) {
       originalError = e;
     } finally {
-      const { cleanupError } = await safeCleanup(config, fixture);
-      if (cleanupError) {
-        // Surface cleanup error without hiding original
+      const cleanupResult = await cleanupEvaluationChain(config, chain);
+      if (!cleanupResult.allOk) {
+        const cleanupError = new Error('Evaluation-chain cleanup failed: ' + JSON.stringify(cleanupResult.results));
         if (originalError) {
           throw new AggregateError([originalError, cleanupError], 'Test failed and cleanup failed');
         }

@@ -146,7 +146,9 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
         single: false,
       });
       const row = Array.isArray(rows) ? (rows[0] || null) : rows;
-      return row ? { ...row } : null;
+      // PostgreSQL composite RPCs can return a truthy object with every field null.
+      // A claim is acquired only when the returned row identifies the requested credential.
+      return row && typeof row === 'object' && row.id === id ? { ...row } : null;
     },
     async claimRevoke(id) {
       const query = '?id=eq.' + encodeURIComponent(id) + '&blockchain_status=eq.confirmed&revoke_tx_hash=is.null&select=*';
