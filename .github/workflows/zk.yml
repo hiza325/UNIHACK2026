@@ -1,0 +1,48 @@
+name: ZK Tests
+
+on:
+  pull_request:
+    paths:
+      - 'zk/**'
+      - '.github/workflows/zk.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'zk/**'
+      - '.github/workflows/zk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zk-tests:
+    name: Circom + Groth16 tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: zk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: zk/package-lock.json
+
+      - name: Install ZK dependencies
+        run: npm ci
+
+      - name: Build circuit and development keys
+        run: npm run build
+
+      - name: Run ZK tests
+        run: npm test
