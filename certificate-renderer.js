@@ -115,7 +115,7 @@ export async function exportCertificate(canvas, format) {
   offsets[4] = length;
   append(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width 1672 /Height 941 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
   append(jpeg); append('\nendstream\nendobj\n');
-  const content = 'q\\n842 0 0 474 0 0 cm\\n/Image Do\\nQ\\n';
+  const content = 'q\n842 0 0 474 0 0 cm\n/Image Do\nQ\n';
   object(5, `<< /Length ${encoder.encode(content).length} >>\nstream\n${content}endstream`);
   const xref = length;
   append(`xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(n => `${String(n).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
