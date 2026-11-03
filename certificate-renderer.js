@@ -102,7 +102,9 @@ export async function exportCertificate(canvas, format) {
   if (format === 'png') return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG export failed')), 'image/png'));
   if (format !== 'pdf') throw new Error('Unsupported certificate format');
   // Single raster page: embeds rendered Vietnamese glyphs without external PDF/font dependencies.
-  const jpeg = Uint8Array.from(atob(canvas.toDataURL('image/jpeg', 0.98).split(',')[1]), c => c.charCodeAt(0));
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+  if (!dataUrl || !dataUrl.startsWith('data:image/jpeg;base64,')) throw new Error('JPEG export failed');
+  const jpeg = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));
   const encoder = new TextEncoder(); const chunks = []; const offsets = [0]; let length = 0;
   const append = value => { const bytes = typeof value === 'string' ? encoder.encode(value) : value; chunks.push(bytes); length += bytes.length; };
   const object = (id, body) => { offsets[id] = length; append(`${id} 0 obj\n${body}\nendobj\n`); };
@@ -111,7 +113,7 @@ export async function exportCertificate(canvas, format) {
   object(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
   object(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 474] /Resources << /XObject << /Image 4 0 R >> >> /Contents 5 0 R >>');
   offsets[4] = length;
-  append(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width 1536 /Height 1024 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
+  append(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width 1672 /Height 941 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
   append(jpeg); append('\nendstream\nendobj\n');
   const content = 'q\\n842 0 0 474 0 0 cm\\n/Image Do\\nQ\\n';
   object(5, `<< /Length ${encoder.encode(content).length} >>\nstream\n${content}endstream`);
