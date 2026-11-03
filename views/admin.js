@@ -70,6 +70,7 @@ export const adminViews = {
       <div class="row">
         <button class="primary-button" type="button" data-cert-prepare ${ci.busy || !wallet || wallet.chainId !== 43113 || !wallet.authorized ? 'disabled' : ''}>Prepare</button>
         <button class="primary-button" type="button" data-cert-confirm ${ci.busy || !ci.prepared ? 'disabled' : ''}>Sign &amp; Send</button>
+        <button class="ghost-button" type="button" data-cert-check ${ci.busy || !ci.txHash ? 'disabled' : ''}>Check again</button>
       </div>
       <p><strong>Status:</strong> ${this.escape(ci.status)} ${ci.error ? `— ${this.escape(ci.error)}` : ''}</p>
       ${preview}

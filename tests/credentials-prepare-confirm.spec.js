@@ -25,14 +25,51 @@ function createMemoryStore() {
     },
     async listByLearner(id) { return credentials.filter(item => item.learner_id === id); },
     async insertCredential(record) {
-      const row = { id: `credential-${credentials.length + 1}`, created_at: new Date().toISOString(), onchain_valid: false, verification_checked_at: null, ...record };
+      const now = new Date().toISOString();
+      const row = { id: `credential-${credentials.length + 1}`, created_at: now, updated_at: now, onchain_valid: false, verification_checked_at: null, confirmation_started_at: null, confirmation_attempts: 0, ...record };
       credentials.push(row);
       return { ...row };
     },
     async updateCredential(id, patch) {
       const row = credentials.find(item => item.id === id);
+      if (!row) return null;
+      Object.assign(row, patch);
+      row.updated_at = new Date().toISOString();
+      return { ...row };
+    },
+    async updateCredentialForVerify(id, patch, expectedUpdatedAt) {
+      const row = credentials.find(item => item.id === id);
+      if (!row) return null;
+      if (!expectedUpdatedAt || row.updated_at !== expectedUpdatedAt) return null;
+      if (row.blockchain_status === 'revoked') return null;
+      if (row.confirmation_started_at != null) return null;
+      Object.assign(row, patch);
+      row.updated_at = new Date().toISOString();
+      return { ...row };
+    },
+    async updateCredentialIf(id, patch, claimedAt) {
+      const row = credentials.find(item => item.id === id);
+      if (!row) return null;
+      if (!['submitting', 'pending'].includes(row.blockchain_status)) return null;
+      if (!claimedAt || row.confirmation_started_at !== claimedAt) return null;
       Object.assign(row, patch);
       return { ...row };
+    },
+    async claimConfirm(id) {
+      const row = credentials.find(item => item.id === id);
+      if (!row) return null;
+      if (!['submitting', 'pending'].includes(row.blockchain_status)) return null;
+      if (row.confirmation_started_at) {
+        const cutoff = Date.now() - 60000;
+        if (new Date(row.confirmation_started_at).getTime() > cutoff) return null;
+      }
+      row.confirmation_started_at = new Date().toISOString();
+      row.confirmation_attempts = (row.confirmation_attempts || 0) + 1;
+      return { ...row };
+    },
+    async findByEvaluationId(evaluationId) {
+      const row = credentials.find(item => item.evaluation_id === evaluationId);
+      return row ? { ...row } : null;
     },
     async insertTransaction(record) { const row = { id: transactions.length + 1, ...record }; transactions.push(row); return { ...row }; },
     async updateTransaction(id, patch) { const row = transactions.find(item => item.id === id); Object.assign(row, patch); return { ...row }; },

@@ -45,7 +45,11 @@ export const certificateIssuanceMethods = {
       busy: false,
     };
     if (stored.prepared) this.certificateIssuance.prepared = stored.prepared;
+    this.certificateIssuance.polling = false;
     this.render();
+    if (this.certificateIssuance.status === 'pending' && this.certificateIssuance.txHash) {
+      setTimeout(() => { this.checkCertificateIssuance(); }, 0);
+    }
   },
   async connectCertificateWallet() {
     if (!window.ethereum) { this.showToast(this.t('walletNotFound') || 'Core Wallet not found'); return; }
@@ -111,11 +115,12 @@ export const certificateIssuanceMethods = {
       this.certificateIssuance.error = error && error.message ? error.message : String(error);
     } finally {
       this.certificateIssuance.busy = false;
+      this.certificateIssuance.polling = false;
       this.render();
     }
   },
   async confirmCertificateIssuance() {
-    if (this.certificateIssuance.busy || !this.certificateIssuance.prepared) return;
+    if (this.certificateIssuance.busy || this.certificateIssuance.polling || !this.certificateIssuance.prepared) return;
     if (!window.ethereum || !this.certificateWallet) {
       this.certificateIssuance.error = 'Connect Core Wallet first';
       this.render();
@@ -133,6 +138,7 @@ export const certificateIssuanceMethods = {
       return;
     }
     this.certificateIssuance.busy = true;
+    this.certificateIssuance.polling = true;
     this.certificateIssuance.status = 'awaiting-signature';
     this.certificateIssuance.error = '';
     this.render();
@@ -146,18 +152,80 @@ export const certificateIssuanceMethods = {
       this.certificateIssuance.status = 'pending';
       writeStoredIssuance({ status: 'pending', learnerId: this.certificateIssuance.learnerId, evaluationId: this.certificateIssuance.evaluationId, credentialCode: this.certificateIssuance.credentialCode, title: this.certificateIssuance.title, prepared: this.certificateIssuance.prepared, txHash });
       this.render();
-      const response = await fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ action: 'confirm-issue', credentialCode: this.certificateIssuance.prepared.credential.code, txHash }) });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || 'Confirm failed');
-      this.certificateIssuance.prepared = result.credential ? { credential: result.credential } : this.certificateIssuance.prepared;
-      this.certificateIssuance.status = result.status || 'confirmed';
-      this.certificateIssuance.error = '';
+
+      // Bounded polling: receipt may arrive late. Retry with exponential backoff up to 2 minutes.
+      const started = Date.now();
+      const maxMs = 120000;
+      let delay = 1000;
+      let result = null;
+      while (Date.now() - started < maxMs) {
+        const response = await fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ action: 'confirm-issue', credentialCode: this.certificateIssuance.prepared.credential.code, txHash }) });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const code = String(payload.code || '');
+          if (/INVALID_|DUPLICATE_|EVIDENCE_HASH_MISMATCH|AVALANCHE_TRANSACTION_REVERTED|CREDENTIAL_NOT_FOUND/i.test(code)) {
+            throw new Error(payload.error || 'Confirm failed');
+          }
+          // Transient (RPC/timeout): keep pending and retry.
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay = Math.min(delay * 2, 15000);
+          continue;
+        }
+        result = payload;
+        if (result.status === 'confirmed' || result.status === 'failed' || result.alreadyConfirmed) break;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay = Math.min(delay * 2, 15000);
+      }
+
+      if (result && (result.status === 'confirmed' || result.alreadyConfirmed)) {
+        this.certificateIssuance.prepared = result.credential ? { credential: result.credential } : this.certificateIssuance.prepared;
+        this.certificateIssuance.status = result.status || 'confirmed';
+        this.certificateIssuance.error = '';
+      } else if (result && result.status === 'failed') {
+        this.certificateIssuance.status = 'failed';
+        this.certificateIssuance.error = result.error || 'Avalanche transaction failed';
+      } else {
+        this.certificateIssuance.status = 'pending';
+        this.certificateIssuance.error = 'Avalanche confirmation is still pending. Use "Check again" to retry.';
+      }
       writeStoredIssuance({ status: this.certificateIssuance.status, learnerId: this.certificateIssuance.learnerId, evaluationId: this.certificateIssuance.evaluationId, credentialCode: this.certificateIssuance.credentialCode, title: this.certificateIssuance.title, prepared: this.certificateIssuance.prepared, txHash: this.certificateIssuance.txHash });
     } catch (error) {
       this.certificateIssuance.status = 'failed';
       this.certificateIssuance.error = error && error.message ? error.message : String(error);
     } finally {
       this.certificateIssuance.busy = false;
+      this.certificateIssuance.polling = false;
+      this.render();
+    }
+  },
+  async checkCertificateIssuance() {
+    if (this.certificateIssuance.busy || this.certificateIssuance.polling || !this.certificateIssuance.txHash || !this.certificateIssuance.prepared) return;
+    this.certificateIssuance.polling = true;
+    this.certificateIssuance.busy = true;
+    this.certificateIssuance.error = '';
+    this.render();
+    try {
+      const response = await fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ action: 'confirm-issue', credentialCode: this.certificateIssuance.prepared.credential.code, txHash: this.certificateIssuance.txHash }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Check failed');
+      if (result.status === 'confirmed' || result.alreadyConfirmed) {
+        this.certificateIssuance.prepared = result.credential ? { credential: result.credential } : this.certificateIssuance.prepared;
+        this.certificateIssuance.status = result.status || 'confirmed';
+        this.certificateIssuance.error = '';
+      } else if (result.status === 'failed') {
+        this.certificateIssuance.status = 'failed';
+        this.certificateIssuance.error = result.error || 'Avalanche transaction failed';
+      } else {
+        this.certificateIssuance.status = 'pending';
+        this.certificateIssuance.error = 'Avalanche confirmation is still pending. Try again later.';
+      }
+      writeStoredIssuance({ status: this.certificateIssuance.status, learnerId: this.certificateIssuance.learnerId, evaluationId: this.certificateIssuance.evaluationId, credentialCode: this.certificateIssuance.credentialCode, title: this.certificateIssuance.title, prepared: this.certificateIssuance.prepared, txHash: this.certificateIssuance.txHash });
+    } catch (error) {
+      this.certificateIssuance.status = 'failed';
+      this.certificateIssuance.error = error && error.message ? error.message : String(error);
+    } finally {
+      this.certificateIssuance.busy = false;
+      this.certificateIssuance.polling = false;
       this.render();
     }
   },
@@ -178,6 +246,7 @@ export const certificateIssuanceMethods = {
       this.certificateIssuance.error = error && error.message ? error.message : String(error);
     } finally {
       this.certificateIssuance.busy = false;
+      this.certificateIssuance.polling = false;
       this.render();
     }
   },
@@ -192,7 +261,7 @@ export const certificateIssuanceMethods = {
     this.render();
   },
   resetCertificateIssuance() {
-    this.certificateIssuance = { status: 'idle', learnerId: '', evaluationId: '', credentialCode: '', title: '', prepared: null, txHash: null, error: '', busy: false, eligibleEvaluations: [] };
+    this.certificateIssuance = { status: 'idle', learnerId: '', evaluationId: '', credentialCode: '', title: '', prepared: null, txHash: null, error: '', busy: false, polling: false, eligibleEvaluations: [] };
     writeStoredIssuance(null);
     this.render();
   },

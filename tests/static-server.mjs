@@ -93,6 +93,14 @@ export function createStaticServer() {
       }
       let pathname = decodeURIComponent(url.pathname);
       if (pathname.endsWith('/')) pathname += 'index.html';
+      if (pathname.startsWith('/node_modules/')) {
+        const nmPath = normalize(join(root, pathname));
+        if (!nmPath.startsWith(normalize(join(root, 'node_modules')))) { res.writeHead(403).end('Forbidden'); return; }
+        const nmBody = await readFile(nmPath);
+        res.writeHead(200, { 'Content-Type': MIME[extname(nmPath).toLowerCase()] || 'application/octet-stream' });
+        res.end(nmBody);
+        return;
+      }
       const filePath = normalize(join(root, pathname));
       if (!filePath.startsWith(normalize(root))) {
         res.writeHead(403).end('Forbidden');

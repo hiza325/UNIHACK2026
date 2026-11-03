@@ -1,6 +1,6 @@
 import { hasActualAvalancheVerification, isCertificateCode } from './learning-passport-service.js';
 
-export const CERTIFICATE_TEMPLATE = new URL('./assets/certificates/certificate-template-clean.png', import.meta.url).href;
+export const CERTIFICATE_TEMPLATE = new URL('./assets/certificates/certificate-template-new.png', import.meta.url).href;
 const FONT = '"Be Vietnam Pro"';
 const resolvedData = new WeakSet();
 const exportPermissions = new WeakMap();
@@ -42,18 +42,48 @@ export async function renderCertificate(data) {
   if (!document.fonts.check(`40px ${FONT}`, fields.join(' '))) throw new Error('Certificate font could not load');
   const image = new Image(); image.src = CERTIFICATE_TEMPLATE;
   await image.decode();
-  if (image.width !== 1536 || image.height !== 1024) throw new Error('Invalid certificate template');
-  const canvas = document.createElement('canvas'); canvas.width = 1536; canvas.height = 1024;
+  if (image.width !== 1672 || image.height !== 941) throw new Error('Invalid certificate template');
+  const canvas = document.createElement('canvas'); canvas.width = 1672; canvas.height = 941;
   const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);
   ctx.fillStyle = '#081c1d'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const layouts = [];
-  for (const [index, x, y, width, maxSize] of [[0, 768, 500, 900, 42], [1, 768, 649, 900, 32], [2, 441, 892, 248, 23]]) {
+  const fitText = (text, x, y, width, maxSize, align) => {
     let size = maxSize;
-    do { ctx.font = `400 ${size}px ${FONT}`; if (ctx.measureText(fields[index]).width <= width) break; size--; } while (size >= 14);
-    if (size < 14) throw new Error('Certificate text is too long to fit legibly');
-    ctx.fillText(fields[index], x, y);
-    layouts.push({ text: fields[index], size, width: ctx.measureText(fields[index]).width, maxWidth: width });
+    ctx.textAlign = align;
+    do { ctx.font = `400 ${size}px ${FONT}`; if (ctx.measureText(text).width <= width) break; size--; } while (size >= 12);
+    if (size < 12) throw new Error('Certificate text is too long to fit legibly');
+    ctx.fillText(text, x, y);
+    return { text, size, width: ctx.measureText(text).width, maxWidth: width };
+  };
+  // Recipient Name (large ribbon) and Subject (small ribbon) — centered.
+  layouts.push(fitText(fields[0], 836, 411, 900, 42, 'center'));
+  layouts.push(fitText(fields[1], 835, 558, 900, 32, 'center'));
+  // Certificate ID (bottom-left ID box) — value after the printed "ID:" label.
+  if (data.code) {
+    layouts.push(fitText(String(data.code), 250, 818, 220, 14, 'left'));
   }
+  // Issue Date (bottom-left DATE box) — value after the printed "DATE:" label.
+  layouts.push(fitText(fields[2], 290, 863, 200, 18, 'left'));
+  ctx.textAlign = 'center';
+
+  // Draw a verification QR code only for genuinely issued & verified certificates.
+  if (data.state === 'issued' && data.verified && data.code) {
+    try {
+      const qrResponse = await fetch(`/api/credentials?public=qr&code=${encodeURIComponent(data.code)}`);
+      if (!qrResponse.ok) throw new Error('QR fetch failed');
+      const qrData = await qrResponse.json();
+      if (!qrData?.dataUrl) throw new Error('QR data missing');
+      const qrImg = new Image();
+      qrImg.src = qrData.dataUrl;
+      await qrImg.decode();
+      ctx.drawImage(qrImg, 1448, 78, 140, 140);
+      const verifyUrl = qrData.url;
+      canvas.dataset.verifyUrl = verifyUrl;
+    } catch (error) {
+      throw new Error('Certificate QR generation failed');
+    }
+  }
+
   // The exported preview must remain distinguishable even outside the website.
   if (data.state !== 'issued' || !data.verified) {
     ctx.font = `400 16px ${FONT}`;
@@ -72,18 +102,20 @@ export async function exportCertificate(canvas, format) {
   if (format === 'png') return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG export failed')), 'image/png'));
   if (format !== 'pdf') throw new Error('Unsupported certificate format');
   // Single raster page: embeds rendered Vietnamese glyphs without external PDF/font dependencies.
-  const jpeg = Uint8Array.from(atob(canvas.toDataURL('image/jpeg', 0.98).split(',')[1]), c => c.charCodeAt(0));
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+  if (!dataUrl || !dataUrl.startsWith('data:image/jpeg;base64,')) throw new Error('JPEG export failed');
+  const jpeg = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));
   const encoder = new TextEncoder(); const chunks = []; const offsets = [0]; let length = 0;
   const append = value => { const bytes = typeof value === 'string' ? encoder.encode(value) : value; chunks.push(bytes); length += bytes.length; };
   const object = (id, body) => { offsets[id] = length; append(`${id} 0 obj\n${body}\nendobj\n`); };
   append('%PDF-1.4\n');
   object(1, '<< /Type /Catalog /Pages 2 0 R >>');
   object(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-  object(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /XObject << /Image 4 0 R >> >> /Contents 5 0 R >>');
+  object(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 474] /Resources << /XObject << /Image 4 0 R >> >> /Contents 5 0 R >>');
   offsets[4] = length;
-  append(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width 1536 /Height 1024 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
+  append(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width 1672 /Height 941 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
   append(jpeg); append('\nendstream\nendobj\n');
-  const content = 'q\n842 0 0 561.3333 0 16.8333 cm\n/Image Do\nQ\n';
+  const content = 'q\n842 0 0 474 0 0 cm\n/Image Do\nQ\n';
   object(5, `<< /Length ${encoder.encode(content).length} >>\nstream\n${content}endstream`);
   const xref = length;
   append(`xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(n => `${String(n).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
@@ -103,6 +135,12 @@ export async function mountCertificatePreview(container, profile, credential) {
     label.textContent = data.state === 'revoked' ? 'Revoked · Đã thu hồi' : data.state === 'issued' ? (data.verified ? 'Issued · Verified (Avalanche evidence)' : 'Issued · Chưa xác minh hiệu lực') : 'Preview · Chưa phát hành / Not verified';
     const identity = document.createElement('p');
     identity.textContent = data.code ? `Certificate ID: ${data.code}` : 'Preview · Chưa có Certificate ID';
+    if (data.code && data.state === 'issued' && data.verified) {
+      const verifyLine = document.createElement('p');
+      verifyLine.className = 'muted';
+      if (canvas.dataset.verifyUrl) verifyLine.textContent = `Verify: ${canvas.dataset.verifyUrl}`;
+      container.append(verifyLine);
+    }
     const notice = document.createElement('p');
     notice.textContent = 'Avalanche lưu evidence hash; Name/Subject là snapshot do backend lưu, không được blockchain chứng thực riêng.';
     container.replaceChildren(label, identity, canvas, notice);

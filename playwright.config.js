@@ -56,6 +56,7 @@ export default defineConfig({
       GEMINI_API_KEY_3: '',
       GEMINI_MODEL: '',
       AI_PROVIDER_ORDER: '',
+      PUBLIC_VERIFY_BASE_URL: 'https://example.com',
       OTP_SEND_COOLDOWN_SECONDS: '0',
       OTP_SEND_EMAIL_LIMIT: '3',
       OTP_SEND_IP_LIMIT: '500',

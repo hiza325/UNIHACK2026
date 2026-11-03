@@ -191,8 +191,67 @@ test('Learning Passport loads persisted Fuji status and verifies through the cre
   await expect(page.locator('#passport-verification-result')).toBeVisible();
   await expect(page.locator('.passport-data-notice.live')).toBeVisible();
   await expect(page.locator('[data-verification-state="valid"]')).toContainText('VERIFIED ON AVALANCHE');
-  await expect(page.locator('a.explorer-button')).toHaveAttribute('href', new RegExp(`explorer-test\\.avax\\.network/c-chain/tx/${validTransactionHash}`));
+  // Explorer links are admin-only: this session is a regular learner, so the
+  // transaction hash stays visible but the Explorer button must not render.
+  await expect(page.locator('.explorer-button')).toHaveCount(0);
+  await expect(page.locator('#passport-verification-result')).toContainText(validTransactionHash);
   expect(verifyRequest).toEqual({ action: 'verify', credentialCode: 'PXP-TEST-2026-0001' });
+});
+
+test('Avalanche Explorer button renders for administrators only, never for learners or guests', async ({ page }) => {
+  const explorerCredential = {
+    id: 'credential-explorer-gate', code: 'PXP-2026-EXPLORER-0001', name: 'Explorer gate credential',
+    skill: 'Reasoning', issuedAt: '2026-10-30', issuer: '0x2222222222222222222222222222222222222222',
+    assessmentScore: 92, status: 'verified', source: 'avalanche', isTest: false,
+    evidenceHash: `sha256:${'ab'.repeat(32)}`,
+    transactionHash: validTransactionHash, issueTransactionHash: validTransactionHash,
+    network: 'avalanche-fuji', chainId: AVALANCHE_FUJI_CONFIG.chainId,
+    contractAddress: AVALANCHE_FUJI_CONFIG.contractAddress, transactionStatus: 'confirmed',
+    verification: { checked: true, valid: true, exists: true, source: 'avalanche', checkedAt: '2026-10-30T00:00:00.000Z' },
+  };
+  await page.addInitScript(() => {
+    window.PARADOX_LEARNING_PASSPORT_CONFIG = { mode: 'api', apiBaseUrl: '/api' };
+  });
+  await page.route('**/api/credentials*', async route => {
+    const isPost = route.request().method() === 'POST';
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(isPost ? { credential: explorerCredential } : { passport: null }),
+    });
+  });
+
+  const submitAndSettle = async () => {
+    await page.locator('#passport-code').fill(explorerCredential.code);
+    await page.locator('#passport-verify-form button[type="submit"]').click();
+    await expect(page.locator('#passport-verification-result')).toBeVisible();
+    await expect(page.locator('[data-verification-state="valid"]')).toBeVisible();
+  };
+
+  // Guest: the verify route is auth-gated and must never expose an Explorer link.
+  await page.goto('/#/verify');
+  await expect(page.locator('.explorer-button')).toHaveCount(0);
+
+  // Learner: sees the verified result and the transaction hash, but no Explorer link.
+  await page.evaluate(() => localStorage.setItem('paradox-session', JSON.stringify({ id: 'learner-gate', name: 'Learner Gate', email: 'learner@example.com', role: 'user' })));
+  await page.reload();
+  await submitAndSettle();
+  await expect(page.locator('.explorer-button')).toHaveCount(0);
+  await expect(page.locator('#passport-verification-result')).toContainText(validTransactionHash);
+
+  // Unknown/missing role must default to hidden.
+  await page.evaluate(() => localStorage.setItem('paradox-session', JSON.stringify({ id: 'learner-norole', name: 'No Role', email: 'norole@example.com' })));
+  await page.reload();
+  await submitAndSettle();
+  await expect(page.locator('.explorer-button')).toHaveCount(0);
+
+  // Administrator: the Explorer link is rendered.
+  await page.evaluate(() => localStorage.setItem('paradox-session', JSON.stringify({ id: 'admin-gate', name: 'Admin Gate', email: 'admin@example.com', role: 'admin' })));
+  await page.reload();
+  await submitAndSettle();
+  await expect(page.locator('a.explorer-button')).toHaveCount(1);
+  await expect(page.locator('a.explorer-button')).toHaveAttribute('href', new RegExp(`explorer-test\\.avax\\.network/c-chain/tx/${validTransactionHash}`));
+  await expect(page.locator('a.explorer-button')).toHaveAttribute('target', '_blank');
 });
 
 test('Verify distinguishes checking, not found, unissued, and network error with keyboard-safe retry', async ({ page }) => {

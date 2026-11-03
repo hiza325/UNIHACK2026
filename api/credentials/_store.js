@@ -69,7 +69,7 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
       return request('learning_credentials', { method: 'POST', body: record, single: true });
     },
     async updateCredential(id, patch) {
-      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message']);
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
       if (Object.keys(patch).some(key => !allowed.has(key))) {
         throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
       }
@@ -91,6 +91,111 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
         query: filters({ id: `eq.${id}`, blockchain_status: 'eq.failed' }),
         body: { blockchain_status: 'submitting', failure_code: null, failure_message: null },
         single: true,
+      });
+    },
+    async updateCredentialForVerify(id, patch, expectedUpdatedAt) {
+      if (!expectedUpdatedAt) {
+        throw storeError('Credential version is missing', 'CREDENTIAL_VERSION_REQUIRED', 409);
+      }
+
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
+      if (Object.keys(patch).some(key => !allowed.has(key))) {
+        throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
+      }
+
+      const query = filters({
+        id: `eq.${id}`,
+        updated_at: `eq.${expectedUpdatedAt}`,
+        blockchain_status: 'neq.revoked',
+        confirmation_started_at: 'is.null',
+        select: '*',
+      });
+
+      return request('learning_credentials', {
+        method: 'PATCH',
+        query,
+        body: patch,
+        single: true,
+      });
+    },
+    async updateCredentialIf(id, patch, claimedAt) {
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
+      if (Object.keys(patch).some(key => !allowed.has(key))) {
+        throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
+      }
+      const qClaimed = claimedAt ? '&confirmation_started_at=eq.' + encodeURIComponent(claimedAt) : '';
+      const response = await fetcher(config.url + '/rest/v1/learning_credentials?id=eq.' + encodeURIComponent(id) + qClaimed + '&blockchain_status=in.(submitting,pending)&select=*', {
+        method: 'PATCH',
+        headers: {
+          apikey: config.serviceKey,
+          Authorization: 'Bearer ' + config.serviceKey,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify(patch),
+      });
+      const payload = response.status === 204 ? null : await response.json().catch(() => null);
+      if (!response.ok) throw mapStoreError(response, payload);
+      const row = Array.isArray(payload) ? (payload[0] || null) : payload;
+      return row ? { ...row } : null;
+    },
+    async claimConfirm(id) {
+      const rows = await request('rpc/claim_credential_confirmation', {
+        method: 'POST',
+        body: { p_id: id },
+        single: false,
+      });
+      const row = Array.isArray(rows) ? (rows[0] || null) : rows;
+      // PostgreSQL composite RPCs can return a truthy object with every field null.
+      // A claim is acquired only when the returned row identifies the requested credential.
+      return row && typeof row === 'object' && row.id === id ? { ...row } : null;
+    },
+    async claimRevoke(id) {
+      const query = '?id=eq.' + encodeURIComponent(id) + '&blockchain_status=eq.confirmed&revoke_tx_hash=is.null&select=*';
+      const response = await fetcher(config.url + '/rest/v1/learning_credentials' + query, {
+        method: 'PATCH',
+        headers: {
+          apikey: config.serviceKey,
+          Authorization: 'Bearer ' + config.serviceKey,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify({ blockchain_status: 'revoke_pending', confirmation_started_at: null }),
+      });
+      const data = response.status === 204 ? null : await response.json().catch(() => null);
+      if (!response.ok) throw mapStoreError(response, data);
+      const row = Array.isArray(data) ? (data[0] || null) : data;
+      return row ? { ...row } : null;
+    },
+    async updateCredentialForRevoke(id, patch, expectedUpdatedAt, expectedStatus, revokeTxHash) {
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
+      if (Object.keys(patch).some(key => !allowed.has(key))) {
+        throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
+      }
+      let query = '?id=eq.' + encodeURIComponent(id) + '&updated_at=eq.' + encodeURIComponent(expectedUpdatedAt) + '&blockchain_status=eq.' + encodeURIComponent(expectedStatus) + '&select=*';
+      if (revokeTxHash) {
+        query += '&revoke_tx_hash=eq.' + encodeURIComponent(revokeTxHash);
+      }
+      return request('learning_credentials', { method: 'PATCH', query, body: patch, single: true });
+    },
+    async updateCredentialForReconcile(id, patch, expectedUpdatedAt) {
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
+      if (Object.keys(patch).some(key => !allowed.has(key))) {
+        throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
+      }
+      const query = '?id=eq.' + encodeURIComponent(id) + '&updated_at=eq.' + encodeURIComponent(expectedUpdatedAt) + '&blockchain_status=in.(submitting,pending)&select=*';
+      return request('learning_credentials', { method: 'PATCH', query, body: patch, single: true });
+    },
+    async findByEvaluationId(evaluationId) {
+      return request('learning_credentials', {
+        query: filters({ select: '*', evaluation_id: `eq.${evaluationId}`, limit: '1' }),
+        single: true,
+      });
+    },
+    async listPendingCredentials(minAgeMinutes = 2) {
+      const cutoff = new Date(Date.now() - minAgeMinutes * 60_000).toISOString();
+      return request('learning_credentials', {
+        query: filters({ select: '*', blockchain_status: 'in.(submitting,pending)', created_at: `lt.${cutoff}`, order: 'created_at.asc', limit: '50' }),
       });
     },
   };

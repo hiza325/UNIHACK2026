@@ -83,7 +83,11 @@ test('SEC-01 the verification projection drops learner-private fields', () => {
   const view = toVerificationView(toPublicCredential(PRIVATE_ROW));
   expect(view).toMatchObject({ code: 'PXP-2026-ALG-0001', name: 'Critical Thinking Certificate', skill: 'Reasoning', status: 'verified' });
   expect(view.transactionHash).toBeTruthy();
-  for (const field of ['snapshot', 'assessmentScore', 'evidenceHash', 'issuer', 'issueTransactionHash', 'revokeTransactionHash']) {
+  // The issue hash is public chain data and must travel with the verification
+  // view so the client can confirm the on-chain credential without trusting
+  // the status flag alone.
+  expect(view.issueTransactionHash).toBe(PRIVATE_ROW.issue_tx_hash);
+  for (const field of ['snapshot', 'assessmentScore', 'evidenceHash', 'issuer', 'revokeTransactionHash']) {
     expect(view[field]).toBeUndefined();
   }
   expect(JSON.stringify(view)).not.toMatch(/Nguyễn Văn A|recipientName|evaluationId/i);
