@@ -203,3 +203,47 @@ test('slow RPC times out within limit', async () => {
   expect(elapsed).toBeLessThan(8000);
   slowServer.close();
 });
+
+test('two valid providers -> FallbackProvider readPreflight succeeds on Fuji', async () => {
+  const CONTRACT = '0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b';
+  const ISSUER = '0x2222222222222222222222222222222222222222';
+  const BYTECODE = '0x608060405234801561';
+  const AUTHORIZED_TRUE = `0x${'0'.repeat(63)}1`;
+
+  // Both providers agree on Fuji (43113) and answer eth_getCode / eth_call.
+  // FallbackProvider calls getBlockNumber() while starting runners, so
+  // eth_blockNumber must also answer.
+  const impl = (p) => {
+    switch (p.method) {
+      case 'eth_chainId': return '0xa869';
+      case 'eth_blockNumber': return '0x1';
+      case 'eth_getCode': return BYTECODE;
+      case 'eth_call': return AUTHORIZED_TRUE;
+      case 'eth_estimateGas': return '0x5208';
+      default: return null;
+    }
+  };
+
+  const a = await startMockRpc(impl);
+  const b = await startMockRpc(impl);
+  try {
+    const gw = await createAvalancheGateway({
+      env: { AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS: CONTRACT },
+      write: false,
+      providers: [
+        new JsonRpcProvider(a.url, 43113, { staticNetwork: true, timeout: 1500 }),
+        new JsonRpcProvider(b.url, 43113, { staticNetwork: true, timeout: 1500 }),
+      ],
+    });
+    // Two valid providers -> gateway uses FallbackProvider. Regression: it must
+    // be configured with the Fuji network (43113), not mainnet (1). Otherwise
+    // getCode() throws "network changed: 1 => 43113" and readPreflight fails.
+    const result = await gw.readPreflight(ISSUER);
+    expect(result.chainId).toBe(43113);
+    expect(result.authorized).toBe(true);
+    expect(result.issuerAddress.toLowerCase()).toBe(ISSUER.toLowerCase());
+  } finally {
+    a.server.close();
+    b.server.close();
+  }
+});
