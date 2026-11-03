@@ -47,20 +47,24 @@ export async function renderCertificate(data) {
   const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);
   ctx.fillStyle = '#081c1d'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const layouts = [];
-  for (const [index, x, y, width, maxSize] of [[0, 836, 411, 900, 42], [1, 835, 558, 900, 32], [2, 300, 864, 200, 23]]) {
+  const fitText = (text, x, y, width, maxSize, align) => {
     let size = maxSize;
-    do { ctx.font = `400 ${size}px ${FONT}`; if (ctx.measureText(fields[index]).width <= width) break; size--; } while (size >= 14);
-    if (size < 14) throw new Error('Certificate text is too long to fit legibly');
-    ctx.fillText(fields[index], x, y);
-    layouts.push({ text: fields[index], size, width: ctx.measureText(fields[index]).width, maxWidth: width });
-  }
-  // Draw Certificate ID in the bottom-left ID box (if available).
+    ctx.textAlign = align;
+    do { ctx.font = `400 ${size}px ${FONT}`; if (ctx.measureText(text).width <= width) break; size--; } while (size >= 12);
+    if (size < 12) throw new Error('Certificate text is too long to fit legibly');
+    ctx.fillText(text, x, y);
+    return { text, size, width: ctx.measureText(text).width, maxWidth: width };
+  };
+  // Recipient Name (large ribbon) and Subject (small ribbon) — centered.
+  layouts.push(fitText(fields[0], 836, 411, 900, 42, 'center'));
+  layouts.push(fitText(fields[1], 835, 558, 900, 32, 'center'));
+  // Certificate ID (bottom-left ID box) — value after the printed "ID:" label.
   if (data.code) {
-    ctx.font = '400 20px "Be Vietnam Pro"';
-    ctx.fillStyle = '#081c1d';
-    ctx.textAlign = 'center';
-    ctx.fillText(String(data.code), 300, 819);
+    layouts.push(fitText(String(data.code), 205, 818, 320, 20, 'left'));
   }
+  // Issue Date (bottom-left DATE box) — value after the printed "DATE:" label.
+  layouts.push(fitText(fields[2], 205, 862, 220, 22, 'left'));
+  ctx.textAlign = 'center';
 
   // Draw a verification QR code only for genuinely issued & verified certificates.
   if (data.state === 'issued' && data.verified && data.code) {
@@ -72,7 +76,7 @@ export async function renderCertificate(data) {
       const qrImg = new Image();
       qrImg.src = qrData.dataUrl;
       await qrImg.decode();
-      ctx.drawImage(qrImg, 1309, 15, 240, 240);
+      ctx.drawImage(qrImg, 1448, 78, 140, 140);
       const verifyUrl = qrData.url;
       canvas.dataset.verifyUrl = verifyUrl;
     } catch (error) {

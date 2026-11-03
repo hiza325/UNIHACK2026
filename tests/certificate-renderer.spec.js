@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
 import { certificateData } from '../certificate-renderer.js';
 import { AVALANCHE_FUJI_CONFIG } from '../avalanche-config.js';
 
@@ -189,4 +191,41 @@ test('issued certificate QR works without client-side domain global', async ({ p
   }, record);
   expect(result.hasQR).toBe(true);
   expect(result.decoded).toContain('verify?code=PXP-SNAPSHOT-0001');
+});
+
+test('sample certificate renders with correct alignment (screenshot)', async ({ page }, testInfo) => {
+  await page.goto('/');
+  const sample = issuedCredential();
+  sample.code = 'PXP-2026-17C5080B-0026';
+  sample.snapshot.recipientName = 'Student A';
+  sample.snapshot.subject = 'Critical thinking and reasoning';
+  sample.snapshot.certificateCode = 'PXP-2026-17C5080B-0026';
+  sample.snapshot.issuedAt = '2026-11-02T12:00:00Z';
+  await page.addScriptTag({ url: '/node_modules/jsqr/dist/jsQR.js' });
+  const result = await page.evaluate(async record => {
+    const { certificateData, renderCertificate, exportCertificate } = await import('/certificate-renderer.js');
+    const data = certificateData({ name: 'Student A' }, record);
+    const { canvas, layouts } = await renderCertificate(data);
+    document.body.replaceChildren(canvas);
+    const png = await exportCertificate(canvas, 'png');
+    const bitmap = await createImageBitmap(png);
+    const c = document.createElement('canvas'); c.width = bitmap.width; c.height = bitmap.height;
+    const ctx = c.getContext('2d'); ctx.drawImage(bitmap, 0, 0);
+    const imgData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+    const qr = window.jsQR(imgData.data, imgData.width, imgData.height);
+    const fullPng = await exportCertificate(canvas, 'png');
+    const bytes = new Uint8Array(await fullPng.arrayBuffer());
+    let bin = '';
+    for (const byte of bytes) bin += String.fromCharCode(byte);
+    return { state: data.state, verified: data.verified, layouts: layouts.map(l => ({ text: l.text, size: l.size })), qr: qr ? qr.data : null, fullPngBase64: btoa(bin) };
+  }, sample);
+  if (result.fullPngBase64) {
+    fs.mkdirSync(testInfo.outputDir, { recursive: true });
+    fs.writeFileSync(path.join(testInfo.outputDir, 'sample-certificate-full.png'), Buffer.from(result.fullPngBase64, 'base64'));
+  }
+  expect(result.state).toBe('issued');
+  expect(result.verified).toBe(true);
+  expect(result.layouts.map(l => l.text)).toEqual(['Student A', 'Critical thinking and reasoning', 'PXP-2026-17C5080B-0026', '02/11/2026']);
+  expect(result.qr).toContain('verify?code=PXP-2026-17C5080B-0026');
+  await page.locator('canvas').screenshot({ path: testInfo.outputPath('sample-certificate.png') });
 });
