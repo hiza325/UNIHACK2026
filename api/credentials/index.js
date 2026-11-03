@@ -29,6 +29,9 @@ function sendCredentialError(res, error) {
 export function createCredentialsHandler({ storeFactory = createCredentialStore, serviceFactory = createCredentialService, learningRecordStoreFactory = () => { try { return createLearningRecordStore(); } catch { return null; } } } = {}) {
   return async function credentialsHandler(req, res) {
     noStore(res);
+    if (queryValue(req, 'public') === '1') {
+      return handlePublicVerify(req, res);
+    }
     if (!['GET', 'POST'].includes(req.method)) {
       res.setHeader('Allow', 'GET, POST');
       return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });

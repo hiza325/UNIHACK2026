@@ -73,7 +73,8 @@ function baseEnv(rpcUrl) {
     SUPABASE_ANON_KEY: 'anon-key',
     SUPABASE_SERVICE_ROLE_KEY: 'service-key',
     AVALANCHE_FUJI_RPC_URL: rpcUrl,
-    AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS: CONTRACT,
+    AVALANCHE_FUJI_RPC_URLS: '',
+    AVALANCHE_FUJI_RPC_URLS: '',
   };
 }
 
@@ -185,4 +186,24 @@ test('invalid (exists, not revoked, not valid) -> 200 INVALID, not REVOKED', asy
   expect(getStatus()).toBe(200);
   expect(body.status).toBe('INVALID');
   expect(body.status).not.toBe('REVOKED');
+});
+
+import { createCredentialsHandler } from '../api/credentials/index.js';
+
+test('credentials handler public=1 does not require session', async () => {
+  const rpc = await startRpc((method) => {
+    if (method === 'credentialExists') return false;
+    return null;
+  });
+  const restore = mockDbFetch('none');
+  Object.assign(process.env, baseEnv(rpc.url));
+  const handler = createCredentialsHandler();
+  const req = { method: 'GET', query: { public: '1', code: 'PXP-2026-REGRESSION-0001' }, headers: {}, socket: { remoteAddress: '127.0.0.1' } };
+  let status = 200; let body = null;
+  const res = { statusCode: 200, setHeader() {}, status(s) { status = s; this.statusCode = s; return this; }, json(b) { body = b; return this; } };
+  await handler(req, res);
+  restore();
+  rpc.server.close();
+  expect(status).toBe(404);
+  expect(body.status).toBe('NOT_FOUND');
 });

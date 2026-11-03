@@ -33,7 +33,9 @@ function serviceError(message, code, status, cause) {
 
 export function avalancheConfig(env = process.env, { requireSigner = false } = {}) {
   const primary = String(env.AVALANCHE_FUJI_RPC_URL || AVALANCHE_FUJI_CONFIG.rpcUrl).trim();
-  const extras = String(env.AVALANCHE_FUJI_RPC_URLS || '').trim();
+  // Default fallbacks help when the primary Fuji RPC is slow or blocked from serverless runtimes.
+  const defaultExtras = (env.AVALANCHE_FUJI_RPC_URLS === undefined) ? 'https://rpc.ankr.com/avalanche_fuji,https://avalanche-fuji-c-chain-rpc.publicnode.com' : '';
+  const extras = String(env.AVALANCHE_FUJI_RPC_URLS || defaultExtras).trim();
   const rawUrls = [primary, ...extras.split(',').map(s => s.trim()).filter(Boolean)];
   const rpcUrls = [...new Set(rawUrls)];
   if (!rpcUrls.length || !rpcUrls[0]) throw serviceError('Avalanche Fuji RPC is not configured', 'AVALANCHE_RPC_NOT_CONFIGURED', 503);
