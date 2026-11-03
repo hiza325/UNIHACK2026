@@ -217,7 +217,7 @@ test('sample certificate renders with correct alignment (screenshot)', async ({ 
     const bytes = new Uint8Array(await fullPng.arrayBuffer());
     let bin = '';
     for (const byte of bytes) bin += String.fromCharCode(byte);
-    return { state: data.state, verified: data.verified, layouts: layouts.map(l => ({ text: l.text, size: l.size })), qr: qr ? qr.data : null, fullPngBase64: btoa(bin) };
+    return { state: data.state, verified: data.verified, layouts: layouts.map(l => ({ text: l.text, size: l.size, width: Math.round(l.width) })), qr: qr ? qr.data : null, fullPngBase64: btoa(bin) };
   }, sample);
   if (result.fullPngBase64) {
     fs.mkdirSync(testInfo.outputDir, { recursive: true });
@@ -226,6 +226,9 @@ test('sample certificate renders with correct alignment (screenshot)', async ({ 
   expect(result.state).toBe('issued');
   expect(result.verified).toBe(true);
   expect(result.layouts.map(l => l.text)).toEqual(['Student A', 'Critical thinking and reasoning', 'PXP-2026-17C5080B-0026', '02/11/2026']);
+  // ID and Date values must fit inside their boxes (value area x 250-470 -> ~220px usable).
+  expect(result.layouts[2].width).toBeLessThanOrEqual(220);
+  expect(result.layouts[3].width).toBeLessThanOrEqual(200);
   expect(result.qr).toContain('verify?code=PXP-2026-17C5080B-0026');
   await page.locator('canvas').screenshot({ path: testInfo.outputPath('sample-certificate.png') });
 });

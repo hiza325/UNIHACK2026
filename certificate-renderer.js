@@ -60,10 +60,10 @@ export async function renderCertificate(data) {
   layouts.push(fitText(fields[1], 835, 558, 900, 32, 'center'));
   // Certificate ID (bottom-left ID box) — value after the printed "ID:" label.
   if (data.code) {
-    layouts.push(fitText(String(data.code), 205, 818, 320, 20, 'left'));
+    layouts.push(fitText(String(data.code), 250, 818, 220, 14, 'left'));
   }
   // Issue Date (bottom-left DATE box) — value after the printed "DATE:" label.
-  layouts.push(fitText(fields[2], 205, 862, 220, 22, 'left'));
+  layouts.push(fitText(fields[2], 290, 863, 200, 18, 'left'));
   ctx.textAlign = 'center';
 
   // Draw a verification QR code only for genuinely issued & verified certificates.
