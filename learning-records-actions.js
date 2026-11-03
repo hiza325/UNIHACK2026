@@ -15,6 +15,22 @@ export const learningRecordActionMethods = {
     this.learningRecordsRefreshQueued = false;
     this.learningRecordPendingRevision = null;
   },
+  async loadPassportEligibleEvaluations() {
+    if (!this.learningRecordsService?.enabled || !this.user?.id) { this.passportEligibleEvaluations = []; return; }
+    if (this.passportEligibleLoading) return;
+    this.passportEligibleLoading = true;
+    this.passportEligibleError = '';
+    try {
+      const evaluations = await this.learningRecordsService.listEligibleEvaluations({ limit: 50 });
+      this.passportEligibleEvaluations = Array.isArray(evaluations) ? evaluations : [];
+    } catch (error) {
+      this.passportEligibleEvaluations = [];
+      this.passportEligibleError = error && error.message ? error.message : String(error);
+    } finally {
+      this.passportEligibleLoading = false;
+      if (this.view === 'passport') this.render();
+    }
+  },
   currentLearningRecordContext() {
     if (!this.learningRecordsService?.enabled || !this.learningRecordSessionId || !this.learningRecordSubmissionId) return null;
     return { sessionId: this.learningRecordSessionId, submissionId: this.learningRecordSubmissionId };

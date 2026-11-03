@@ -126,6 +126,62 @@ test('Debate API enforces requested hint levels, unique hints and resubmission c
   expect(comparison.evaluation.status).toBe('needs_improvement');
 });
 
+test('Hint turns accept the hint payload without forcing a duplicate reply', async () => {
+  const fetcher = async () => geminiResponse(JSON.stringify({
+    status: 'incorrect', summary: 'Cần nhớ lại cơ số.', confidence: 0.9, issues: [], strengths: [], nextQuestion: '', reply: '',
+    hint: { level: 1, content: 'Hãy đưa hai vế về cùng cơ số 2.' },
+  }));
+  const analysis = await createDebateAnalysis(
+    { mode: 'hint', problem: 'Giải 2^x = 8', solution: 'x = 8', hintLevel: 1, question: 'Cho mình gợi ý cấp 1.', previousHints: [] },
+    { env: GEMINI_ENV, fetcher },
+  );
+  expect(analysis.hint).toEqual({ level: 1, content: 'Hãy đưa hai vế về cùng cơ số 2.' });
+  expect(analysis.reply).toBe('');
+  expect(analysis.issues).toEqual([]);
+});
+
+test('Hint turns normalise a reply-only answer and reject skipping a level', async () => {
+  await expect(createDebateAnalysis(
+    { mode: 'hint', problem: 'Giải 2^x = 8', solution: 'x = 8', hintLevel: 3, question: 'Cho gợi ý', previousHints: [] },
+    { env: GEMINI_ENV, fetcher: async () => geminiResponse('{}') },
+  )).rejects.toMatchObject({ code: 'INVALID_INPUT', status: 400 });
+
+  const fetcher = async () => geminiResponse(JSON.stringify({
+    status: 'incorrect', summary: 'Cần nhớ lại cơ số.', confidence: 0.8, issues: [], strengths: [], nextQuestion: '',
+    reply: 'Hãy viết 8 thành 2 mũ mấy.',
+  }));
+  const analysis = await createDebateAnalysis(
+    { mode: 'hint', problem: 'Giải 2^x = 8', solution: 'x = 8', hintLevel: 1, question: 'Cho mình gợi ý', previousHints: [] },
+    { env: GEMINI_ENV, fetcher },
+  );
+  expect(analysis.hint).toEqual({ level: 1, content: 'Hãy viết 8 thành 2 mũ mấy.' });
+});
+
+test('Follow-up turns send a compact previous analysis instead of a truncated object', async () => {
+  let userPrompt = '';
+  const fetcher = async (_url, options) => {
+    userPrompt = JSON.parse(options.body).contents[0].parts[0].text;
+    return geminiResponse(JSON.stringify({
+      status: 'incorrect', summary: 'Vẫn còn lỗi phép chia.', confidence: 0.9, issues: [], strengths: [], nextQuestion: '', reply: 'Em hãy thử chia hai vế cho 2.',
+    }));
+  };
+  await createDebateAnalysis({
+    mode: 'discuss', problem: 'Giải 2x = 8', solution: 'x = 6', question: 'Sai ở đâu?',
+    previousAnalysis: {
+      status: 'incorrect', summary: 'Sai phép chia.', confidence: 0.9,
+      issues: [{ category: 'logic', step: 'x = 6', explanation: 'Phải chia cho 2.', suggestion: 'Thử lại.' }],
+      proofRecord: { contentHash: 'a'.repeat(64), model: 'gemini/hidden' },
+      evaluation: { status: 'needs_improvement', score: 40, evidenceSufficient: true, comment: 'Chưa đạt.', criteria: {} },
+    },
+  }, { env: GEMINI_ENV, fetcher });
+
+  const serialized = userPrompt.match(/<previous_analysis>([\s\S]*?)<\/previous_analysis>/)[1];
+  const parsed = JSON.parse(serialized);
+  expect(parsed.proofRecord).toBeUndefined();
+  expect(parsed.evaluation.score).toBe(40);
+  expect(parsed.issues[0]).toMatchObject({ category: 'logic', step: 'x = 6' });
+});
+
 test('Debate rubric derives pass and insufficient states instead of trusting the model', () => {
   const base = { status: 'correct', summary: 'Lời giải đúng.', issues: [], strengths: [], nextQuestion: '', reply: '', comparison: { summary: 'Đã sửa đúng.', improvements: ['Đã sửa lỗi.'], remainingIssues: [] } };
   const passed = validateDebateAnalysis({ ...base, confidence: 0.9, evaluation: rubric() }, { mode: 'resubmit' });
@@ -182,28 +238,28 @@ test('Debate handler returns 503 with provider details when no AI provider is co
     json(body) { responseBody = body; return this; },
   };
   const request = { method: 'POST', headers: { 'x-forwarded-for': '203.0.113.91' }, body: { problem: 'Tính 1 + 1', solution: '2' } };
-  const original = { gemini: process.env.GEMINI_API_KEY, anyrouter: process.env.ANYROUTER_LEARNING_API_KEY };
+  const original = { groq: process.env.GROQ_API_KEY, gemini: process.env.GEMINI_API_KEY };
+  delete process.env.GROQ_API_KEY;
   delete process.env.GEMINI_API_KEY;
-  delete process.env.ANYROUTER_LEARNING_API_KEY;
   try {
     await handler(request, response);
   } finally {
+    if (original.groq !== undefined) process.env.GROQ_API_KEY = original.groq;
     if (original.gemini !== undefined) process.env.GEMINI_API_KEY = original.gemini;
-    if (original.anyrouter !== undefined) process.env.ANYROUTER_LEARNING_API_KEY = original.anyrouter;
   }
   expect(responseStatus).toBe(503);
   expect(responseBody).toMatchObject({ code: 'NOT_CONFIGURED' });
-  expect(responseBody.details.missingEnv).toEqual(expect.arrayContaining(['GEMINI_API_KEY', 'ANYROUTER_LEARNING_API_KEY']));
+  expect(responseBody.details.missingEnv).toEqual(expect.arrayContaining(['GROQ_API_KEY', 'GEMINI_API_KEY']));
   expect(JSON.stringify(responseBody)).not.toContain('test-gemini-key');
 });
 
-test('Debate handler uses AnyRouter as the working provider when Gemini is not configured', async () => {
+test('Debate handler uses Groq Cloud as the working provider when only GROQ_API_KEY is set', async () => {
   const fetcher = async () => openAiResponse(JSON.stringify({
     status: 'correct', summary: 'Lời giải đúng.', confidence: 0.9, issues: [], strengths: [], nextQuestion: '', reply: '',
   }));
   const handler = createDebateHandler({
     analysisFactory: payload => createDebateAnalysisWithMeta(payload, {
-      env: { ANYROUTER_LEARNING_API_KEY: 'test-anyrouter-key', ANYROUTER_LEARNING_MODEL: 'anyrouter-test' },
+      env: { GROQ_API_KEY: 'test-groq-key', GROQ_MODEL: 'openai/gpt-oss-20b' },
       fetcher,
     }),
   });
@@ -214,14 +270,14 @@ test('Debate handler uses AnyRouter as the working provider when Gemini is not c
     status(status) { responseStatus = status; return this; },
     json(body) { responseBody = body; return this; },
   };
-  const request = { method: 'POST', headers: { 'x-forwarded-for': '203.0.113.92' }, body: { problem: 'Tính 2 + 2', solution: '4' } };
+  const request = { method: 'POST', headers: { 'x-forwarded-for': '203.0.113.94' }, body: { problem: 'Tính 5 + 5', solution: '10' } };
 
   await handler(request, response);
 
   expect(responseStatus).toBe(200);
   expect(responseBody.analysis).toMatchObject({ status: 'correct', issues: [] });
-  expect(responseBody.meta).toMatchObject({ provider: 'anyrouter', model: 'anyrouter/anyrouter-test', attempts: 1 });
-  expect(JSON.stringify(responseBody)).not.toContain('test-anyrouter-key');
+  expect(responseBody.meta).toMatchObject({ provider: 'groq', model: 'groq/openai/gpt-oss-20b', attempts: 1, fallbackUsed: false });
+  expect(JSON.stringify(responseBody)).not.toContain('test-groq-key');
 });
 
 test('Debate handler returns a clear 502 and no fabricated analysis when all providers fail', async () => {
@@ -231,7 +287,7 @@ test('Debate handler returns a clear 502 and no fabricated analysis when all pro
   });
   const handler = createDebateHandler({
     analysisFactory: payload => createDebateAnalysisWithMeta(payload, {
-      env: { GEMINI_API_KEY: 'test-gemini-key', ANYROUTER_LEARNING_API_KEY: 'test-anyrouter-key' },
+      env: { GEMINI_API_KEY: 'test-gemini-key' },
       fetcher,
       maxRetries: 0,
       retryDelayMs: 0,
@@ -251,10 +307,9 @@ test('Debate handler returns a clear 502 and no fabricated analysis when all pro
   expect(responseStatus).toBe(502);
   expect(responseBody).toMatchObject({ code: 'UPSTREAM_ERROR' });
   expect(responseBody.analysis).toBeUndefined();
-  expect(responseBody.details.attempts.map(item => item.provider)).toEqual(['gemini', 'anyrouter']);
+  expect(responseBody.details.attempts.map(item => item.provider)).toEqual(['groq', 'gemini']);
   const serialised = JSON.stringify(responseBody);
   expect(serialised).not.toContain('test-gemini-key');
-  expect(serialised).not.toContain('test-anyrouter-key');
 });
 
 test('Debate handler logs a safe phase and request id for unexpected failures', async () => {
@@ -320,6 +375,52 @@ test('Debate handler assigns auth-specific codes instead of reporting auth failu
   expect(responseBody).toMatchObject({ code: 'AUTH_REQUIRED', requestId: expect.any(String) });
 });
 
+test('AI probe endpoint reports a real provider result instead of a configured-key guess', async () => {
+  const makeRes = () => ({
+    statusCode: 200, headers: {}, payload: null,
+    setHeader(name, value) { this.headers[name] = value; return this; },
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  });
+  const makeReq = ip => ({ method: 'GET', headers: { 'x-forwarded-for': ip }, url: '/api/debate?aiStatus=1&probe=1', query: {} });
+
+  const okRes = makeRes();
+  const healthy = createDebateHandler({
+    probeFactory: async () => ({ provider: 'groq', providerModel: 'groq/openai/gpt-oss-120b', latencyMs: 128 }),
+  });
+  await healthy(makeReq('203.0.113.121'), okRes);
+  expect(okRes.statusCode).toBe(200);
+  expect(okRes.headers['X-AI-Request-Id']).toEqual(expect.any(String));
+  expect(okRes.payload).toEqual({
+    probe: {
+      checked: true, ok: true, provider: 'groq', model: 'groq/openai/gpt-oss-120b', latencyMs: 128,
+      requestId: expect.any(String),
+    },
+  });
+
+  const failedRes = makeRes();
+  const broken = createDebateHandler({
+    probeFactory: async () => {
+      throw Object.assign(new Error('down'), {
+        code: 'TIMEOUT',
+        status: 504,
+        details: {
+          attempts: [{ provider: 'gemini', attempt: 1, code: 'TIMEOUT', durationMs: 25000, retryable: true }],
+          lastError: 'Google Gemini timed out',
+        },
+      });
+    },
+  });
+  await broken(makeReq('203.0.113.122'), failedRes);
+  expect(failedRes.statusCode).toBe(200);
+  expect(failedRes.payload.probe).toMatchObject({
+    checked: true, ok: false, code: 'TIMEOUT', status: 504,
+    attempts: [{ provider: 'gemini', attempt: 1, code: 'TIMEOUT', durationMs: 25000 }],
+    lastError: 'Google Gemini timed out',
+  });
+  expect(failedRes.payload.analysis).toBeUndefined();
+});
+
 test('Debate API rate-limits repeated requests from one client', async () => {
   const request = { method: 'POST', headers: { 'x-forwarded-for': '203.0.113.84' }, body: {} };
   const invoke = async () => {
@@ -335,4 +436,60 @@ test('Debate API rate-limits repeated requests from one client', async () => {
   };
   for (let index = 0; index < 15; index += 1) expect((await invoke()).status).not.toBe(429);
   expect(await invoke()).toMatchObject({ status: 429, body: { code: 'RATE_LIMIT' } });
+});
+
+test('an authorized hint flow uses the stored hint ladder and rejects skipped levels', async () => {
+  const analysisCalls = [];
+  const handler = createDebateHandler({
+    sessionResolver: async () => ({ user: { id: 'user-id' } }),
+    storeFactory: () => ({}),
+    recordServiceFactory: () => ({
+      async authorizeAiRequest() {
+        return { session: { id: 'session' }, submission: { id: 'submission' }, learnerId: 'user-id', servedHints: [{ level: 1, content: 'Stored hint one.' }] };
+      },
+      async recordAiResult() {},
+    }),
+    analysisFactory: async payload => {
+      analysisCalls.push(payload);
+      return {
+        analysis: {
+          status: 'insufficient', summary: 'Continue from the stored hint.', confidence: 0.4, issues: [], strengths: [],
+          nextQuestion: '', reply: '', hint: { level: payload.hintLevel, content: 'Second hint.' }, comparison: null, evaluation: null,
+        },
+        meta: null,
+      };
+    },
+    logger: null,
+  });
+  const makeResponse = () => ({
+    statusCode: 200,
+    headers: {},
+    payload: null,
+    setHeader(name, value) { this.headers[name] = value; return this; },
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  });
+  const makeRequest = (body, ip) => ({
+    method: 'POST',
+    headers: { 'x-forwarded-for': ip },
+    body: {
+      problem: 'Solve 2x = 8', solution: 'x = 6', mode: 'hint', question: 'One hint please.',
+      previousHints: ['client hint one', 'client hint two'],
+      learningRecord: { sessionId: 'session-id', submissionId: 'submission-id' },
+      ...body,
+    },
+  });
+
+  const skipped = makeResponse();
+  await handler(makeRequest({ hintLevel: 3 }, '203.0.113.71'), skipped);
+  expect(skipped.statusCode).toBe(400);
+  expect(skipped.payload.code).toBe('HINT_LEVEL_OUT_OF_ORDER');
+  expect(analysisCalls).toHaveLength(0);
+
+  const accepted = makeResponse();
+  await handler(makeRequest({ hintLevel: 2 }, '203.0.113.72'), accepted);
+  expect(accepted.statusCode).toBe(200);
+  expect(accepted.headers['Cache-Control']).toBe('no-store');
+  expect(analysisCalls).toHaveLength(1);
+  expect(analysisCalls[0]).toMatchObject({ hintLevel: 2, previousHints: ['Stored hint one.'] });
 });

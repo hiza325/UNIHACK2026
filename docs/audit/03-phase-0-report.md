@@ -149,6 +149,8 @@ Cập nhật sau Phase 0: CHAIN-01 đã đạt với contract Fuji có bytecode,
 | SETUP-01 | PASS |
 | ENV-01 | PASS |
 | AUTH-01 | PASS |
-| CHAIN-01 | FAIL |
+| CHAIN-01 | FAIL khi nghiệm thu Giai đoạn 0 — PASS sau khi đọc lại chain ngày 2026-11-01 (`04-staging-verification.md` mục 2.1) |
 
 **Quyết định:** chưa đủ điều kiện chuyển sang Giai đoạn 1. Có thể tiếp tục sau khi hoàn thành P0 và có staging an toàn; Avalanche deployment phải là hoạt động riêng có phê duyệt, không nằm trong Giai đoạn 0.
+
+Bảng trên là snapshot tại thời điểm nghiệm thu, không phải trạng thái hiện tại. Trạng thái cập nhật đến 2026-11-01 xem `05-phase-verification-summary.md`.

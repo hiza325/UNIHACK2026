@@ -1,0 +1,276 @@
+﻿<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PARADOX Issuer Admin — Avalanche Fuji (Staging)</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; max-width: 960px; }
+    h1 { margin-bottom: 4px; }
+    .warn { background: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 8px; margin: 12px 0; }
+    .ok { background: #d1e7dd; border: 1px solid #198754; padding: 12px; border-radius: 8px; margin: 12px 0; }
+    .err { background: #f8d7da; border: 1px solid #dc3545; padding: 12px; border-radius: 8px; margin: 12px 0; }
+    .info { background: #cff4fc; border: 1px solid #0dcaf0; padding: 12px; border-radius: 8px; margin: 12px 0; }
+    button { padding: 10px 16px; margin: 6px 6px 6px 0; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    pre { background: #f6f7f3; padding: 12px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+    dl { display: grid; grid-template-columns: 220px 1fr; gap: 6px 12px; }
+    dt { font-weight: 600; }
+    dd { margin: 0; font-family: ui-monospace, monospace; word-break: break-all; }
+    .row { margin: 8px 0; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #f6f7f3; }
+  </style>
+</head>
+<body>
+  <h1>PARADOX Issuer Admin</h1>
+  <p>Chỉ dùng trên Avalanche Fuji Testnet. Công cụ này <strong>không tự gửi</strong> giao dịch; mọi giao dịch chỉ được gửi khi bạn bấm <strong>Xác nhận và gửi</strong>. Không lưu private key.</p>
+
+  <div class="warn">
+    Mạng mục tiêu: Avalanche Fuji (chainId 43113).<br />
+    Contract: <code>0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b</code><br />
+    Owner on-chain (đã biết): <code>0x35d1dc8183326f3CBc631ED04094765052B365cD</code><br />
+    Issuer mục tiêu: <code>0xA906C19dE177CcDAC0B092560FcDa7296165C396</code>
+  </div>
+
+  <button id="connect">Kết nối Core Wallet (EIP-1193)</button>
+  <button id="refresh" disabled>Làm mới trạng thái</button>
+  <button id="prepare" disabled>Chuẩn bị calldata</button>
+  <button id="confirm" disabled>Xác nhận và gửi giao dịch</button>
+
+  <h2>Trạng thái kết nối</h2>
+  <dl>
+    <dt>Chain ID</dt><dd id="chainId">—</dd>
+    <dt>Ví đang kết nối</dt><dd id="account">—</dd>
+    <dt>Owner (on-chain)</dt><dd id="owner">—</dd>
+    <dt>authorizedIssuers(issuer)</dt><dd id="issuerStatus">—</dd>
+    <dt>Điều kiện gửi</dt><dd id="gate">—</dd>
+  </dl>
+
+  <h2>Xem trước giao dịch (chưa gửi)</h2>
+  <table>
+    <tbody>
+      <tr><th>chainId</th><td id="pvChainId">—</td></tr>
+      <tr><th>from</th><td id="pvFrom">—</td></tr>
+      <tr><th>to (contract)</th><td id="pvTo">—</td></tr>
+      <tr><th>issuer</th><td id="pvIssuer">0xA906C19dE177CcDAC0B092560FcDa7296165C396</td></tr>
+      <tr><th>authorized</th><td id="pvAuthorized">true</td></tr>
+      <tr><th>value</th><td id="pvValue">0</td></tr>
+      <tr><th>gas estimate</th><td id="pvGas">—</td></tr>
+    </tbody>
+  </table>
+  <p class="row"><strong>Calldata (hex):</strong></p>
+  <pre id="tx">Chưa chuẩn bị. Bấm "Chuẩn bị calldata" để tạo dữ liệu giao dịch (không gửi).</pre>
+
+  <h2>Kết quả sau giao dịch</h2>
+  <pre id="result">Chưa có giao dịch nào được gửi.</pre>
+
+  <p class="row">
+    <strong>Lưu ý:</strong> Giao dịch chỉ được gửi khi bạn bấm "Xác nhận và gửi". Sau khi tx hoàn tất, công cụ đọc lại <code>authorizedIssuers(issuer)</code> để xác minh.
+  </p>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  <script>
+    const CONTRACT_ADDRESS = "0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b";
+    const FUJI_CHAIN_ID = 43113;
+    const OWNER = "0x35d1dc8183326f3CBc631ED04094765052B365cD";
+    const TARGET_ISSUER = "0xA906C19dE177CcDAC0B092560FcDa7296165C396";
+    const ABI = [
+      "function owner() view returns (address)",
+      "function authorizedIssuers(address) view returns (bool)",
+      "function setIssuer(address issuer, bool authorized) external"
+    ];
+
+    const $ = (id) => document.getElementById(id);
+    let provider = null, signer = null, account = null;
+    let preparedTx = null; // { chainId, from, to, data, value, gasEstimate }
+    let isSending = false;
+
+    function setGate(message, ok) {
+      const el = $("gate");
+      if (!message) { el.textContent = "—"; el.className = ""; return; }
+      el.textContent = message;
+      el.className = ok ? "ok" : "err";
+    }
+
+    function resetPrepared() {
+      preparedTx = null;
+      $("tx").textContent = "Chưa chuẩn bị.";
+      $("pvChainId").textContent = "—";
+      $("pvFrom").textContent = "—";
+      $("pvTo").textContent = CONTRACT_ADDRESS;
+      $("pvGas").textContent = "—";
+      $("confirm").disabled = true;
+    }
+
+    async function readState() {
+      if (!provider || !account) return;
+      const network = await provider.getNetwork();
+      const chainId = Number(network.chainId);
+      $("chainId").textContent = chainId;
+      $("account").textContent = account;
+      $("owner").textContent = "đang đọc...";
+      $("issuerStatus").textContent = "đang đọc...";
+      try {
+        const c = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+        const owner = await c.owner();
+        const authorized = await c.authorizedIssuers(TARGET_ISSUER);
+        $("owner").textContent = owner;
+        $("issuerStatus").textContent = String(authorized);
+        const isOwner = account.toLowerCase() === OWNER.toLowerCase() && account.toLowerCase() === owner.toLowerCase();
+        const isFuji = chainId === FUJI_CHAIN_ID;
+        if (!isFuji) setGate("Sai mạng: cần Avalanche Fuji (chainId 43113).", false);
+        else if (!isOwner) setGate("Ví kết nối không phải Owner on-chain. Chỉ Owner mới được cấp quyền.", false);
+        else setGate("Đủ điều kiện: ví là Owner và đúng mạng Fuji.", true);
+        $("prepare").disabled = !(isFuji && isOwner);
+        if (!(isFuji && isOwner)) $("confirm").disabled = true;
+      } catch (e) {
+        $("owner").textContent = "lỗi: " + e.message;
+        $("issuerStatus").textContent = "lỗi: " + e.message;
+        setGate("Không đọc được contract: " + e.message, false);
+        $("prepare").disabled = true;
+        $("confirm").disabled = true;
+      }
+    }
+
+    $("connect").addEventListener("click", async () => {
+      if (!window.ethereum) { alert("Không tìm thấy provider EIP-1193 (Core Wallet)."); return; }
+      try {
+        provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await provider.send("eth_requestAccounts", []);
+        account = accounts[0];
+        signer = await provider.getSigner();
+        $("connect").disabled = true;
+        $("refresh").disabled = false;
+        resetPrepared();
+        await readState();
+      } catch (e) {
+        alert("Kết nối thất bại: " + e.message);
+      }
+    });
+
+    $("refresh").addEventListener("click", () => readState().catch(e => alert(e.message)));
+
+    $("prepare").addEventListener("click", async () => {
+      if (!signer || !provider || !account) return;
+      try {
+        const network = await provider.getNetwork();
+        const chainId = Number(network.chainId);
+        const c = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+        const data = c.interface.encodeFunctionData("setIssuer", [TARGET_ISSUER, true]);
+        let gas = "N/A";
+        try { gas = (await provider.estimateGas({ to: CONTRACT_ADDRESS, from: account, data })).toString(); } catch (e) { gas = "estimate failed: " + e.message; }
+        preparedTx = { chainId, from: account, to: CONTRACT_ADDRESS, issuer: TARGET_ISSUER, authorized: true, value: "0", data, gasEstimate: gas };
+        $("tx").textContent = JSON.stringify(preparedTx, null, 2);
+        $("pvChainId").textContent = preparedTx.chainId;
+        $("pvFrom").textContent = preparedTx.from;
+        $("pvTo").textContent = preparedTx.to;
+        $("pvIssuer").textContent = preparedTx.issuer;
+        $("pvAuthorized").textContent = String(preparedTx.authorized);
+        $("pvValue").textContent = preparedTx.value;
+        $("pvGas").textContent = preparedTx.gasEstimate;
+        // enable confirm only after a successful prepare; final gate re-check happens on click
+        $("confirm").disabled = false;
+      } catch (e) {
+        resetPrepared();
+        $("tx").textContent = "Lỗi chuẩn bị: " + e.message;
+        alert("Chuẩn bị thất bại: " + e.message);
+      }
+    });
+
+    $("confirm").addEventListener("click", async () => {
+      if (!preparedTx || !signer || !provider || !account) return;
+      // Only now request wallet signature/submission.
+      if (isSending) return;
+      isSending = true;
+      $("confirm").disabled = true;
+      $("result").textContent = "Trạng thái: đang chờ bạn xác nhận trong ví Core Wallet...";
+      let txHash = null;
+      try {
+        // Re-check conditions immediately before requesting confirmation.
+        const network = await provider.getNetwork();
+        const chainId = Number(network.chainId);
+        const cRead = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+        const owner = await cRead.owner();
+        const authorizedBefore = await cRead.authorizedIssuers(TARGET_ISSUER);
+        const isFuji = chainId === FUJI_CHAIN_ID;
+        const isOwner = account.toLowerCase() === OWNER.toLowerCase() && account.toLowerCase() === owner.toLowerCase();
+        if (!isFuji) throw new Error("Sai mạng: cần Avalanche Fuji (chainId 43113).");
+        if (!isOwner) throw new Error("Ví kết nối không phải Owner on-chain.");
+        if (authorizedBefore) {
+          const ok = confirm("Issuer đã được ủy quyền (authorizedIssuers=true). Bạn có chắc muốn gửi giao dịch setIssuer(..., true) không?");
+          if (!ok) throw new Error("Người dùng hủy xác nhận trong ví.");
+        }
+
+        $("result").textContent = "Trạng thái: đang gửi giao dịch (chờ ví ký)...";
+        const txResponse = await signer.sendTransaction({
+          to: CONTRACT_ADDRESS,
+          from: account,
+          data: preparedTx.data,
+          value: 0,
+          gasLimit: preparedTx.gasEstimate && preparedTx.gasEstimate !== 'N/A' ? preparedTx.gasEstimate : undefined
+        });
+        txHash = txResponse.hash;
+        $("result").textContent = "Trạng thái: đã gửi tx " + txHash + ". Đang chờ blockchain xác nhận...";
+
+        // Wait for on-chain confirmation with bounded polling (no auto-retry).
+        let receipt = null;
+        const deadline = Date.now() + 120000;
+        while (!receipt && Date.now() < deadline) {
+          receipt = await provider.getTransactionReceipt(txHash);
+          if (!receipt) await new Promise(r => setTimeout(r, 2000));
+        }
+        if (!receipt) throw new Error("Chưa nhận được receipt sau 120s. Giao dịch có thể đang chờ; kiểm tra explorer trước khi thử lại.");
+
+        // Re-read authorizedIssuers after completion.
+        const authorizedAfter = await cRead.authorizedIssuers(TARGET_ISSUER);
+        $("result").textContent = JSON.stringify({
+          transactionHash: receipt.transactionHash || txHash,
+          blockNumber: receipt.blockNumber,
+          gasUsed: receipt.gasUsed ? receipt.gasUsed.toString() : null,
+          status: receipt.status,
+          authorizedIssuersAfter: authorizedAfter
+        }, null, 2);
+        $("issuerStatus").textContent = String(authorizedAfter);
+        if (authorizedAfter) {
+          setGate("Xác minh thành công: authorizedIssuers(issuer) = true.", true);
+        } else {
+          setGate("Giao dịch mined nhưng authorizedIssuers vẫn false. Cần kiểm tra thêm.", false);
+        }
+      } catch (e) {
+        const message = String(e && e.message ? e.message : e);
+        const rejected = /user rejected|rejected|denied|4001/i.test(message);
+        // If unsure whether tx was sent, check on-chain state before allowing retry.
+        let authorizedNow = null;
+        try {
+          const cCheck = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+          authorizedNow = await cCheck.authorizedIssuers(TARGET_ISSUER);
+        } catch (_) { authorizedNow = null; }
+        if (rejected) {
+          $("result").textContent = "Trạng thái: người dùng từ chối ký giao dịch. Chưa gửi tx.";
+          setGate("Giao dịch bị hủy bởi người dùng.", false);
+        } else if (authorizedNow === true) {
+          $("result").textContent = "Trạng thái: on-chain đã authorized=true (giao dịch có thể đã thành công). Hash: " + (txHash || "không rõ");
+          setGate("Xác minh thành công: authorizedIssuers(issuer) = true.", true);
+        } else {
+          $("result").textContent = "Trạng thái: thất bại. " + message + (txHash ? ("\nTx hash (nếu đã gửi): " + txHash) : "");
+          setGate("Giao dịch không hoàn tất: " + message, false);
+        }
+      } finally {
+        isSending = false;
+        // Only re-enable confirm if not already authorized on-chain.
+        try {
+          const cCheck = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+          const stillAuthorized = await cCheck.authorizedIssuers(TARGET_ISSUER);
+          $("confirm").disabled = stillAuthorized === true;
+        } catch (_) {
+          $("confirm").disabled = false;
+        }
+        await readState().catch(() => {});
+      }
+    });
+  </script>
+</body>
+</html>

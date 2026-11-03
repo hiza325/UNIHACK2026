@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PARADOX AI — Verify Certificate</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #0f172a; }
+    h1 { font-size: 22px; }
+    form { display: flex; gap: 8px; margin: 16px 0; }
+    input { flex: 1; padding: 8px 10px; font-size: 14px; }
+    button { padding: 8px 14px; font-size: 14px; cursor: pointer; }
+    .card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-top: 16px; }
+    .status { font-weight: 700; font-size: 18px; }
+    .VALID { color: #16a34a; }
+    .REVOKED { color: #dc2626; }
+    .NOT_FOUND { color: #6b7280; }
+    .UNAVAILABLE { color: #d97706; }
+    .INVALID_INPUT { color: #dc2626; }
+    .INVALID { color: #dc2626; }
+    dl { display: grid; grid-template-columns: 160px 1fr; gap: 6px 12px; margin: 12px 0; }
+    dt { font-weight: 600; color: #475569; }
+    dd { margin: 0; word-break: break-all; }
+    a { color: #2563eb; }
+    .muted { color: #64748b; font-size: 13px; }
+    .meta-VERIFIED { color: #16a34a; font-weight: 700; }
+    .meta-UNVERIFIED { color: #d97706; font-weight: 700; }
+    .meta-MISMATCH { color: #dc2626; font-weight: 700; }
+    .warn { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; border-radius: 8px; padding: 10px 12px; margin: 12px 0; }
+    .note { color: #92400e; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>PARADOX AI — Certificate Verification</h1>
+  <p class="muted">Verify a PARADOX AI credential on Avalanche Fuji (chainId 43113). No login required.</p>
+  <form id="form">
+    <input id="code" name="code" placeholder="PXP-..." required />
+    <button type="submit">Verify</button>
+  </form>
+  <div id="result"></div>
+  <script>
+    const form = document.getElementById('form');
+    const input = document.getElementById('code');
+    const result = document.getElementById('result');
+    const params = new URLSearchParams(location.search);
+    if (params.get('code')) input.value = params.get('code');
+
+    async function verify(code) {
+      result.innerHTML = '<div class="card">Verifying…</div>';
+      try {
+        const r = await fetch('/api/verify?code=' + encodeURIComponent(code));
+        const data = await r.json();
+        const status = data.status || 'UNAVAILABLE';
+        let html = '<div class="card"><div class="status ' + status + '">' + status + '</div>';
+        html += '<p>' + escapeHtml(data.message || '') + '</p>';
+        const rawIntegrity = data.metadata && data.metadata.integrity ? data.metadata.integrity : 'UNVERIFIED';
+        const integrity = ['VERIFIED', 'UNVERIFIED', 'MISMATCH'].includes(rawIntegrity) ? rawIntegrity : 'UNVERIFIED';
+        const evidenceIntegrity = data.evidence && data.evidence.integrity ? data.evidence.integrity : 'UNKNOWN';
+        html += '<dl><dt>Metadata integrity</dt><dd class="meta-' + integrity + '">' + integrity + '</dd></dl>';
+        if (integrity === 'MISMATCH') {
+          html += '<div class="warn">Certificate metadata (name, title, date) does not match the signed attestation stored at issuance. Do not trust metadata shown for this code.</div>';
+        } else if (data.credential && (data.credential.title || data.credential.skill)) {
+          html += '<dl>';
+          if (data.credential.title) html += '<dt>Title</dt><dd>' + escapeHtml(data.credential.title) + '</dd>';
+          if (data.credential.skill) html += '<dt>Skill</dt><dd>' + escapeHtml(data.credential.skill) + '</dd>';
+          html += '</dl>';
+          if (integrity === 'UNVERIFIED') html += '<p class="note">Metadata is not attested (legacy credential). Treat title/skill as unverified.</p>';
+        }
+        if (evidenceIntegrity === 'MISMATCH') {
+          html += '<div class="warn">Database evidence hash differs from the blockchain. Treat this record as tampered.</div>';
+        }
+        if (data.onChain) {
+          html += '<dl>';
+          html += '<dt>Chain ID</dt><dd>' + data.chainId + '</dd>';
+          if (data.onChain.issuedAt) html += '<dt>Issued at</dt><dd>' + new Date(data.onChain.issuedAt * 1000).toISOString() + '</dd>';
+          if (data.onChain.issuer) html += '<dt>Issuer</dt><dd>' + escapeHtml(data.onChain.issuer) + '</dd>';
+          if (data.onChain.evidenceHash) html += '<dt>Evidence hash</dt><dd>' + escapeHtml(data.onChain.evidenceHash) + '</dd>';
+          html += '</dl>';
+        }
+        if (data.explorerUrl) {
+          html += '<p><a href="' + escapeAttr(data.explorerUrl) + '" target="_blank" rel="noopener">View on Avalanche Explorer</a></p>';
+        }
+        if (data.contractAddress) html += '<p class="muted">Contract: ' + escapeHtml(data.contractAddress) + '</p>';
+        html += '</div>';
+        result.innerHTML = html;
+      } catch (e) {
+        result.innerHTML = '<div class="card"><div class="status UNAVAILABLE">UNAVAILABLE</div><p>' + escapeHtml(String(e)) + '</p></div>';
+      }
+    }
+
+    function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function escapeAttr(s) { return escapeHtml(s); }
+
+    form.addEventListener('submit', e => { e.preventDefault(); const code = input.value.trim(); if (code) { history.replaceState(null, '', '?code=' + encodeURIComponent(code)); verify(code); } });
+    if (params.get('code')) verify(params.get('code'));
+  </script>
+</body>
+</html>

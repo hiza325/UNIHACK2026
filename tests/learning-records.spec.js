@@ -112,6 +112,8 @@ test('learning records persist sessions, revisions, analysis and reloadable hist
   const hintInput = { mode: 'hint', problem: 'Solve 2x = 8', solution: 'x = 6', question: 'Give me one hint.', hintLevel: 1 };
   const hintAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: created.submission.id, userId: LEARNER.id, input: hintInput });
   await service.recordAiResult({ authorized: hintAuthorization, input: hintInput, result: { status: 'incorrect', summary: 'Review division.', hint: { level: 1, content: 'Divide both sides by 2.' }, reply: '' }, model: 'test-model' });
+  const nextHintAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: created.submission.id, userId: LEARNER.id, input: { ...hintInput, hintLevel: 2 } });
+  expect(nextHintAuthorization.servedHints).toEqual([{ level: 1, content: 'Divide both sides by 2.' }]);
 
   const discussionInput = { mode: 'discuss', problem: 'Solve 2x = 8', solution: 'x = 6', question: 'Why divide by 2?', hintLevel: 0 };
   const discussionAuthorization = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: created.submission.id, userId: LEARNER.id, input: discussionInput });
@@ -347,6 +349,47 @@ test('server-derived evaluation prepares hashes but never fabricates blockchain 
   expect(store.sessions[0].status).toBe('completed');
 });
 
+test('an initially correct analysis completes the session without an evaluation row', async () => {
+  const store = createMemoryStore();
+  const service = createLearningRecordService({ store, now: () => new Date('2026-10-28T10:05:00.000Z') });
+  const created = await service.createSession({ problem: 'Solve 2x = 8', initialSolution: 'x = 4' }, LEARNER);
+  const input = { mode: 'analyze', problem: 'Solve 2x = 8', solution: 'x = 4', question: '', hintLevel: 0 };
+  const authorized = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: created.submission.id, userId: LEARNER.id, input });
+  await service.recordAiResult({
+    authorized,
+    input,
+    result: { status: 'correct', summary: 'The initial solution is correct.', confidence: 0.95, issues: [], strengths: [], reply: '' },
+    model: 'test-model',
+  });
+
+  expect(store.sessions[0]).toMatchObject({ status: 'completed', latest_evaluation_status: null, latest_score: null });
+  expect(store.evaluations).toHaveLength(0);
+  expect(await service.listEligibleEvaluations(LEARNER)).toEqual([]);
+});
+
+test('a passing resubmission scored below the certificate threshold is not eligible', async () => {
+  const store = createMemoryStore();
+  const service = createLearningRecordService({ store, now: () => new Date('2026-10-28T10:05:00.000Z') });
+  const created = await service.createSession({ problem: 'Solve 2x = 8', initialSolution: 'x = 6' }, LEARNER);
+  const revision = await service.createSubmission({ sessionId: created.session.id, solution: 'x = 4' }, LEARNER);
+  const input = { mode: 'resubmit', problem: 'Solve 2x = 8', solution: 'x = 4', question: '', hintLevel: 0 };
+  const authorized = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: revision.id, userId: LEARNER.id, input });
+
+  const borderline = passingResult();
+  borderline.evaluation = {
+    ...borderline.evaluation,
+    score: 78,
+    criteria: Object.fromEntries(['knowledgeAccuracy', 'reasoningLogic', 'solutionCompleteness', 'errorRemediation'].map((key, index) => [key, { score: index === 0 ? 18 : 20, evidence: 'Validated server-side evidence.' }])),
+  };
+  borderline.proofRecord = { ...borderline.proofRecord, score: 78 };
+  const { evaluation } = await service.recordAiResult({ authorized, input, result: borderline, model: 'test-model' });
+
+  expect(evaluation).toMatchObject({ score: 78, status: 'pass' });
+  expect(evaluation.credential).toMatchObject({ eligible: false, status: 'not_eligible', id: null });
+  expect(store.evaluations[0]).toMatchObject({ status: 'pass', credential_eligible: false, credential_status: 'not_eligible' });
+  expect(await service.listEligibleEvaluations(LEARNER)).toEqual([]);
+});
+
 test('Debate API without an AI key records analysis failure without creating an evaluation', async () => {
   let failure;
   const fakeRecordService = {
@@ -355,7 +398,7 @@ test('Debate API without an AI key records analysis failure without creating an 
     async recordAiResult() { throw new Error('must not persist a result'); },
   };
   const handler = createDebateHandler({
-    analysisFactory: async () => { throw Object.assign(new Error('ANYROUTER_API_KEY is not configured'), { status: 503, code: 'NOT_CONFIGURED' }); },
+    analysisFactory: async () => { throw Object.assign(new Error('GROQ_API_KEY is not configured'), { status: 503, code: 'NOT_CONFIGURED' }); },
     sessionResolver: async () => ({ user: { id: LEARNER.id } }),
     storeFactory: () => ({}),
     recordServiceFactory: () => fakeRecordService,

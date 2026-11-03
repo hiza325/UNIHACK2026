@@ -4,13 +4,20 @@ import { AVALANCHE_FUJI_CONFIG, AVALANCHE_FUJI_CONTRACT_URL } from '../avalanche
 import { CERTIFICATE_CODE_HTML_PATTERN, getCredentialDisplayStatus, getAvalancheExplorerUrl, getCredentialVerificationState, hasActualAvalancheVerification } from '../learning-passport-service.js';
 
 export const passportViews = {
+  // Explorer links expose raw on-chain infrastructure; only administrators see
+  // them. Unknown or missing roles (including guests) fall back to hidden.
+  canViewAvalancheExplorer() {
+    return this.user?.role === 'admin';
+  },
   passportDate(value) {
     const date = new Date(String(value || '').includes('T') ? value : `${value}T12:00:00Z`);
     if (Number.isNaN(date.getTime())) return this.escape(value || '—');
     return this.formatDisplayDate(date, { day: '2-digit', month: '2-digit', year: 'numeric' });
   },
   passportStatusMarkup(credential) {
-    const status = getCredentialDisplayStatus(credential);
+    const revoked = credential.status === 'revoked' || ['revoked', 'revoke_pending'].includes(credential.transactionStatus) || credential.revokedAt || credential.verification?.revoked;
+    const displayStatus = getCredentialDisplayStatus(credential);
+    const status = revoked ? 'revoked' : (credential.isTest || credential.source === 'mock') && displayStatus === 'verified' ? 'unverified' : displayStatus;
     const labels = { unverified: 'passportStatusUnverified', pending: 'passportStatusPending', verified: 'passportStatusVerified', revoked: 'passportStatusRevoked' };
     return `<span class="credential-status ${status}">${this.t(labels[status])}</span>`;
   },
@@ -25,6 +32,14 @@ export const passportViews = {
     if (this.passportError) return `<div class="passport-api-state error" role="alert"><p>${this.t('passportLoadError')}</p><button class="ghost-button" type="button" data-retry-passport>${this.t('dataRetry')} ↗</button></div>`;
     return '';
   },
+  passportEligibleEvaluationsMarkup() {
+    const body = this.passportEligibleLoading
+      ? '<p class="passport-empty-list">Loading eligible evaluations...</p>'
+      : this.passportEligibleError
+        ? `<p class="passport-empty-list">${this.escape(this.passportEligibleError)}</p>`
+        : ((this.passportEligibleEvaluations || []).map(ev => `<article class="passport-eligible-row"><div><strong>${this.escape(ev.id)}</strong><small>score ${this.escape(ev.score)} · ${this.escape(ev.status)} · ${this.escape(ev.rubricVersion || '')}</small></div><span class="credential-status pending">Eligible</span></article>`).join('') || '<p class="passport-empty-list">No eligible evaluations yet. Complete a passing AI evaluation with score &gt;= 80 and a valid proof record.</p>');
+    return `<section class="card passport-eligible-card"><div class="panel-head"><div><h2 class="panel-title">Eligible evaluations</h2><p class="panel-sub">AI evaluations that may be issued as certificates (score &gt;= 80, valid proof record).</p></div></div><div class="passport-eligible-list">${body}</div></section>`;
+  },
   viewPassport() {
     const t = key => this.t(key);
     const state = this.learningPassportDataState();
@@ -32,7 +47,7 @@ export const passportViews = {
     if (state === 'loading') return `<div class="page passport-page" data-passport-state="loading">${head}${this.dataStatePanel('loading', { title: t('passportLoading'), message: t('passportLoadingDesc') })}</div>`;
     if (state === 'error') return `<div class="page passport-page" data-passport-state="error">${head}${this.dataStatePanel('error', { title: t('passportLoadErrorTitle'), message: t('passportLoadError'), retry: 'data-retry-passport' })}</div>`;
     const passport = this.getLearningPassportSnapshot();
-    if (state === 'empty' || !passport) return `<div class="page passport-page" data-passport-state="empty">${head}${passport ? this.passportDataNotice(passport) : ''}${this.dataStatePanel('empty', { title: t('passportEmptyTitle'), message: t('passportEmptyDesc') })}</div>`;
+    if (state === 'empty' || !passport) return `<div class="page passport-page" data-passport-state="empty">${head}${passport ? this.passportDataNotice(passport) : ''}${this.dataStatePanel('empty', { title: t('passportEmptyTitle'), message: t('passportEmptyDesc') })}${this.passportEligibleEvaluationsMarkup()}</div>`;
     const initials = passport.learner.displayName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
     const achieved = passport.skills.filter(skill => skill.achieved).length;
     const skills = passport.skills.map(skill => `<article class="passport-skill ${skill.achieved ? 'achieved' : ''}"><div class="passport-skill-head"><span class="passport-skill-icon">${svgIcon(skill.achieved ? 'check' : 'clock')}</span><div><h3>${this.escape(skill.name)}</h3><p>${this.escape(skill.description)}</p></div><strong>${Number.isFinite(skill.score) ? `${skill.score}<small>/100</small>` : '—'}</strong></div>${Number.isFinite(skill.progress) ? `<div class="skill-track" role="progressbar" aria-label="${this.escape(skill.name)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${skill.progress}"><span style="width:${skill.progress}%"></span></div>` : ''}<footer><span>${skill.achieved ? t('passportAchieved') : t('passportInProgress')}</span><span>${t('passportEvidence').replace('{count}', String(skill.evidenceCount))}</span></footer></article>`).join('') || `<p class="passport-empty-list">${t('passportNoVerifiedSkills')}</p>`;
@@ -45,17 +60,26 @@ export const passportViews = {
       <section class="card passport-hero"><div class="avatar passport-avatar">${this.escape(initials)}</div><div class="passport-identity"><span>${t('passportLabel')}</span><h2>${this.escape(passport.learner.displayName)}</h2><p>${this.escape(passport.learner.email)}</p><small>${this.escape(passport.learner.level)} · ${this.escape(passport.learner.cohort)}</small></div><div class="passport-id"><span>${t('passportId')}</span><strong>${this.escape(passport.passportId)}</strong><small>${passport.schemaVersion}</small></div></section>
       <div class="stat-grid four passport-stats">${this.statCard(t('passportSkillsAchieved'), achieved, `/${passport.skills.length}`)}${this.statCard(t('passportOverallScore'), passport.summary.overallScore, '/100')}${this.statCard(t('passportProgress'), passport.summary.progress, '%')}${this.statCard(t('passportCredentials'), passport.credentials.length, '')}</div>
       <div class="passport-grid"><section class="card passport-skills-card"><div class="panel-head"><div><h2 class="panel-title">${t('passportSkills')}</h2><p class="panel-sub">${t('passportSkillsSub')}</p></div></div><div class="passport-skill-list">${skills}</div></section><section class="card passport-assessments-card"><div class="panel-head"><div><h2 class="panel-title">${t('passportAssessments')}</h2><p class="panel-sub">${t('passportAssessmentsSub')}</p></div></div><div class="passport-assessment-list">${assessments}</div></section></div>
+      ${this.passportEligibleEvaluationsMarkup()}
       <section class="card credentials-card"><div class="panel-head"><div><h2 class="panel-title">${t('passportCertificateList')}</h2><p class="panel-sub">${t('passportCertificateSub')}</p></div><button class="ghost-button" type="button" data-open-passport-verify>${svgIcon('search')} ${t('passportVerify')}</button></div><div class="credential-list">${credentials}</div></section>
       <div class="practice-backdrop passport-detail-backdrop" id="passport-detail-modal" hidden></div>
     </div>`;
   },
   passportCredentialDetailMarkup(credential) {
+    if (credential.source === 'avalanche' && !credential.isTest && credential.snapshot?.version === 1) {
+      credential = { ...credential, skill: credential.snapshot.subject, issuedAt: credential.snapshot.issuedAt };
+    }
     const t = key => this.t(key);
     const actualVerification = hasActualAvalancheVerification(credential);
     const dataBadge = credential.isTest ? t('passportTestBadge') : credential.source === 'mock' ? t('passportMockBadge') : '';
     const caution = credential.isTest ? t('passportTestWarning') : actualVerification ? t('passportVerifiedOnChain') : t('passportNotLive');
+    const metadataWarning = credential.metadataIntegrity === 'MISMATCH'
+      ? '<p class="passport-verification-caution" role="alert">Certificate metadata (name/title/date) does not match the signed attestation. Do not trust it.</p>'
+      : credential.metadataIntegrity === 'UNVERIFIED'
+        ? '<p class="passport-verification-caution">Certificate metadata is not attested (legacy record).</p>'
+        : '';
     const transactionUrl = getAvalancheExplorerUrl(credential);
-    return `<section class="passport-detail-panel" role="dialog" aria-modal="true" aria-labelledby="passport-detail-title"><button class="practice-close" type="button" data-close-passport-detail aria-label="${t('close')}"><span aria-hidden="true">×</span></button><span class="eyebrow">${t('passportCertificate')}</span><h2 id="passport-detail-title">${this.escape(credential.name)}</h2><div class="passport-detail-status">${this.passportStatusMarkup(credential)}${dataBadge ? `<span class="mock-inline">${dataBadge}</span>` : ''}</div><dl class="passport-detail-list"><div><dt>${t('passportCertificateCode')}</dt><dd><code>${this.escape(credential.code)}</code></dd></div><div><dt>${t('passportSkill')}</dt><dd>${this.escape(credential.skill)}</dd></div><div><dt>${t('passportIssuedAt')}</dt><dd>${this.passportDate(credential.issuedAt)}</dd></div><div><dt>${t('passportIssuer')}</dt><dd>${this.escape(credential.issuer || t('passportNotAvailable'))}</dd></div><div><dt>${t('passportAssessmentScore')}</dt><dd>${credential.assessmentScore ?? '—'}${Number.isFinite(credential.assessmentScore) ? '/100' : ''}</dd></div><div><dt>${t('passportEvidenceHash')}</dt><dd><code>${this.escape(credential.evidenceHash || t('passportNotAvailable'))}</code></dd></div><div><dt>${t('passportNetwork')}</dt><dd>${credential.network === AVALANCHE_FUJI_CONFIG.network ? `${AVALANCHE_FUJI_CONFIG.networkName} (${AVALANCHE_FUJI_CONFIG.chainId})` : t('passportNotAvailable')}</dd></div><div><dt>${t('passportTransactionHash')}</dt><dd><code>${transactionUrl ? this.escape(credential.transactionHash) : t('passportNotAvailable')}</code></dd></div></dl><p class="passport-verification-caution">${caution}</p><div class="passport-detail-actions"><button class="ghost-button" type="button" data-close-passport-detail>${t('close')}</button><button class="primary-button" type="button" data-verify-certificate="${this.escape(credential.code)}">${t('passportVerify')} ↗</button></div></section>`;
+    return `<section class="passport-detail-panel" role="dialog" aria-modal="true" aria-labelledby="passport-detail-title"><button class="practice-close" type="button" data-close-passport-detail aria-label="${t('close')}"><span aria-hidden="true">×</span></button><span class="eyebrow">${t('passportCertificate')}</span><h2 id="passport-detail-title">${this.escape(credential.name)}</h2><div class="passport-detail-status">${this.passportStatusMarkup(credential)}${dataBadge ? `<span class="mock-inline">${dataBadge}</span>` : ''}</div><dl class="passport-detail-list"><div><dt>${t('passportCertificateCode')}</dt><dd><code>${this.escape(credential.code)}</code></dd></div><div><dt>${t('passportSkill')}</dt><dd>${this.escape(credential.skill)}</dd></div><div><dt>${t('passportIssuedAt')}</dt><dd>${this.passportDate(credential.issuedAt)}</dd></div><div><dt>${t('passportIssuer')}</dt><dd>${this.escape(credential.issuer || t('passportNotAvailable'))}</dd></div><div><dt>${t('passportAssessmentScore')}</dt><dd>${credential.assessmentScore ?? '—'}${Number.isFinite(credential.assessmentScore) ? '/100' : ''}</dd></div><div><dt>${t('passportEvidenceHash')}</dt><dd><code>${this.escape(credential.evidenceHash || t('passportNotAvailable'))}</code></dd></div><div><dt>${t('passportNetwork')}</dt><dd>${credential.network === AVALANCHE_FUJI_CONFIG.network ? `${AVALANCHE_FUJI_CONFIG.networkName} (${AVALANCHE_FUJI_CONFIG.chainId})` : t('passportNotAvailable')}</dd></div><div><dt>${t('passportTransactionHash')}</dt><dd><code>${transactionUrl ? this.escape(credential.transactionHash) : t('passportNotAvailable')}</code></dd></div></dl><p class="passport-verification-caution">${caution}</p>${metadataWarning}<div class="passport-detail-actions"><button class="ghost-button" type="button" data-close-passport-detail>${t('close')}</button><button class="primary-button" type="button" data-verify-certificate="${this.escape(credential.code)}">${t('passportVerify')} ↗</button></div></section>`;
   },
   passportVerificationStateMarkup(state) {
     const t = key => this.t(key);
@@ -72,6 +96,7 @@ export const passportViews = {
     const t = key => this.t(key);
     if (!credential) return this.passportVerificationStateMarkup('not-found');
     const explorerUrl = getAvalancheExplorerUrl(credential);
+    const showExplorerLink = this.canViewAvalancheExplorer();
     const actualVerification = hasActualAvalancheVerification(credential);
     const stateCopy = {
       valid: ['passportVerifiedOnAvalanche', 'passportVerifiedOnChain'],
@@ -83,7 +108,7 @@ export const passportViews = {
     const transaction = explorerUrl
       ? `<div class="transaction-box"><span>${t('passportTransactionHash')}</span><code>${this.escape(credential.transactionHash)}</code></div>`
       : '';
-    return `<section class="card passport-verification-result ${state}" id="passport-verification-result" data-verification-state="${state}" tabindex="-1"><header><div><span>${t('passportVerificationResult')}</span><h2>${this.escape(credential.name || t('passportCertificate'))}</h2><code>${this.escape(credential.code)}</code>${credential.isTest ? `<span class="mock-inline">${t('passportTestBadge')}</span>` : credential.source === 'mock' ? `<span class="mock-inline">${t('passportMockBadge')}</span>` : ''}</div><span class="verification-state-badge ${state}">${t(stateCopy[0])}</span></header><div class="verification-grid"><div><span>${t('passportSkill')}</span><strong>${this.escape(credential.skill || '—')}</strong></div><div><span>${t('passportIssuedAt')}</span><strong>${credential.issuedAt ? this.passportDate(credential.issuedAt) : '—'}</strong></div><div><span>${t('passportNetwork')}</span><strong>${credential.network === AVALANCHE_FUJI_CONFIG.network ? `${AVALANCHE_FUJI_CONFIG.networkName} · ${AVALANCHE_FUJI_CONFIG.chainId}` : '—'}</strong></div><div><span>${t('passportVerificationSource')}</span><strong>${actualVerification ? AVALANCHE_FUJI_CONFIG.contractName : t('passportNotConnected')}</strong></div></div>${transaction}<p class="passport-verification-caution ${state}">${t(stateCopy[1])}</p><footer>${explorerUrl ? `<a class="primary-button explorer-button" href="${explorerUrl}" target="_blank" rel="noopener noreferrer">${t('passportExplorer')} ↗</a>` : ''}</footer></section>`;
+    return `<section class="card passport-verification-result ${state}" id="passport-verification-result" data-verification-state="${state}" tabindex="-1"><header><div><span>${t('passportVerificationResult')}</span><h2>${this.escape(credential.name || t('passportCertificate'))}</h2><code>${this.escape(credential.code)}</code>${credential.isTest ? `<span class="mock-inline">${t('passportTestBadge')}</span>` : credential.source === 'mock' ? `<span class="mock-inline">${t('passportMockBadge')}</span>` : ''}</div><span class="verification-state-badge ${state}">${t(stateCopy[0])}</span></header><div class="verification-grid"><div><span>${t('passportSkill')}</span><strong>${this.escape(credential.skill || '—')}</strong></div><div><span>${t('passportIssuedAt')}</span><strong>${credential.issuedAt ? this.passportDate(credential.issuedAt) : '—'}</strong></div><div><span>${t('passportNetwork')}</span><strong>${credential.network === AVALANCHE_FUJI_CONFIG.network ? `${AVALANCHE_FUJI_CONFIG.networkName} · ${AVALANCHE_FUJI_CONFIG.chainId}` : '—'}</strong></div><div><span>${t('passportVerificationSource')}</span><strong>${actualVerification ? AVALANCHE_FUJI_CONFIG.contractName : t('passportNotConnected')}</strong></div></div>${transaction}<p class="passport-verification-caution ${state}">${t(stateCopy[1])}</p><footer>${explorerUrl && showExplorerLink ? `<a class="primary-button explorer-button" href="${explorerUrl}" target="_blank" rel="noopener noreferrer">${t('passportExplorer')} ↗</a>` : ''}</footer></section>`;
   },
   viewPassportVerify() {
     const t = key => this.t(key);

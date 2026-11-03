@@ -2073,10 +2073,11 @@ export const SUPPORT_FAQ = [
     "question": "97. Chatbot không trả lời thì kiểm tra gì?",
     "keywords": [
       "chatbot",
-      "ANYROUTER_API_KEY",
+      "GROQ_API_KEY",
+      "GEMINI_API_KEY",
       "503"
     ],
-    "answer": "Chatbot cần máy chủ có ANYROUTER_API_KEY. Nếu thiếu key, hệ thống sẽ trả lỗi 503.",
+    "answer": "Chatbot cần máy chủ có GROQ_API_KEY (dự phòng GEMINI_API_KEY). Nếu thiếu cả hai, chatbot trả lời bằng nội dung tài liệu thay vì gọi AI.",
     "source": {
       "paragraph": 465
     }

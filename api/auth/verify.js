@@ -1,9 +1,10 @@
-import { parseBody, publicUser, sendError, setSession, supabaseRequest } from './_supabase.js';
+import { noStore, parseBody, publicUser, sendError, setSession, supabaseRequest } from './_supabase.js';
 import { emailOtpConfigured } from './_mail.js';
 import { guardOtpVerify } from './_rate-limit.js';
 import { processOtpRequest } from './otp.js';
 
 export default async function handler(req, res) {
+  noStore(res);
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'Method not allowed' }); }
   try {
     const body = parseBody(req);

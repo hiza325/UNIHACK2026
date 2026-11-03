@@ -321,7 +321,18 @@ export function createLearningRecordService({ store, now = () => new Date() } = 
         persistenceRequired: session.status !== 'completed',
       };
     }
-    return { session, submission, learnerId };
+    const authorization = { session, submission, learnerId };
+    if (input.mode === 'hint') {
+      // Hint progression is derived from the stored interactions so the client
+      // cannot skip levels by sending its own hint history.
+      const interactions = await store.listInteractions(session.id, learnerId);
+      authorization.servedHints = interactions
+        .filter(item => item.submission_id === submission.id && item.mode === 'hint' && item.role === 'assistant')
+        .map(item => ({ level: Number(item.hint_level) || 0, content: String(item.content || '') }))
+        .filter(item => item.level > 0 && item.content)
+        .sort((left, right) => left.level - right.level);
+    }
+    return authorization;
   }
 
   async function recordAiResult({ authorized, input, result, model }) {
@@ -377,8 +388,10 @@ export function createLearningRecordService({ store, now = () => new Date() } = 
         const eligible = result.status === 'correct'
           && result.evaluation.status === 'pass'
           && result.evaluation.evidenceSufficient === true
+          && Number(result.evaluation.score) >= 80
           && proof?.schemaVersion === 'paradox-proof-of-learning-v1'
-          && /^[0-9a-f]{64}$/i.test(String(proof.contentHash || ''));
+          && /^[0-9a-f]{64}$/i.test(String(proof.contentHash || ''))
+          && Number(proof.score) >= 80;
         const credentialId = eligible ? credentialCode(submission.id, completedAt) : null;
         const evaluationRow = await store.insertEvaluation({
           session_id: session.id,

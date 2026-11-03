@@ -98,6 +98,21 @@ export function createLearningRecordStore({ env = process.env, fetcher = globalT
     async findEvaluation(id, learnerId) {
       return request('learning_evaluations', { query: { select: '*', id: `eq.${id}`, learner_id: `eq.${learnerId}`, limit: '1' }, single: true });
     },
+    async updateEvaluation(id, patch) {
+      const allowed = new Set(['credential_status', 'verification_status', 'credential_id', 'credential_id_hash', 'credential_hash', 'issued_at', 'issue_tx_hash']);
+      if (Object.keys(patch).some(key => !allowed.has(key))) {
+        throw recordStoreError('Evaluation credential metadata cannot be updated', 'EVALUATION_IMMUTABLE_FIELD', 409);
+      }
+      // Prevent a late issuance projection from restoring an already-revoked evaluation.
+      // Include NULL because credentials without a status have not yet been issued.
+      const query = { id: `eq.${id}` };
+      if (patch.credential_status === 'issued' || patch.credential_status === 'verified') {
+        query.or = '(credential_status.is.null,credential_status.neq.revoked)';
+      }
+      return request('learning_evaluations', {
+        method: 'PATCH', query, body: patch, single: true,
+      });
+    },
     async listEligibleEvaluations(learnerId, { limit = 50, offset = 0 } = {}) {
       return request('learning_evaluations', { query: { select: '*', learner_id: `eq.${learnerId}`, credential_eligible: 'eq.true', order: 'evaluated_at.desc', limit: String(limit), offset: String(offset) } });
     },

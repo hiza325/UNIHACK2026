@@ -1,4 +1,5 @@
 import { createLearningPassportService, getCredentialVerificationState, isCertificateCode } from './learning-passport-service.js';
+import { mountCertificatePreview } from './certificate-renderer.js';
 
 export const learningPassportActionMethods = {
   configureLearningPassportService() {
@@ -42,6 +43,11 @@ export const learningPassportActionMethods = {
     if (!credential || !modal) return;
     this.passportSelectedCredentialCode = credential.code;
     modal.innerHTML = this.passportCredentialDetailMarkup(credential);
+    const preview = document.createElement('section');
+    preview.setAttribute('data-certificate-preview', '');
+    preview.setAttribute('aria-live', 'polite');
+    modal.querySelector('.passport-detail-actions').before(preview);
+    void mountCertificatePreview(preview, this.user, credential);
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
     modal.querySelector('[data-close-passport-detail]')?.focus();

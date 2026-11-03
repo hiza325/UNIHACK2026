@@ -1,6 +1,6 @@
 # PARADOX AI — CHAIN-01 Verification Report
 
-**Cập nhật:** 2026-10-29
+**Cập nhật:** 2026-10-29 (kiểm lại read-only ngày 2026-11-01)
 
 **Trạng thái CHAIN-01:** **PASS**
 
@@ -87,3 +87,33 @@ Các mã Demo không phải credential thật. Lỗi RPC không được chuyể
 **CHAIN-01: PASS** cho deployment registry và bằng chứng read-only.
 
 Điều này cho phép chuyển sang đánh giá **CHAIN-02** ở mức tích hợp credential. CHAIN-02 vẫn cần kiểm thử end-to-end với một credential được phát hành hợp lệ; không được dùng deployment transaction thay thế issuance evidence.
+
+---
+
+## 7. Kiểm lại read-only ngày 2026-11-01
+
+Chạy lúc `2026-11-01T08:54Z` trên **hai RPC độc lập**, không ký và không gửi giao dịch:
+
+| RPC | Chain ID | Block lúc kiểm |
+|---|---|---|
+| `https://api.avax-test.network/ext/bc/C/rpc` | `43113` (`0xa869`) | `60343951` |
+| `https://avalanche-fuji-c-chain-rpc.publicnode.com` | `43113` (`0xa869`) | `60343958` |
+
+| Kiểm tra | Kết quả | Ghi chú |
+|---|---|---|
+| `eth_chainId` | `43113` | Khớp cả hai RPC |
+| `eth_getCode` | `2322` bytes | Như lần kiểm 2026-10-29 |
+| Keccak runtime bytecode | `0x23f60c83fb818b19f0dec2fc489db30bb84c611819da7e9a31676c41c31a6710` | Khớp `deployments/avalanche-fuji.json` |
+| Receipt deploy `0x45c55865…d56f` | `status 1`, block `60163894`, `gasUsed 604810` | `contractAddress` khớp address cấu hình |
+| `owner()` | `0x35d1dc8183326f3CBc631ED04094765052B365cD` | Khớp manifest |
+| `pendingOwner()` | `0x0000000000000000000000000000000000000000` | Không có chuyển quyền đang chờ |
+| `authorizedIssuers(owner)` | `true` | PASS |
+| `authorizedIssuers(0xA906C19dE177CcDAC0B092560FcDa7296165C396)` | `true` | Issuer đang hoạt động |
+| `avalanche-config.js` phục vụ bởi `paradox-ai-staging` | `chainId 43113` + address `0xa0c69eE5…5CF2b` | Kiểm lúc `2026-11-01T09:00Z` |
+
+Giới hạn của lần kiểm này:
+
+- `name()` và `totalCredentials()` **revert** vì contract không định nghĩa hai hàm đó — đây không phải lỗi chain và không dùng làm bằng chứng.
+- Chưa liệt kê được lịch sử `CredentialIssued`: RPC công khai giới hạn **100 block/lần** cho `eth_getLogs`, trong khi dải cần quét khoảng 180.000 block. Muốn đối chiếu một credential cụ thể thì cần `credentialId` hoặc `evidenceHash` thật để đọc `getCredential` / `isCredentialValid`.
+- **CHAIN-02 vẫn chưa đạt**: chưa có credential phát hành đầu-cuối để đối chiếu.
+

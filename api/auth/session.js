@@ -1,6 +1,13 @@
-import { clearSession, currentUser, publicUser, sendError } from './_supabase.js';
+import { clearSession, currentUser, noStore, publicUser, sendError } from './_supabase.js';
+import localAuthHandler, { isLocalAuthRequest } from './_local.js';
 
 export default async function handler(req, res) {
+  // The Hobby plan allows 12 serverless functions per deployment, so the
+  // local sign-in endpoint lives in ./_local.js (not a route of its own) and
+  // Vercel rewrites /api/auth/local here. See vercel.json.
+  if (isLocalAuthRequest(req)) return localAuthHandler(req, res);
+
+  noStore(res);
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return res.status(405).json({ error: 'Method not allowed' }); }
   try {
     const { user } = await currentUser(req, res);

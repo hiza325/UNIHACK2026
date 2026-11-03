@@ -82,6 +82,33 @@ export function rateLimitError(retryAfterMs) {
   });
 }
 
+export function credentialLookupSettings(env = process.env) {
+  return {
+    disabled: readBoolean(env.RATE_LIMIT_DISABLED),
+    windowMs: readNumber(env.CREDENTIAL_LOOKUP_WINDOW_MINUTES, 15, { min: 1, max: 1440 }) * 60_000,
+    ipLimit: readNumber(env.CREDENTIAL_LOOKUP_IP_LIMIT, 60, { min: 1, max: 100_000 }),
+    userLimit: readNumber(env.CREDENTIAL_LOOKUP_USER_LIMIT, 60, { min: 1, max: 100_000 }),
+  };
+}
+
+// Credential codes are admin-typed and follow a guessable pattern, so the
+// lookup that any signed-in user may attempt needs a ceiling. Limits are
+// deliberately generous: a person verifying certificates by hand should never
+// reach them, a scripted sweep of the code space should.
+export function guardCredentialLookup(req, userId, options = {}) {
+  const env = options.env || process.env;
+  const settings = credentialLookupSettings(env);
+  if (settings.disabled) return;
+  const now = options.now ?? Date.now();
+  const checks = [[`lookup:ip:${digest(clientIp(req))}`, settings.ipLimit, settings.windowMs]];
+  if (userId) checks.push([`lookup:user:${digest(userId)}`, settings.userLimit, settings.windowMs]);
+  for (const [key, limit, windowMs] of checks) {
+    const result = consume(key, limit, windowMs, now);
+    if (!result.allowed) throw rateLimitError(result.retryAfterMs);
+  }
+  prune(now);
+}
+
 export function guardOtpSend(req, email, options = {}) {
   const env = options.env || process.env;
   const settings = rateLimitSettings(env);

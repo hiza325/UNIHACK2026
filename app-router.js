@@ -32,7 +32,8 @@ export const routerMethods = {
     }
     this.view = APP_VIEWS.includes(raw) ? raw : 'dashboard';
     this.render();
-    if (this.view === 'admin') this.loadAdminAccounts();
+    if (this.view === 'admin') { this.loadAdminAccounts(); if (typeof this.restoreCertificateIssuance === 'function') this.restoreCertificateIssuance(); }
+    if (this.view === 'passport' && typeof this.loadPassportEligibleEvaluations === 'function') this.loadPassportEligibleEvaluations();
     if (['dashboard', 'profile', 'passport'].includes(this.view)) this.loadLearningPassportSnapshot();
     if (['dashboard', 'history', 'analytics', 'profile'].includes(this.view)) this.loadLearningRecordHistory();
   },
@@ -43,6 +44,10 @@ export const routerMethods = {
   },
   async logout() {
     try { await this.requestServerAuth('logout', {}); } catch { /* Always clear the browser session. */ }
+    if (localStorage.getItem('paradox-local-server') === '1') {
+      localStorage.removeItem('paradox-local-server');
+      try { await fetch('/api/auth/local', { method: 'DELETE', credentials: 'same-origin' }); } catch { /* Always clear the browser session. */ }
+    }
     localStorage.removeItem('paradox-session');
     this.resetInMemoryUserData();
     this.user = null;
