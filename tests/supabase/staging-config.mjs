@@ -1,12 +1,11 @@
 // Staging configuration guard.
-// Returns null if staging is not properly configured (tests will skip).
+// Returns config object or { configured: false, reason } if not properly set up.
 // NEVER connects to production.
 
 const STAGING_REF = 'ekkyygjlshrhibrdmhlx';
 const PRODUCTION_REF = 'bwjpnyifsoiwoetxflzf';
 
 function readEnv(key) {
-  // Prefer process.env, then .env.staging file.
   if (process.env[key]) return process.env[key].trim();
   try {
     const fs = require('node:fs');
@@ -42,13 +41,26 @@ export function getStagingConfig() {
     return { configured: false, reason: `BLOCKED: ref ${ref} is not the known staging ref ${STAGING_REF}` };
   }
 
+  const testLearnerId = readEnv('STAGING_TEST_LEARNER_ID');
+  const confirmed = readEnv('STAGING_SUPABASE_CONFIRMED') === '1';
+
   return {
     configured: true,
+    confirmed,
     ref,
     url,
     serviceKey,
+    testLearnerId,
     appUrl: readEnv('STAGING_APP_URL') || 'https://paradox-ai-staging.vercel.app',
   };
+}
+
+export function isStagingConfirmed() {
+  return getStagingConfig().confirmed === true;
+}
+
+export function hasTestLearner() {
+  return !!getStagingConfig().testLearnerId;
 }
 
 export const STAGING_PROJECT_REF = STAGING_REF;

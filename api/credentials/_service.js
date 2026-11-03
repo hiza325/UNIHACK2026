@@ -687,7 +687,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
 
   async function revoke(code) {
     const credentialCode = String(code || '').trim().toUpperCase();
-    const row = await store.findByCode(credentialCode);
+    let row = await store.findByCode(credentialCode);
     if (!row) throw credentialError('Credential was not found', 'CREDENTIAL_NOT_FOUND', 404);
     if (row.blockchain_status === 'revoked') throw credentialError('Credential has already been revoked', 'CREDENTIAL_ALREADY_REVOKED', 409);
     const revokePending = row.blockchain_status === 'revoke_pending';
