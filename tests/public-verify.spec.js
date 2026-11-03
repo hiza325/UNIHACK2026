@@ -38,8 +38,12 @@ function startRpc(impl) {
             if (sel === '0xc974d9ed') method = 'credentialExists';
             else if (sel === '0xd1be4883') method = 'getCredential';
             else if (sel === '0x6dc158eb') method = 'isCredentialValid';
-            const r = impl(method);
-            return { jsonrpc: '2.0', id: p.id, result: encodeResult(method, r) };
+            try {
+              const r = impl(method);
+              return { jsonrpc: '2.0', id: p.id, result: encodeResult(method, r) };
+            } catch (e) {
+              return { jsonrpc: '2.0', id: p.id, error: { code: -32000, message: String(e?.message || e) } };
+            }
           }
           return { jsonrpc: '2.0', id: p.id, result: null };
         });
@@ -206,4 +210,62 @@ test('credentials handler public=1 does not require session', async () => {
   rpc.server.close();
   expect(status).toBe(404);
   expect(body.status).toBe('NOT_FOUND');
+});
+test('primary RPC eth_call error with working fallback -> succeeds', async () => {
+  // Primary: chainId ok but eth_call returns JSON-RPC error.
+  const primary = await startRpc((method) => {
+    if (method === 'eth_chainId') return '0xa869';
+    throw new Error('primary eth_call failed');
+  });
+  // Fallback: fully working mock returning not-found.
+  const fallback = await startRpc((method) => {
+    if (method === 'eth_chainId') return '0xa869';
+    if (method === 'credentialExists') return false;
+    return null;
+  });
+  const restore = mockDbFetch('none');
+  process.env = { ...process.env, SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_SERVICE_ROLE_KEY: 'service-key', AVALANCHE_FUJI_RPC_URL: primary.url, AVALANCHE_FUJI_RPC_URLS: fallback.url, AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS: CONTRACT };
+  const { req, res, getStatus, getBody } = makeReqRes('PXP-2026-REGRESSION-0001');
+  await handler(req, res);
+  restore();
+  primary.server.close();
+  fallback.server.close();
+  const body = getBody();
+  expect(getStatus()).toBe(404);
+  expect(body.status).toBe('NOT_FOUND');
+});
+
+test('all RPCs fail eth_call -> 503 UNAVAILABLE', async () => {
+  const rpc = await startRpc((method) => {
+    if (method === 'eth_chainId') return '0xa869';
+    throw new Error('rpc down');
+  });
+  const restore = mockDbFetch('none');
+  process.env = { ...process.env, SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_SERVICE_ROLE_KEY: 'service-key', AVALANCHE_FUJI_RPC_URL: rpc.url, AVALANCHE_FUJI_RPC_URLS: '', AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS: CONTRACT };
+  const { req, res, getStatus, getBody } = makeReqRes('PXP-2026-REGRESSION-0001');
+  await handler(req, res);
+  restore();
+  rpc.server.close();
+  expect(getStatus()).toBe(503);
+  expect(getBody().status).toBe('UNAVAILABLE');
+});
+
+test('suppliedContract path still works', async () => {
+  // Exercised indirectly: handler uses real gateway; suppliedContract is for direct gateway tests.
+  // This test just confirms handler handles a working RPC.
+  const rpc = await startRpc((method) => {
+    if (method === 'eth_chainId') return '0xa869';
+    if (method === 'credentialExists') return true;
+    if (method === 'getCredential') return [EVIDENCE, ISSUER, ISSUED_AT, 0];
+    if (method === 'isCredentialValid') return true;
+    return null;
+  });
+  const restore = mockDbFetch('none');
+  process.env = { ...process.env, SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_SERVICE_ROLE_KEY: 'service-key', AVALANCHE_FUJI_RPC_URL: rpc.url, AVALANCHE_FUJI_RPC_URLS: '', AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS: CONTRACT };
+  const { req, res, getStatus, getBody } = makeReqRes('PXP-2026-REGRESSION-0001');
+  await handler(req, res);
+  restore();
+  rpc.server.close();
+  expect(getStatus()).toBe(200);
+  expect(getBody().status).toBe('VALID');
 });

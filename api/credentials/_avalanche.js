@@ -148,6 +148,14 @@ async function validateProviderChain(provider, timeoutMs = RPC_TIMEOUT_MS) {
   }
 }
 
+export function isRetryableRpcError(error) {
+  if (!error) return false;
+  if (error?.code && /^AVALANCHE_|^DUPLICATE_|^CREDENTIAL_|^EVIDENCE_|^ISSUER_/.test(error.code)) return false;
+  const msg = String(error?.shortMessage || error?.message || '').toLowerCase();
+  if (/could not decode|bad data|invalid result|empty data|invalid argument|decode/.test(msg)) return false;
+  return true;
+}
+
 export async function createAvalancheGateway({ env = process.env, write = false, provider: suppliedProvider, providers: suppliedProviders, contract: suppliedContract, wallet: suppliedWallet } = {}) {
   const config = avalancheConfig(env, { requireSigner: write });
 
@@ -200,21 +208,76 @@ export async function createAvalancheGateway({ env = process.env, write = false,
   const issuerAddress = wallet ? (typeof wallet.address === 'string' ? wallet.address : await wallet.getAddress?.()) : null;
 
   async function verifyCredential(credentialId) {
-    try {
-      const exists = await readContract.credentialExists(credentialId);
-      if (!exists) return { exists: false, valid: false, revoked: false, credentialId };
-      const [record, valid] = await Promise.all([readContract.getCredential(credentialId), readContract.isCredentialValid(credentialId)]);
-      return {
-        exists: true,
-        valid: Boolean(valid),
-        revoked: BigInt(record.revokedAt) > 0n,
-        credentialId,
-        evidenceHash: record.evidenceHash,
-        issuer: record.issuer,
-        issuedAt: Number(record.issuedAt),
-        revokedAt: Number(record.revokedAt),
-      };
-    } catch (error) { throw mapAvalancheError(error); }
+    // suppliedContract (tests/mocks) uses a single contract; no per-provider retry.
+    if (suppliedContract) {
+      try {
+        const exists = await suppliedContract.credentialExists(credentialId);
+        if (!exists) return { exists: false, valid: false, revoked: false, credentialId };
+        const [record, valid] = await Promise.all([suppliedContract.getCredential(credentialId), suppliedContract.isCredentialValid(credentialId)]);
+        return {
+          exists: true,
+          valid: Boolean(valid),
+          revoked: BigInt(record.revokedAt) > 0n,
+          credentialId,
+          evidenceHash: record.evidenceHash,
+          issuer: record.issuer,
+          issuedAt: Number(record.issuedAt),
+          revokedAt: Number(record.revokedAt),
+        };
+      } catch (error) { throw mapAvalancheError(error); }
+    }
+    const providersToTry = valid.length ? valid : [provider];
+    const TOTAL_BUDGET_MS = 7500;
+    const PER_ATTEMPT_TIMEOUT_MS = 4000;
+    const MIN_ATTEMPT_MS = 500;
+    const budgetStart = Date.now();
+    let lastError = null;
+    for (const p of providersToTry) {
+      const remaining = TOTAL_BUDGET_MS - (Date.now() - budgetStart);
+      if (remaining <= MIN_ATTEMPT_MS) break;
+      const attemptTimeout = Math.min(PER_ATTEMPT_TIMEOUT_MS, remaining);
+      const host = String(p?._url || p?.url || 'unknown').replace(/^https?:\/\//, '').split('/')[0];
+      const t0 = Date.now();
+      let timer = null;
+      try {
+        const c = new Contract(config.contractAddress, LEARNING_CREDENTIAL_REGISTRY_ABI, p);
+        const timeoutPromise = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('RPC timeout')), attemptTimeout); });
+        const existsPromise = c.credentialExists(credentialId).catch((e) => { throw e; });
+        const exists = await Promise.race([existsPromise, timeoutPromise]);
+        if (!exists) {
+          clearTimeout(timer); timer = null;
+          console.error('[avalanche] verifyCredential provider ok:', host, 'not-found', (Date.now() - t0) + 'ms');
+          return { exists: false, valid: false, revoked: false, credentialId };
+        }
+        const getCredentialPromise = c.getCredential(credentialId).catch((e) => { throw e; });
+        const isValidPromise = c.isCredentialValid(credentialId).catch((e) => { throw e; });
+        const [record, valid] = await Promise.all([
+          Promise.race([getCredentialPromise, timeoutPromise]),
+          Promise.race([isValidPromise, timeoutPromise]),
+        ]);
+        clearTimeout(timer); timer = null;
+        console.error('[avalanche] verifyCredential provider ok:', host, 'found', (Date.now() - t0) + 'ms');
+        return {
+          exists: true,
+          valid: Boolean(valid),
+          revoked: BigInt(record.revokedAt) > 0n,
+          credentialId,
+          evidenceHash: record.evidenceHash,
+          issuer: record.issuer,
+          issuedAt: Number(record.issuedAt),
+          revokedAt: Number(record.revokedAt),
+        };
+      } catch (error) {
+        if (timer) { clearTimeout(timer); timer = null; }
+        console.error('[avalanche] verifyCredential provider failed:', host, error?.code || 'unknown', (Date.now() - t0) + 'ms');
+        if (isRetryableRpcError(error)) {
+          lastError = error;
+        } else {
+          throw mapAvalancheError(error);
+        }
+      }
+    }
+    throw mapAvalancheError(lastError);
   }
 
   async function credentialIdForEvidence(evidenceHash) {
