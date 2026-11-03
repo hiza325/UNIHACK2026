@@ -23,6 +23,11 @@
     dd { margin: 0; word-break: break-all; }
     a { color: #2563eb; }
     .muted { color: #64748b; font-size: 13px; }
+    .meta-VERIFIED { color: #16a34a; font-weight: 700; }
+    .meta-UNVERIFIED { color: #d97706; font-weight: 700; }
+    .meta-MISMATCH { color: #dc2626; font-weight: 700; }
+    .warn { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; border-radius: 8px; padding: 10px 12px; margin: 12px 0; }
+    .note { color: #92400e; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -48,11 +53,21 @@
         const status = data.status || 'UNAVAILABLE';
         let html = '<div class="card"><div class="status ' + status + '">' + status + '</div>';
         html += '<p>' + escapeHtml(data.message || '') + '</p>';
-        if (data.credential && (data.credential.title || data.credential.skill)) {
+        const rawIntegrity = data.metadata && data.metadata.integrity ? data.metadata.integrity : 'UNVERIFIED';
+        const integrity = ['VERIFIED', 'UNVERIFIED', 'MISMATCH'].includes(rawIntegrity) ? rawIntegrity : 'UNVERIFIED';
+        const evidenceIntegrity = data.evidence && data.evidence.integrity ? data.evidence.integrity : 'UNKNOWN';
+        html += '<dl><dt>Metadata integrity</dt><dd class="meta-' + integrity + '">' + integrity + '</dd></dl>';
+        if (integrity === 'MISMATCH') {
+          html += '<div class="warn">Certificate metadata (name, title, date) does not match the signed attestation stored at issuance. Do not trust metadata shown for this code.</div>';
+        } else if (data.credential && (data.credential.title || data.credential.skill)) {
           html += '<dl>';
           if (data.credential.title) html += '<dt>Title</dt><dd>' + escapeHtml(data.credential.title) + '</dd>';
           if (data.credential.skill) html += '<dt>Skill</dt><dd>' + escapeHtml(data.credential.skill) + '</dd>';
           html += '</dl>';
+          if (integrity === 'UNVERIFIED') html += '<p class="note">Metadata is not attested (legacy credential). Treat title/skill as unverified.</p>';
+        }
+        if (evidenceIntegrity === 'MISMATCH') {
+          html += '<div class="warn">Database evidence hash differs from the blockchain. Treat this record as tampered.</div>';
         }
         if (data.onChain) {
           html += '<dl>';

@@ -18,21 +18,48 @@ function mapStoreError(response, data) {
   );
 }
 
+// The metadata-attestation columns are additive. Until the migration is applied,
+// a PATCH/POST that includes them would fail; retry once without them so
+// issuance keeps working and the credential is simply reported as UNVERIFIED.
+function stripOptionalMetadataColumns(body) {
+  if (!body || typeof body !== 'object') return null;
+  if (body.metadata_attestation === undefined && body.metadata_attested_at === undefined) return null;
+  const { metadata_attestation, metadata_attested_at, ...rest } = body;
+  return rest;
+}
+
+function isMissingMetadataColumnError(response, data) {
+  if (response.ok) return false;
+  const code = String(data?.code || '');
+  const message = String(data?.message || data?.details || '');
+  if (code === 'PGRST204' || code === '42703') return true;
+  return /metadata_attestation|metadata_attested_at/i.test(message) && /column|schema cache/i.test(message);
+}
+
 export function createCredentialStore({ env = process.env, fetcher = globalThis.fetch } = {}) {
   const config = credentialStoreConfig(env);
 
   async function request(table, { method = 'GET', query = '', body, single = false } = {}) {
-    const response = await fetcher(`${config.url}/rest/v1/${table}${query}`, {
+    const url = `${config.url}/rest/v1/${table}${query}`;
+    const send = (payload) => fetcher(url, {
       method,
       headers: {
         apikey: config.serviceKey,
         Authorization: `Bearer ${config.serviceKey}`,
-        ...(body ? { 'Content-Type': 'application/json' } : {}),
-        ...(body ? { Prefer: 'return=representation' } : {}),
+        ...(payload ? { 'Content-Type': 'application/json' } : {}),
+        ...(payload ? { Prefer: 'return=representation' } : {}),
       },
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      ...(payload ? { body: JSON.stringify(payload) } : {}),
     });
-    const data = response.status === 204 ? null : await response.json().catch(() => null);
+    let response = await send(body);
+    let data = response.status === 204 ? null : await response.json().catch(() => null);
+    if (isMissingMetadataColumnError(response, data)) {
+      const fallback = stripOptionalMetadataColumns(body);
+      if (fallback) {
+        response = await send(fallback);
+        data = response.status === 204 ? null : await response.json().catch(() => null);
+      }
+    }
     if (!response.ok) throw mapStoreError(response, data);
     if (single) return Array.isArray(data) ? (data[0] || null) : data;
     return data || [];
@@ -69,7 +96,7 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
       return request('learning_credentials', { method: 'POST', body: record, single: true });
     },
     async updateCredential(id, patch) {
-      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts', 'metadata_attestation', 'metadata_attested_at']);
       if (Object.keys(patch).some(key => !allowed.has(key))) {
         throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
       }
@@ -98,7 +125,7 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
         throw storeError('Credential version is missing', 'CREDENTIAL_VERSION_REQUIRED', 409);
       }
 
-      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts', 'metadata_attestation', 'metadata_attested_at']);
       if (Object.keys(patch).some(key => !allowed.has(key))) {
         throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
       }
@@ -119,12 +146,13 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
       });
     },
     async updateCredentialIf(id, patch, claimedAt) {
-      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts', 'metadata_attestation', 'metadata_attested_at']);
       if (Object.keys(patch).some(key => !allowed.has(key))) {
         throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
       }
       const qClaimed = claimedAt ? '&confirmation_started_at=eq.' + encodeURIComponent(claimedAt) : '';
-      const response = await fetcher(config.url + '/rest/v1/learning_credentials?id=eq.' + encodeURIComponent(id) + qClaimed + '&blockchain_status=in.(submitting,pending)&select=*', {
+      const url = config.url + '/rest/v1/learning_credentials?id=eq.' + encodeURIComponent(id) + qClaimed + '&blockchain_status=in.(submitting,pending)&select=*';
+      const send = (payloadBody) => fetcher(url, {
         method: 'PATCH',
         headers: {
           apikey: config.serviceKey,
@@ -132,9 +160,15 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
           'Content-Type': 'application/json',
           Prefer: 'return=representation',
         },
-        body: JSON.stringify(patch),
+        body: JSON.stringify(payloadBody),
       });
-      const payload = response.status === 204 ? null : await response.json().catch(() => null);
+      let response = await send(patch);
+      let payload = response.status === 204 ? null : await response.json().catch(() => null);
+      const fallback = isMissingMetadataColumnError(response, payload) ? stripOptionalMetadataColumns(patch) : null;
+      if (fallback) {
+        response = await send(fallback);
+        payload = response.status === 204 ? null : await response.json().catch(() => null);
+      }
       if (!response.ok) throw mapStoreError(response, payload);
       const row = Array.isArray(payload) ? (payload[0] || null) : payload;
       return row ? { ...row } : null;
@@ -168,7 +202,7 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
       return row ? { ...row } : null;
     },
     async updateCredentialForRevoke(id, patch, expectedUpdatedAt, expectedStatus, revokeTxHash) {
-      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts', 'metadata_attestation', 'metadata_attested_at']);
       if (Object.keys(patch).some(key => !allowed.has(key))) {
         throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
       }
@@ -179,7 +213,7 @@ export function createCredentialStore({ env = process.env, fetcher = globalThis.
       return request('learning_credentials', { method: 'PATCH', query, body: patch, single: true });
     },
     async updateCredentialForReconcile(id, patch, expectedUpdatedAt) {
-      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts']);
+      const allowed = new Set(['blockchain_status', 'contract_address', 'issuer_address', 'issue_tx_hash', 'revoke_tx_hash', 'issued_at', 'revoked_at', 'verification_checked_at', 'onchain_valid', 'failure_code', 'failure_message', 'confirmation_started_at', 'confirmation_attempts', 'metadata_attestation', 'metadata_attested_at']);
       if (Object.keys(patch).some(key => !allowed.has(key))) {
         throw storeError('Credential metadata cannot be updated', 'CREDENTIAL_IMMUTABLE_FIELD', 409);
       }
