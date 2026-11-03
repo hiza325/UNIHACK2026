@@ -1,6 +1,6 @@
 import { hasActualAvalancheVerification, isCertificateCode } from './learning-passport-service.js';
 
-export const CERTIFICATE_TEMPLATE = new URL('./assets/certificates/certificate-template-clean.png', import.meta.url).href;
+export const CERTIFICATE_TEMPLATE = new URL('./assets/certificates/certificate-template-new.png', import.meta.url).href;
 const FONT = '"Be Vietnam Pro"';
 const resolvedData = new WeakSet();
 const exportPermissions = new WeakMap();
@@ -42,18 +42,26 @@ export async function renderCertificate(data) {
   if (!document.fonts.check(`40px ${FONT}`, fields.join(' '))) throw new Error('Certificate font could not load');
   const image = new Image(); image.src = CERTIFICATE_TEMPLATE;
   await image.decode();
-  if (image.width !== 1536 || image.height !== 1024) throw new Error('Invalid certificate template');
-  const canvas = document.createElement('canvas'); canvas.width = 1536; canvas.height = 1024;
+  if (image.width !== 1672 || image.height !== 941) throw new Error('Invalid certificate template');
+  const canvas = document.createElement('canvas'); canvas.width = 1672; canvas.height = 941;
   const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);
   ctx.fillStyle = '#081c1d'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const layouts = [];
-  for (const [index, x, y, width, maxSize] of [[0, 768, 500, 900, 42], [1, 768, 649, 900, 32], [2, 441, 892, 248, 23]]) {
+  for (const [index, x, y, width, maxSize] of [[0, 836, 411, 900, 42], [1, 835, 558, 900, 32], [2, 300, 864, 200, 23]]) {
     let size = maxSize;
     do { ctx.font = `400 ${size}px ${FONT}`; if (ctx.measureText(fields[index]).width <= width) break; size--; } while (size >= 14);
     if (size < 14) throw new Error('Certificate text is too long to fit legibly');
     ctx.fillText(fields[index], x, y);
     layouts.push({ text: fields[index], size, width: ctx.measureText(fields[index]).width, maxWidth: width });
   }
+  // Draw Certificate ID in the bottom-left ID box (if available).
+  if (data.code) {
+    ctx.font = '400 20px "Be Vietnam Pro"';
+    ctx.fillStyle = '#081c1d';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(data.code), 300, 819);
+  }
+
   // Draw a verification QR code only for genuinely issued & verified certificates.
   if (data.state === 'issued' && data.verified && data.code) {
     try {
@@ -64,7 +72,7 @@ export async function renderCertificate(data) {
       const qrImg = new Image();
       qrImg.src = qrData.dataUrl;
       await qrImg.decode();
-      ctx.drawImage(qrImg, 1180, 680, 280, 280);
+      ctx.drawImage(qrImg, 1309, 15, 240, 240);
       const verifyUrl = qrData.url;
       canvas.dataset.verifyUrl = verifyUrl;
     } catch (error) {
@@ -97,11 +105,11 @@ export async function exportCertificate(canvas, format) {
   append('%PDF-1.4\n');
   object(1, '<< /Type /Catalog /Pages 2 0 R >>');
   object(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-  object(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /XObject << /Image 4 0 R >> >> /Contents 5 0 R >>');
+  object(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 474] /Resources << /XObject << /Image 4 0 R >> >> /Contents 5 0 R >>');
   offsets[4] = length;
   append(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width 1536 /Height 1024 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
   append(jpeg); append('\nendstream\nendobj\n');
-  const content = 'q\n842 0 0 561.3333 0 16.8333 cm\n/Image Do\nQ\n';
+  const content = 'q\\n842 0 0 474 0 0 cm\\n/Image Do\\nQ\\n';
   object(5, `<< /Length ${encoder.encode(content).length} >>\nstream\n${content}endstream`);
   const xref = length;
   append(`xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(n => `${String(n).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);

@@ -86,7 +86,7 @@ test('clean template removes ink from placeholders and preserves every pixel out
   const result = await page.evaluate(async () => {
     const images = await Promise.all(['certificate-template.png', 'certificate-template-clean.png'].map(async name => {
       const image = new Image(); image.src = `/assets/certificates/${name}`; await image.decode();
-      const canvas = document.createElement('canvas'); canvas.width = 1536; canvas.height = 1024;
+      const canvas = document.createElement('canvas'); canvas.width = 1672; canvas.height = 941;
       const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0); return ctx.getImageData(0, 0, 1536, 1024).data;
     }));
     const regions = [[680, 477, 180, 47], [675, 630, 190, 39], [390, 875, 105, 33]];
@@ -122,9 +122,9 @@ for (const [label, name, subject] of [
       const bytes = new Uint8Array(await pdf.arrayBuffer());
       const text = new TextDecoder().decode(bytes);
       const xref = Number(text.match(/startxref\n(\d+)/)[1]);
-      return { layouts, width: bitmap.width, height: bitmap.height, pngType: png.type, pdfType: pdf.type, pdfHeader: text.slice(0, 8), landscape: text.includes('/MediaBox [0 0 842 595]'), xrefValid: new TextDecoder().decode(bytes.slice(xref, xref + 4)) === 'xref' };
+      return { layouts, width: bitmap.width, height: bitmap.height, pngType: png.type, pdfType: pdf.type, pdfHeader: text.slice(0, 8), landscape: text.includes('/MediaBox [0 0 842 474]'), xrefValid: new TextDecoder().decode(bytes.slice(xref, xref + 4)) === 'xref' };
     }, { name, subject });
-    expect(result).toMatchObject({ width: 1536, height: 1024, pngType: 'image/png', pdfType: 'application/pdf', pdfHeader: '%PDF-1.4', landscape: true, xrefValid: true });
+    expect(result).toMatchObject({ width: 1672, height: 941, pngType: 'image/png', pdfType: 'application/pdf', pdfHeader: '%PDF-1.4', landscape: true, xrefValid: true });
     for (const layout of result.layouts) { expect(layout.width).toBeLessThanOrEqual(layout.maxWidth); expect(layout.size).toBeGreaterThanOrEqual(14); }
     expect(result.layouts.map(l => l.text)).toEqual([name, subject, '29/10/2026']);
     await page.locator('canvas').screenshot({ path: testInfo.outputPath(`certificate-${label}.png`) });
