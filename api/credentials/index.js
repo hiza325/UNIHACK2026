@@ -16,8 +16,9 @@ function qrRateLimit(ip) {
   b.count += 1;
   return b.count <= 30;
 }
+
 const SAFE_SERVER_CODES = new Set([
-  'AVALANCHE_RPC_NOT_CONFIGURED', 'AVALANCHE_RPC_INVALID', 'AVALANCHE_RPC_UNAVAILABLE', 'AVALANCHE_RPC_TIMEOUT', 'AVALANCHE_RPC_BAD_DATA',
+  'AVALANCHE_RPC_NOT_CONFIGURED', 'AVALANCHE_RPC_INVALID', 'AVALANCHE_RPC_UNAVAILABLE',
   'AVALANCHE_CONTRACT_NOT_CONFIGURED', 'AVALANCHE_CONTRACT_MISMATCH', 'AVALANCHE_ISSUER_NOT_CONFIGURED', 'AVALANCHE_WRONG_CHAIN',
   'ISSUER_NOT_AUTHORIZED', 'FUJI_AVAX_REQUIRED', 'CREDENTIAL_DATABASE_NOT_CONFIGURED',
 ]);
@@ -35,10 +36,9 @@ function sendCredentialError(res, error) {
     : 'Credential service is temporarily unavailable';
   return res.status(status).json({ error: safeMessage, ...(error?.code ? { code: error.code } : {}) });
 }
-<<<<<<< HEAD
+
 async function handlePublicQR(req, res) {
   const ip = String(req.headers?.['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
-  // simple rate limit bucket (shared with public verify)
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -48,15 +48,10 @@ async function handlePublicQR(req, res) {
   if (!/^[A-Z0-9-]{8,80}$/.test(code)) {
     return res.status(400).json({ status: 'INVALID_INPUT', error: 'Invalid certificate code.', code: 'INVALID_CERTIFICATE_CODE' });
   }
-  // Reject any client-supplied URL to prevent domain spoofing.
-  if (req.query?.url !== undefined) {
-    return res.status(400).json({ status: 'INVALID_INPUT', error: 'URL parameter not allowed.', code: 'INVALID_VERIFY_URL' });
-  }
   const base = String(process.env.PUBLIC_VERIFY_BASE_URL || '').replace(/\/$/, '');
   if (!base) {
     return res.status(503).json({ status: 'UNAVAILABLE', error: 'Verify domain not configured.', code: 'QR_DOMAIN_NOT_CONFIGURED' });
   }
-  // Validate base URL is HTTPS and has no credentials/fragment.
   let parsedBase;
   try { parsedBase = new URL(base); } catch { return res.status(503).json({ status: 'UNAVAILABLE', error: 'Verify domain not configured.', code: 'QR_DOMAIN_NOT_CONFIGURED' }); }
   if (parsedBase.protocol !== 'https:') {
@@ -74,8 +69,6 @@ async function handlePublicQR(req, res) {
     return res.status(503).json({ status: 'UNAVAILABLE', error: 'QR generation failed.', code: 'QR_GENERATION_FAILED' });
   }
 }
-export function createCredentialsHandler({ storeFactory = createCredentialStore, serviceFactory = createCredentialService, learningRecordStoreFactory = () => { try { return createLearningRecordStore(); } catch { return null; } } } = {}) {
-=======
 
 export function createCredentialsHandler({ storeFactory = createCredentialStore, serviceFactory = createCredentialService, learningRecordStoreFactory = () => { try { return createLearningRecordStore(); } catch { return null; } }, auditFactory = createAdminAuditLog } = {}) {
   async function audit(entry) {
@@ -86,7 +79,6 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
     }
   }
 
->>>>>>> origin/main
   return async function credentialsHandler(req, res) {
     noStore(res);
     if (queryValue(req, 'public') === '1') {
