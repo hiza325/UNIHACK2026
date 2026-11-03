@@ -34,7 +34,7 @@ function serviceError(message, code, status, cause) {
 export function avalancheConfig(env = process.env, { requireSigner = false } = {}) {
   const primary = String(env.AVALANCHE_FUJI_RPC_URL || AVALANCHE_FUJI_CONFIG.rpcUrl).trim();
   // Default fallbacks help when the primary Fuji RPC is slow or blocked from serverless runtimes.
-  const defaultExtras = (env.AVALANCHE_FUJI_RPC_URLS === undefined) ? 'https://rpc.ankr.com/avalanche_fuji,https://avalanche-fuji-c-chain-rpc.publicnode.com' : '';
+  const defaultExtras = (env.AVALANCHE_FUJI_RPC_URLS === undefined) ? 'https://avalanche-fuji-c-chain-rpc.publicnode.com' : '';
   const extras = String(env.AVALANCHE_FUJI_RPC_URLS || defaultExtras).trim();
   const rawUrls = [primary, ...extras.split(',').map(s => s.trim()).filter(Boolean)];
   const rpcUrls = [...new Set(rawUrls)];
@@ -108,7 +108,13 @@ export function mapAvalancheError(error) {
   if (mapped) return serviceError(mapped[0], mapped[1], mapped[2], error);
   if (error?.code === 'INSUFFICIENT_FUNDS') return serviceError('Issuer wallet needs Fuji testnet AVAX for gas', 'FUJI_AVAX_REQUIRED', 503, error);
   if (error?.code === 'NONCE_EXPIRED' || error?.code === 'REPLACEMENT_UNDERPRICED') return serviceError('Avalanche transaction nonce conflict', 'AVALANCHE_NONCE_CONFLICT', 409, error);
-  return serviceError('Avalanche transaction failed', 'AVALANCHE_TRANSACTION_FAILED', 502, error);
+  const msg2 = String(error?.shortMessage || error?.message || '').toLowerCase();
+  if (error?.code === 'TIMEOUT' || /timeout/.test(msg2)) return serviceError('Avalanche RPC timed out', 'AVALANCHE_RPC_TIMEOUT', 503, error);
+  if (error?.code === 'NETWORK_ERROR' || /econnrefused|enotfound|fetch failed|network/.test(msg2)) return serviceError('Avalanche RPC unavailable', 'AVALANCHE_RPC_UNAVAILABLE', 503, error);
+  if (/could not decode|bad data|invalid result|empty data/.test(msg2)) return serviceError('Avalanche RPC returned unreadable data', 'AVALANCHE_RPC_BAD_DATA', 503, error);
+  const underlying = String(error?.shortMessage || error?.message || '').trim();
+  const msg = underlying ? ('Avalanche RPC failed: ' + underlying) : 'Avalanche transaction failed';
+  return serviceError(msg, 'AVALANCHE_TRANSACTION_FAILED', 502, error);
 }
 
 function receiptSummary(receipt) {

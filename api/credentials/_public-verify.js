@@ -71,6 +71,7 @@ export async function handlePublicVerify(req, res) {
   try {
     gateway = await createAvalancheGateway({ write: false });
   } catch (e) {
+    console.error('[public-verify] gateway init failed code:', e?.code || 'unknown');
     return res.status(503).json({
       status: 'UNAVAILABLE',
       error: 'Avalanche RPC unavailable.',
@@ -84,6 +85,7 @@ export async function handlePublicVerify(req, res) {
   try {
     onchain = await gateway.verifyCredential(credentialId);
   } catch (e) {
+    console.error('[public-verify] verifyCredential failed code:', e?.code || 'unknown');
     return res.status(503).json({
       status: 'UNAVAILABLE',
       error: 'Avalanche RPC unavailable.',
@@ -106,7 +108,6 @@ export async function handlePublicVerify(req, res) {
 
   const revoked = onchain.revoked === true;
   const valid = onchain.valid === true && !revoked;
-  // Never report REVOKED unless the chain confirms revokedAt != 0.
   const status = revoked ? 'REVOKED' : (valid ? 'VALID' : 'INVALID');
 
   const txHash = (typeof dbRow?.issue_tx_hash === 'string') ? dbRow.issue_tx_hash : null;
