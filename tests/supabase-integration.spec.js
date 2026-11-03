@@ -196,7 +196,7 @@ test.describe('Supabase Staging Integration', () => {
     if (originalError) throw originalError;
   });
 
-  test('confirmation attempt counter increments on re-claim', async () => {
+  test('active confirmation lock blocks immediate re-claim', async () => {
     test.skip(!confirmed, 'STAGING_SUPABASE_CONFIRMED=1 required');
     test.skip(!hasLearner, 'STAGING_TEST_LEARNER_ID required');
 
