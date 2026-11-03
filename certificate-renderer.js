@@ -30,7 +30,12 @@ export function certificateData(profile, credential) {
   }
   const state = revoked ? 'revoked' : useSnapshot ? 'issued' : 'preview';
   const verified = state === 'issued' && hasActualAvalancheVerification(credential);
-  const result = Object.freeze({ name, subject, date: rawDate.split('-').reverse().join('/'), code, state, verified, canExport: state === 'preview' || verified });
+  // Metadata attestation is separate from blockchain validity: a tampered
+  // snapshot must never be exportable, while legacy records stay UNVERIFIED.
+  const metadataIntegrity = credential?.metadataIntegrity === 'MISMATCH' ? 'MISMATCH'
+    : credential?.metadataIntegrity === 'VERIFIED' ? 'VERIFIED' : 'UNVERIFIED';
+  const canExport = (state === 'preview' || verified) && metadataIntegrity !== 'MISMATCH';
+  const result = Object.freeze({ name, subject, date: rawDate.split('-').reverse().join('/'), code, state, verified, metadataIntegrity, canExport });
   resolvedData.add(result);
   return result;
 }
@@ -89,6 +94,12 @@ export async function renderCertificate(data) {
     ctx.font = `400 16px ${FONT}`;
     ctx.fillText(data.state === 'revoked' ? 'REVOKED — ĐÃ THU HỒI' : data.state === 'issued' ? 'ISSUED — VERIFICATION UNAVAILABLE' : 'PREVIEW — NOT ISSUED / BẢN XEM TRƯỚC', 768, 1007);
   }
+  // Tampered metadata must be visibly untrusted in the rendered certificate.
+  if (data.metadataIntegrity === 'MISMATCH') {
+    ctx.fillStyle = '#b91c1c';
+    ctx.font = `700 16px ${FONT}`;
+    ctx.fillText('METADATA MISMATCH — DO NOT TRUST', 836, 912);
+  }
   canvas.setAttribute('aria-label', `${data.state}: ${data.code || ''} · ${fields.join(' · ')}`);
   if (data.code) canvas.dataset.certificateCode = data.code;
   exportPermissions.set(canvas, data.state === 'preview' || data.canExport === true);
@@ -133,6 +144,8 @@ export async function mountCertificatePreview(container, profile, credential) {
     const { canvas } = await renderCertificate(data);
     const label = document.createElement('p');
     label.textContent = data.state === 'revoked' ? 'Revoked · Đã thu hồi' : data.state === 'issued' ? (data.verified ? 'Issued · Verified (Avalanche evidence)' : 'Issued · Chưa xác minh hiệu lực') : 'Preview · Chưa phát hành / Not verified';
+    if (data.metadataIntegrity === 'MISMATCH') label.textContent += ' · Metadata mismatch / Siêu dữ liệu không khớp';
+    else if (data.metadataIntegrity === 'UNVERIFIED') label.textContent += ' · Metadata unverified / Chưa xác thực siêu dữ liệu';
     const identity = document.createElement('p');
     identity.textContent = data.code ? `Certificate ID: ${data.code}` : 'Preview · Chưa có Certificate ID';
     if (data.code && data.state === 'issued' && data.verified) {

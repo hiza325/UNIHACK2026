@@ -1,5 +1,6 @@
 import { createCredentialStore } from './_store.js';
 import { createAvalancheGateway, credentialIdFromCode } from './_avalanche.js';
+import { metadataFieldsFromRow, verifyMetadataAttestation } from './_metadata-attestation.js';
 import { AVALANCHE_FUJI_CONFIG, avalancheFujiTransactionUrl } from '../../avalanche-config.js';
 
 const RATE_BUCKETS = new Map();
@@ -108,7 +109,24 @@ export async function handlePublicVerify(req, res) {
 
   const revoked = onchain.revoked === true;
   const valid = onchain.valid === true && !revoked;
+  // Blockchain status is decided only by the smart contract.
   const status = revoked ? 'REVOKED' : (valid ? 'VALID' : 'INVALID');
+
+  // Metadata integrity is independent from blockchain status. Attestations are
+  // created at issuance confirmation and never re-signed during verification.
+  const metadataIntegrity = dbRow
+    ? verifyMetadataAttestation(metadataFieldsFromRow(dbRow), dbRow.metadata_attestation)
+    : 'UNVERIFIED';
+
+  const onChainHash = typeof onchain.evidenceHash === 'string' ? onchain.evidenceHash : null;
+  const databaseHash = typeof dbRow?.evidence_hash === 'string' ? dbRow.evidence_hash : null;
+  const evidenceIntegrity = (onChainHash && databaseHash)
+    ? (onChainHash.toLowerCase() === databaseHash.toLowerCase() ? 'MATCH' : 'MISMATCH')
+    : 'UNKNOWN';
+
+  const warnings = [];
+  if (metadataIntegrity === 'MISMATCH') warnings.push('METADATA_MISMATCH');
+  if (evidenceIntegrity === 'MISMATCH') warnings.push('EVIDENCE_HASH_MISMATCH');
 
   const txHash = (typeof dbRow?.issue_tx_hash === 'string') ? dbRow.issue_tx_hash : null;
   const explorerUrl = txHash ? avalancheFujiTransactionUrl(txHash) : null;
@@ -126,14 +144,25 @@ export async function handlePublicVerify(req, res) {
       revoked,
       issuedAt: onchain.issuedAt || null,
       issuer: onchain.issuer || null,
-      evidenceHash: onchain.evidenceHash || null,
+      evidenceHash: onChainHash,
     },
+    metadata: {
+      integrity: metadataIntegrity,
+      attestedAt: dbRow?.metadata_attested_at || null,
+    },
+    evidence: {
+      integrity: evidenceIntegrity,
+      onChainHash,
+      databaseHash,
+    },
+    warnings,
     transactionHash: txHash,
     explorerUrl,
     credential: dbRow ? {
       title: dbRow.title || null,
       skill: dbRow.skill || null,
       source: dbRow.source || null,
+      metadataIntegrity,
     } : null,
     message: status === 'VALID'
       ? 'Credential verified on Avalanche Fuji.'

@@ -1,4 +1,5 @@
 import { AVALANCHE_FUJI_CHAIN_ID, AVALANCHE_FUJI_NETWORK, createAvalancheGateway, credentialIdFromCode, encodeIssueCredential, normalizeEvidenceHash } from './_avalanche.js';
+import { computeMetadataAttestation, metadataFieldsFromRow, verifyMetadataAttestation } from './_metadata-attestation.js';
 import { AVALANCHE_FUJI_CONFIG, isEvmAddress, isEvmTransactionHash } from '../../avalanche-config.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -145,6 +146,7 @@ const VERIFICATION_VIEW_FIELDS = [
   'id', 'code', 'name', 'skill', 'issuedAt', 'revokedAt', 'status',
   'network', 'chainId', 'contractAddress', 'transactionHash',
   'issueTransactionHash', 'transactionStatus', 'verification', 'isTest', 'source',
+  'metadataIntegrity', 'metadataAttestedAt',
 ];
 
 export function toVerificationView(credential) {
@@ -189,6 +191,8 @@ export function toPublicCredential(row) {
     chainId: Number(AVALANCHE_FUJI_CHAIN_ID),
     contractAddress: row.contract_address || AVALANCHE_FUJI_CONFIG.contractAddress,
     transactionStatus: row.blockchain_status,
+    metadataIntegrity: verifyMetadataAttestation(metadataFieldsFromRow(row), row.metadata_attestation),
+    metadataAttestedAt: row.metadata_attested_at || null,
     verification: {
       checked: Boolean(row.verification_checked_at),
       valid: verified,
@@ -237,8 +241,20 @@ export function buildLearningPassport(user, rows) {
   };
 }
 
-export function createCredentialService({ store, avalancheFactory = createAvalancheGateway, learningRecordStore = null } = {}) {
+export function createCredentialService({ store, avalancheFactory = createAvalancheGateway, learningRecordStore = null, env = process.env, now = () => new Date() } = {}) {
   if (!store) throw new TypeError('Credential store is required');
+
+  // Build the attestation field patch for a confirmed credential. Returns {}
+  // when the snapshot/issue date is unavailable or the server secret is not
+  // configured, so the credential is reported as UNVERIFIED instead of being
+  // signed with incomplete or modified metadata.
+  function metadataAttestationPatch(row, issuedAtOverride) {
+    const fields = metadataFieldsFromRow(row);
+    if (issuedAtOverride !== undefined) fields.issuedAt = issuedAtOverride;
+    const attestation = computeMetadataAttestation(fields, env);
+    if (!attestation) return {};
+    return { metadata_attestation: attestation, metadata_attested_at: now().toISOString() };
+  }
 
   async function verifyAiEvidence(input, learnerId) {
     if (!learningRecordStore) throw credentialError('Learning record store is not configured', 'LEARNING_RECORD_STORE_NOT_CONFIGURED', 503);
@@ -363,6 +379,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
           credential = await store.updateCredential(existing.id, {
             blockchain_status: onchain.revoked ? 'revoked' : 'confirmed',
             issued_at: isoFromUnix(onchain.issuedAt),
+            ...metadataAttestationPatch(credential, isoFromUnix(onchain.issuedAt)),
             revoked_at: isoFromUnix(onchain.revokedAt),
             verification_checked_at: new Date().toISOString(),
             onchain_valid: onchain.valid,
@@ -387,6 +404,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
         credential = await store.updateCredential(existing.id, {
           blockchain_status: onchain.revoked ? 'revoked' : 'confirmed',
           issued_at: isoFromUnix(onchain.issuedAt),
+          ...metadataAttestationPatch(credential, isoFromUnix(onchain.issuedAt)),
           revoked_at: isoFromUnix(onchain.revokedAt),
           verification_checked_at: new Date().toISOString(),
           onchain_valid: onchain.valid,
@@ -459,6 +477,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
           credential = await store.updateCredential(credential.id, {
             blockchain_status: onchain.revoked ? 'revoked' : 'confirmed',
             issued_at: isoFromUnix(onchain.issuedAt),
+            ...metadataAttestationPatch(credential, isoFromUnix(onchain.issuedAt)),
             revoked_at: isoFromUnix(onchain.revokedAt),
             verification_checked_at: new Date().toISOString(),
             onchain_valid: onchain.valid,
@@ -488,6 +507,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
         blockchain_status: 'confirmed',
         issue_tx_hash: result.receipt.transactionHash,
         issued_at: isoFromUnix(result.credential?.issuedAt),
+        ...metadataAttestationPatch(credential, isoFromUnix(result.credential?.issuedAt)),
         verification_checked_at: now,
         onchain_valid: result.credential?.valid === true,
         failure_code: null,
@@ -506,6 +526,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
           await store.updateCredential(credential.id, {
             blockchain_status: 'confirmed',
             ...(transactionHash ? { issue_tx_hash: transactionHash } : {}),
+            ...metadataAttestationPatch(credential),
             verification_checked_at: new Date().toISOString(),
             onchain_valid: true,
             failure_code: null,
@@ -884,6 +905,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
         const patch = {
           blockchain_status: 'confirmed',
           issued_at: isoFromUnix(onchain.issuedAt),
+          ...metadataAttestationPatch(row, isoFromUnix(onchain.issuedAt)),
           verification_checked_at: now,
           onchain_valid: onchain.valid === true,
           issuer_address: onchain.issuer || row.issuer_address,
@@ -1038,6 +1060,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       blockchain_status: 'confirmed',
       issue_tx_hash: hash,
       issued_at: isoFromUnix(onchain.issuedAt),
+      ...metadataAttestationPatch(row, isoFromUnix(onchain.issuedAt)),
       verification_checked_at: now,
       onchain_valid: onchain.valid === true,
       issuer_address: onchain.issuer || row.issuer_address,
