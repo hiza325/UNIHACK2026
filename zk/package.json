@@ -1,0 +1,23 @@
+{
+  "name": "paradox-zk-proof-of-learning",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated MVP for PARADOX ZK Proof of Learning (Circom 2 + snarkjs Groth16).",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:circuit": "node scripts/build.mjs --circuit-only",
+    "setup": "node scripts/build.mjs --setup-only",
+    "demo": "node scripts/demo.mjs",
+    "test": "node --test tests/proof-of-learning.test.mjs",
+    "test:verbose": "node --test --test-reporter=spec tests/proof-of-learning.test.mjs"
+  },
+  "dependencies": {
+    "circomlib": "2.0.5",
+    "circomlibjs": "0.1.7",
+    "snarkjs": "0.7.6"
+  }
+}
