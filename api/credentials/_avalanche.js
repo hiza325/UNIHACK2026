@@ -167,9 +167,12 @@ export async function createAvalancheGateway({ env = process.env, write = false,
       valid.push(p);
     } catch (error) {
       // Wrong-chain or unavailable endpoints are dropped.
+        const h = String(p?._url || p?.url || 'unknown').replace(/^https?:\/\//, '').split('/')[0];
+        console.error('[avalanche] provider dropped:', h, error?.code || 'unknown');
     }
   }
   if (!valid.length) {
+    console.error('[avalanche] no valid RPC providers; candidates:', candidates.length);
     throw serviceError('Unable to connect to Avalanche Fuji', 'AVALANCHE_RPC_UNAVAILABLE', 503);
   }
 
