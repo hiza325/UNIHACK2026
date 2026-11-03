@@ -2,6 +2,7 @@ import { currentUser, noStore, parseBody, publicUser, requireAdmin } from '../au
 import { guardCredentialLookup } from '../auth/_rate-limit.js';
 import { createCredentialService, toVerificationView } from './_service.js';
 import { createCredentialStore } from './_store.js';
+import { handlePublicVerify } from './_public-verify.js';
 import { createLearningRecordStore } from '../learning-records/_store.js';
 import { publicLearningEvaluation } from '../learning-records/_service.js';
 

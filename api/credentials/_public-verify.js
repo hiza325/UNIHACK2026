@@ -1,6 +1,6 @@
-import { createCredentialStore } from './credentials/_store.js';
-import { createAvalancheGateway, credentialIdFromCode } from './credentials/_avalanche.js';
-import { AVALANCHE_FUJI_CONFIG, avalancheFujiTransactionUrl } from '../avalanche-config.js';
+import { createCredentialStore } from './_store.js';
+import { createAvalancheGateway, credentialIdFromCode } from './_avalanche.js';
+import { AVALANCHE_FUJI_CONFIG, avalancheFujiTransactionUrl } from '../../avalanche-config.js';
 
 const RATE_BUCKETS = new Map();
 const RATE_WINDOW_MS = 60_000;
@@ -24,7 +24,7 @@ function clientIp(req) {
 
 const CODE_RE = /^[A-Z0-9-]{8,80}$/;
 
-export default async function handler(req, res) {
+export async function handlePublicVerify(req, res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
 

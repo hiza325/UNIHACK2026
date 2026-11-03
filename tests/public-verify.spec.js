@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import http from 'node:http';
-import handler from '../api/verify.js';
+import { handlePublicVerify as handler } from '../api/credentials/_public-verify.js';
 import { Interface } from 'ethers';
 
 const CONTRACT = '0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b';
