@@ -3,9 +3,18 @@ import { guardCredentialLookup } from '../auth/_rate-limit.js';
 import { createCredentialService, toVerificationView } from './_service.js';
 import { createCredentialStore } from './_store.js';
 import { handlePublicVerify } from './_public-verify.js';
+import { generateQRDataUrl } from './_qr.js';
 import { createLearningRecordStore } from '../learning-records/_store.js';
 import { publicLearningEvaluation } from '../learning-records/_service.js';
 
+const QR_RATE = new Map();
+function qrRateLimit(ip) {
+  const now = Date.now();
+  let b = QR_RATE.get(ip);
+  if (!b || now > b.resetAt) { b = { count: 0, resetAt: now + 60000 }; QR_RATE.set(ip, b); }
+  b.count += 1;
+  return b.count <= 30;
+}
 const SAFE_SERVER_CODES = new Set([
   'AVALANCHE_RPC_NOT_CONFIGURED', 'AVALANCHE_RPC_INVALID', 'AVALANCHE_RPC_UNAVAILABLE', 'AVALANCHE_RPC_TIMEOUT', 'AVALANCHE_RPC_BAD_DATA',
   'AVALANCHE_CONTRACT_NOT_CONFIGURED', 'AVALANCHE_CONTRACT_MISMATCH', 'AVALANCHE_ISSUER_NOT_CONFIGURED', 'AVALANCHE_WRONG_CHAIN',
@@ -25,12 +34,52 @@ function sendCredentialError(res, error) {
     : 'Credential service is temporarily unavailable';
   return res.status(status).json({ error: safeMessage, ...(error?.code ? { code: error.code } : {}) });
 }
-
+async function handlePublicQR(req, res) {
+  const ip = String(req.headers?.['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+  // simple rate limit bucket (shared with public verify)
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });
+  }
+  const code = String(req.query?.code || '').trim().toUpperCase();
+  if (!/^[A-Z0-9-]{8,80}$/.test(code)) {
+    return res.status(400).json({ status: 'INVALID_INPUT', error: 'Invalid certificate code.', code: 'INVALID_CERTIFICATE_CODE' });
+  }
+  // Reject any client-supplied URL to prevent domain spoofing.
+  if (req.query?.url !== undefined) {
+    return res.status(400).json({ status: 'INVALID_INPUT', error: 'URL parameter not allowed.', code: 'INVALID_VERIFY_URL' });
+  }
+  const base = String(process.env.PUBLIC_VERIFY_BASE_URL || '').replace(/\/$/, '');
+  if (!base) {
+    return res.status(503).json({ status: 'UNAVAILABLE', error: 'Verify domain not configured.', code: 'QR_DOMAIN_NOT_CONFIGURED' });
+  }
+  // Validate base URL is HTTPS and has no credentials/fragment.
+  let parsedBase;
+  try { parsedBase = new URL(base); } catch { return res.status(503).json({ status: 'UNAVAILABLE', error: 'Verify domain not configured.', code: 'QR_DOMAIN_NOT_CONFIGURED' }); }
+  if (parsedBase.protocol !== 'https:') {
+    return res.status(503).json({ status: 'UNAVAILABLE', error: 'Verify domain must use HTTPS.', code: 'QR_DOMAIN_NOT_CONFIGURED' });
+  }
+  if (parsedBase.username || parsedBase.password) {
+    return res.status(503).json({ status: 'UNAVAILABLE', error: 'Verify domain not configured.', code: 'QR_DOMAIN_NOT_CONFIGURED' });
+  }
+  if (!qrRateLimit(ip)) { res.setHeader('Retry-After', '60'); return res.status(429).json({ status: 'UNAVAILABLE', error: 'Too many requests.', code: 'RATE_LIMITED' }); }
+  const url = `${parsedBase.origin}/verify?code=${encodeURIComponent(code)}`;
+  try {
+    const dataUrl = await generateQRDataUrl(url);
+    return res.status(200).json({ dataUrl, url });
+  } catch (e) {
+    return res.status(503).json({ status: 'UNAVAILABLE', error: 'QR generation failed.', code: 'QR_GENERATION_FAILED' });
+  }
+}
 export function createCredentialsHandler({ storeFactory = createCredentialStore, serviceFactory = createCredentialService, learningRecordStoreFactory = () => { try { return createLearningRecordStore(); } catch { return null; } } } = {}) {
   return async function credentialsHandler(req, res) {
     noStore(res);
     if (queryValue(req, 'public') === '1') {
       return handlePublicVerify(req, res);
+    }
+    if (queryValue(req, 'public') === 'qr') {
+      return handlePublicQR(req, res);
     }
     if (!['GET', 'POST'].includes(req.method)) {
       res.setHeader('Allow', 'GET, POST');

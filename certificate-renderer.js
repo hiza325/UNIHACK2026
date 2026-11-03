@@ -54,6 +54,24 @@ export async function renderCertificate(data) {
     ctx.fillText(fields[index], x, y);
     layouts.push({ text: fields[index], size, width: ctx.measureText(fields[index]).width, maxWidth: width });
   }
+  // Draw a verification QR code only for genuinely issued & verified certificates.
+  if (data.state === 'issued' && data.verified && data.code) {
+    try {
+      const qrResponse = await fetch(`/api/credentials?public=qr&code=${encodeURIComponent(data.code)}`);
+      if (!qrResponse.ok) throw new Error('QR fetch failed');
+      const qrData = await qrResponse.json();
+      if (!qrData?.dataUrl) throw new Error('QR data missing');
+      const qrImg = new Image();
+      qrImg.src = qrData.dataUrl;
+      await qrImg.decode();
+      ctx.drawImage(qrImg, 1180, 680, 280, 280);
+      const verifyUrl = qrData.url;
+      canvas.dataset.verifyUrl = verifyUrl;
+    } catch (error) {
+      throw new Error('Certificate QR generation failed');
+    }
+  }
+
   // The exported preview must remain distinguishable even outside the website.
   if (data.state !== 'issued' || !data.verified) {
     ctx.font = `400 16px ${FONT}`;
@@ -103,6 +121,12 @@ export async function mountCertificatePreview(container, profile, credential) {
     label.textContent = data.state === 'revoked' ? 'Revoked · Đã thu hồi' : data.state === 'issued' ? (data.verified ? 'Issued · Verified (Avalanche evidence)' : 'Issued · Chưa xác minh hiệu lực') : 'Preview · Chưa phát hành / Not verified';
     const identity = document.createElement('p');
     identity.textContent = data.code ? `Certificate ID: ${data.code}` : 'Preview · Chưa có Certificate ID';
+    if (data.code && data.state === 'issued' && data.verified) {
+      const verifyLine = document.createElement('p');
+      verifyLine.className = 'muted';
+      if (canvas.dataset.verifyUrl) verifyLine.textContent = `Verify: ${canvas.dataset.verifyUrl}`;
+      container.append(verifyLine);
+    }
     const notice = document.createElement('p');
     notice.textContent = 'Avalanche lưu evidence hash; Name/Subject là snapshot do backend lưu, không được blockchain chứng thực riêng.';
     container.replaceChildren(label, identity, canvas, notice);
