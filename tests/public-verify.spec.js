@@ -111,6 +111,7 @@ test('missing code -> 400 INVALID_INPUT', async () => {
 test('RPC unavailable -> 503 UNAVAILABLE', async () => {
   const restore = mockDbFetch('none');
   Object.assign(process.env, baseEnv('http://127.0.0.1:1'));
+  process.env.AVALANCHE_FUJI_RPC_URLS = 'http://127.0.0.1:1';
   const { req, res, getStatus, getBody } = makeReqRes('PXP-2026-REGRESSION-0001');
   await handler(req, res);
   restore();
@@ -211,6 +212,36 @@ test('credentials handler public=1 does not require session', async () => {
   expect(status).toBe(404);
   expect(body.status).toBe('NOT_FOUND');
 });
+
+test('credentials handler public=qr does not require session', async () => {
+  const previousBase = process.env.PUBLIC_VERIFY_BASE_URL;
+  process.env.PUBLIC_VERIFY_BASE_URL = 'https://paradox-ai-staging.vercel.app';
+  const handler = createCredentialsHandler();
+  const req = { method: 'GET', query: { public: 'qr', code: 'PXP-2026-REGRESSION-0001' }, headers: {}, socket: { remoteAddress: '127.0.0.1' } };
+  let status = 200; let body = null;
+  const res = { statusCode: 200, setHeader() {}, status(s) { status = s; this.statusCode = s; return this; }, json(b) { body = b; return this; } };
+  await handler(req, res);
+  if (previousBase === undefined) delete process.env.PUBLIC_VERIFY_BASE_URL;
+  else process.env.PUBLIC_VERIFY_BASE_URL = previousBase;
+  expect(status).toBe(200);
+  expect(body.dataUrl).toMatch(/^data:image\/png;base64,/);
+  expect(body.url).toContain('/verify?code=');
+});
+
+test('credentials handler public=qr returns QR_DOMAIN_NOT_CONFIGURED without base URL', async () => {
+  const previousBase = process.env.PUBLIC_VERIFY_BASE_URL;
+  delete process.env.PUBLIC_VERIFY_BASE_URL;
+  const handler = createCredentialsHandler();
+  const req = { method: 'GET', query: { public: 'qr', code: 'PXP-2026-REGRESSION-0001' }, headers: {}, socket: { remoteAddress: '127.0.0.1' } };
+  let status = 200; let body = null;
+  const res = { statusCode: 200, setHeader() {}, status(s) { status = s; this.statusCode = s; return this; }, json(b) { body = b; return this; } };
+  await handler(req, res);
+  if (previousBase === undefined) delete process.env.PUBLIC_VERIFY_BASE_URL;
+  else process.env.PUBLIC_VERIFY_BASE_URL = previousBase;
+  expect(status).toBe(503);
+  expect(body.code).toBe('QR_DOMAIN_NOT_CONFIGURED');
+});
+
 test('primary RPC eth_call error with working fallback -> succeeds', async () => {
   // Primary: chainId ok but eth_call returns JSON-RPC error.
   const primary = await startRpc((method) => {
@@ -241,7 +272,7 @@ test('all RPCs fail eth_call -> 503 UNAVAILABLE', async () => {
     throw new Error('rpc down');
   });
   const restore = mockDbFetch('none');
-  process.env = { ...process.env, SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_SERVICE_ROLE_KEY: 'service-key', AVALANCHE_FUJI_RPC_URL: rpc.url, AVALANCHE_FUJI_RPC_URLS: '', AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS: CONTRACT };
+  process.env = { ...process.env, SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_SERVICE_ROLE_KEY: 'service-key', AVALANCHE_FUJI_RPC_URL: rpc.url, AVALANCHE_FUJI_RPC_URLS: rpc.url, AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS: CONTRACT };
   const { req, res, getStatus, getBody } = makeReqRes('PXP-2026-REGRESSION-0001');
   await handler(req, res);
   restore();

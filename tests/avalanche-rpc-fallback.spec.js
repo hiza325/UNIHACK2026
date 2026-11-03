@@ -31,6 +31,43 @@ function startMockRpc(resultFn) {
   });
 }
 
+test('avalancheConfig treats empty RPC_URLS as unset (uses default fallback)', () => {
+  const config = avalancheConfig({
+    AVALANCHE_FUJI_RPC_URL: 'https://primary.example/rpc',
+    AVALANCHE_FUJI_RPC_URLS: '',
+    AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS: '0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b',
+  });
+  expect(config.rpcUrls).toEqual([
+    'https://primary.example/rpc',
+    'https://avalanche-fuji-c-chain-rpc.publicnode.com',
+  ]);
+});
+
+test('avalancheConfig treats null and whitespace-only RPC_URLS as unset', () => {
+  for (const val of [null, '   ', '\t\n']) {
+    const config = avalancheConfig({
+      AVALANCHE_FUJI_RPC_URL: 'https://primary.example/rpc',
+      AVALANCHE_FUJI_RPC_URLS: val,
+      AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS: '0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b',
+    });
+    expect(config.rpcUrls).toEqual([
+      'https://primary.example/rpc',
+      'https://avalanche-fuji-c-chain-rpc.publicnode.com',
+    ]);
+  }
+});
+
+test('avalancheConfig treats undefined RPC_URLS as unset', () => {
+  const config = avalancheConfig({
+    AVALANCHE_FUJI_RPC_URL: 'https://primary.example/rpc',
+    AVALANCHE_CREDENTIAL_REGISTRY_ADDRESS: '0xa0c69eE573cdA8d1d08B46f81AbfA0A15A45CF2b',
+  });
+  expect(config.rpcUrls).toEqual([
+    'https://primary.example/rpc',
+    'https://avalanche-fuji-c-chain-rpc.publicnode.com',
+  ]);
+});
+
 test('avalancheConfig parses primary and fallback URLs', () => {
   const config = avalancheConfig({
     AVALANCHE_FUJI_RPC_URL: 'https://primary.example/rpc',

@@ -34,8 +34,12 @@ function serviceError(message, code, status, cause) {
 export function avalancheConfig(env = process.env, { requireSigner = false } = {}) {
   const primary = String(env.AVALANCHE_FUJI_RPC_URL || AVALANCHE_FUJI_CONFIG.rpcUrl).trim();
   // Default fallbacks help when the primary Fuji RPC is slow or blocked from serverless runtimes.
-  const defaultExtras = (env.AVALANCHE_FUJI_RPC_URLS === undefined) ? 'https://avalanche-fuji-c-chain-rpc.publicnode.com' : '';
-  const extras = String(env.AVALANCHE_FUJI_RPC_URLS || defaultExtras).trim();
+  const rawExtras = env.AVALANCHE_FUJI_RPC_URLS;
+  const trimmedRaw = String(rawExtras === undefined || rawExtras === null ? '' : rawExtras).trim();
+  const defaultExtras = (trimmedRaw === '')
+    ? 'https://avalanche-fuji-c-chain-rpc.publicnode.com'
+    : '';
+  const extras = trimmedRaw === '' ? defaultExtras : trimmedRaw;
   const rawUrls = [primary, ...extras.split(',').map(s => s.trim()).filter(Boolean)];
   const rpcUrls = [...new Set(rawUrls)];
   if (!rpcUrls.length || !rpcUrls[0]) throw serviceError('Avalanche Fuji RPC is not configured', 'AVALANCHE_RPC_NOT_CONFIGURED', 503);
@@ -176,11 +180,13 @@ export async function createAvalancheGateway({ env = process.env, write = false,
     } catch (error) {
       // Wrong-chain or unavailable endpoints are dropped.
         const h = String(p?._url || p?.url || 'unknown').replace(/^https?:\/\//, '').split('/')[0];
-        console.error('[avalanche] provider dropped:', h, error?.code || 'unknown');
+        const detail = String(error?.shortMessage || error?.message || '').slice(0, 200).replace(/https?:\/\/[^\s]+/g, '[URL]');
+        console.error('[avalanche] provider dropped:', h, 'code=' + (error?.code || 'unknown'), 'detail=' + detail);
     }
   }
   if (!valid.length) {
-    console.error('[avalanche] no valid RPC providers; candidates:', candidates.length);
+    const safeHosts = config.rpcUrls.map((u) => { try { return new URL(u).host; } catch { return 'invalid-url'; } });
+    console.error('[avalanche] no valid RPC providers; candidates:', candidates.length, 'hosts:', safeHosts);
     throw serviceError('Unable to connect to Avalanche Fuji', 'AVALANCHE_RPC_UNAVAILABLE', 503);
   }
 
