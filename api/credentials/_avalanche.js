@@ -157,7 +157,7 @@ export async function createAvalancheGateway({ env = process.env, write = false,
   } else if (Array.isArray(suppliedProviders) && suppliedProviders.length) {
     candidates = suppliedProviders;
   } else {
-    candidates = config.rpcUrls.map((u) => new JsonRpcProvider(u, undefined, { staticNetwork: true, timeout: RPC_TIMEOUT_MS }));
+    candidates = config.rpcUrls.map((u) => new JsonRpcProvider(u, Number(AVALANCHE_FUJI_CHAIN_ID), { staticNetwork: true, timeout: RPC_TIMEOUT_MS }));
   }
 
   const valid = [];
