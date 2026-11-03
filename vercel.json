@@ -3,6 +3,14 @@
     {
       "source": "/api/ai/status",
       "destination": "/api/debate?aiStatus=1"
+    },
+    {
+      "source": "/api/verify",
+      "destination": "/api/credentials?public=1"
+    },
+    {
+      "source": "/verify",
+      "destination": "/verify.html"
     }
   ]
 }

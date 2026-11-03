@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.12" },
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "serve": "node tests/static-server.mjs",
     "fonts:vendor": "node scripts/vendor-fonts.mjs",
@@ -25,6 +27,8 @@
   },
   "dependencies": {
     "ethers": "^6.17.0",
-    "nodemailer": "^10.2.1"
+    "jsqr": "^1.4.0",
+    "nodemailer": "^10.2.1",
+    "qrcode": "^1.5.4"
   }
 }

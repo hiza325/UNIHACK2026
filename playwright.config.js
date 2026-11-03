@@ -50,6 +50,7 @@ export default defineConfig({
       ANYROUTER_LEARNING_MODEL: '',
       AI_PROVIDER_ORDER: '',
       ANYROUTER_API_KEY: '',
+      PUBLIC_VERIFY_BASE_URL: 'https://example.com',
       ANYROUTER_MODEL: '',
       OTP_SEND_COOLDOWN_SECONDS: '0',
       OTP_SEND_EMAIL_LIMIT: '3',

@@ -33,7 +33,9 @@ function serviceError(message, code, status, cause) {
 
 export function avalancheConfig(env = process.env, { requireSigner = false } = {}) {
   const primary = String(env.AVALANCHE_FUJI_RPC_URL || AVALANCHE_FUJI_CONFIG.rpcUrl).trim();
-  const extras = String(env.AVALANCHE_FUJI_RPC_URLS || '').trim();
+  // Default fallbacks help when the primary Fuji RPC is slow or blocked from serverless runtimes.
+  const defaultExtras = (env.AVALANCHE_FUJI_RPC_URLS === undefined) ? 'https://avalanche-fuji-c-chain-rpc.publicnode.com' : '';
+  const extras = String(env.AVALANCHE_FUJI_RPC_URLS || defaultExtras).trim();
   const rawUrls = [primary, ...extras.split(',').map(s => s.trim()).filter(Boolean)];
   const rpcUrls = [...new Set(rawUrls)];
   if (!rpcUrls.length || !rpcUrls[0]) throw serviceError('Avalanche Fuji RPC is not configured', 'AVALANCHE_RPC_NOT_CONFIGURED', 503);
@@ -106,7 +108,13 @@ export function mapAvalancheError(error) {
   if (mapped) return serviceError(mapped[0], mapped[1], mapped[2], error);
   if (error?.code === 'INSUFFICIENT_FUNDS') return serviceError('Issuer wallet needs Fuji testnet AVAX for gas', 'FUJI_AVAX_REQUIRED', 503, error);
   if (error?.code === 'NONCE_EXPIRED' || error?.code === 'REPLACEMENT_UNDERPRICED') return serviceError('Avalanche transaction nonce conflict', 'AVALANCHE_NONCE_CONFLICT', 409, error);
-  return serviceError('Avalanche transaction failed', 'AVALANCHE_TRANSACTION_FAILED', 502, error);
+  const msg2 = String(error?.shortMessage || error?.message || '').toLowerCase();
+  if (error?.code === 'TIMEOUT' || /timeout/.test(msg2)) return serviceError('Avalanche RPC timed out', 'AVALANCHE_RPC_TIMEOUT', 503, error);
+  if (error?.code === 'NETWORK_ERROR' || /econnrefused|enotfound|fetch failed|network/.test(msg2)) return serviceError('Avalanche RPC unavailable', 'AVALANCHE_RPC_UNAVAILABLE', 503, error);
+  if (/could not decode|bad data|invalid result|empty data/.test(msg2)) return serviceError('Avalanche RPC returned unreadable data', 'AVALANCHE_RPC_BAD_DATA', 503, error);
+  const underlying = String(error?.shortMessage || error?.message || '').trim();
+  const msg = underlying ? ('Avalanche RPC failed: ' + underlying) : 'Avalanche transaction failed';
+  return serviceError(msg, 'AVALANCHE_TRANSACTION_FAILED', 502, error);
 }
 
 function receiptSummary(receipt) {
@@ -140,6 +148,14 @@ async function validateProviderChain(provider, timeoutMs = RPC_TIMEOUT_MS) {
   }
 }
 
+export function isRetryableRpcError(error) {
+  if (!error) return false;
+  if (error?.code && /^AVALANCHE_|^DUPLICATE_|^CREDENTIAL_|^EVIDENCE_|^ISSUER_/.test(error.code)) return false;
+  const msg = String(error?.shortMessage || error?.message || '').toLowerCase();
+  if (/could not decode|bad data|invalid result|empty data|invalid argument|decode/.test(msg)) return false;
+  return true;
+}
+
 export async function createAvalancheGateway({ env = process.env, write = false, provider: suppliedProvider, providers: suppliedProviders, contract: suppliedContract, wallet: suppliedWallet } = {}) {
   const config = avalancheConfig(env, { requireSigner: write });
 
@@ -149,7 +165,7 @@ export async function createAvalancheGateway({ env = process.env, write = false,
   } else if (Array.isArray(suppliedProviders) && suppliedProviders.length) {
     candidates = suppliedProviders;
   } else {
-    candidates = config.rpcUrls.map((u) => new JsonRpcProvider(u, undefined, { staticNetwork: true, timeout: RPC_TIMEOUT_MS }));
+    candidates = config.rpcUrls.map((u) => new JsonRpcProvider(u, Number(AVALANCHE_FUJI_CHAIN_ID), { staticNetwork: true, timeout: RPC_TIMEOUT_MS }));
   }
 
   const valid = [];
@@ -159,9 +175,12 @@ export async function createAvalancheGateway({ env = process.env, write = false,
       valid.push(p);
     } catch (error) {
       // Wrong-chain or unavailable endpoints are dropped.
+        const h = String(p?._url || p?.url || 'unknown').replace(/^https?:\/\//, '').split('/')[0];
+        console.error('[avalanche] provider dropped:', h, error?.code || 'unknown');
     }
   }
   if (!valid.length) {
+    console.error('[avalanche] no valid RPC providers; candidates:', candidates.length);
     throw serviceError('Unable to connect to Avalanche Fuji', 'AVALANCHE_RPC_UNAVAILABLE', 503);
   }
 
@@ -189,21 +208,76 @@ export async function createAvalancheGateway({ env = process.env, write = false,
   const issuerAddress = wallet ? (typeof wallet.address === 'string' ? wallet.address : await wallet.getAddress?.()) : null;
 
   async function verifyCredential(credentialId) {
-    try {
-      const exists = await readContract.credentialExists(credentialId);
-      if (!exists) return { exists: false, valid: false, revoked: false, credentialId };
-      const [record, valid] = await Promise.all([readContract.getCredential(credentialId), readContract.isCredentialValid(credentialId)]);
-      return {
-        exists: true,
-        valid: Boolean(valid),
-        revoked: BigInt(record.revokedAt) > 0n,
-        credentialId,
-        evidenceHash: record.evidenceHash,
-        issuer: record.issuer,
-        issuedAt: Number(record.issuedAt),
-        revokedAt: Number(record.revokedAt),
-      };
-    } catch (error) { throw mapAvalancheError(error); }
+    // suppliedContract (tests/mocks) uses a single contract; no per-provider retry.
+    if (suppliedContract) {
+      try {
+        const exists = await suppliedContract.credentialExists(credentialId);
+        if (!exists) return { exists: false, valid: false, revoked: false, credentialId };
+        const [record, valid] = await Promise.all([suppliedContract.getCredential(credentialId), suppliedContract.isCredentialValid(credentialId)]);
+        return {
+          exists: true,
+          valid: Boolean(valid),
+          revoked: BigInt(record.revokedAt) > 0n,
+          credentialId,
+          evidenceHash: record.evidenceHash,
+          issuer: record.issuer,
+          issuedAt: Number(record.issuedAt),
+          revokedAt: Number(record.revokedAt),
+        };
+      } catch (error) { throw mapAvalancheError(error); }
+    }
+    const providersToTry = valid.length ? valid : [provider];
+    const TOTAL_BUDGET_MS = 7500;
+    const PER_ATTEMPT_TIMEOUT_MS = 4000;
+    const MIN_ATTEMPT_MS = 500;
+    const budgetStart = Date.now();
+    let lastError = null;
+    for (const p of providersToTry) {
+      const remaining = TOTAL_BUDGET_MS - (Date.now() - budgetStart);
+      if (remaining <= MIN_ATTEMPT_MS) break;
+      const attemptTimeout = Math.min(PER_ATTEMPT_TIMEOUT_MS, remaining);
+      const host = String(p?._url || p?.url || 'unknown').replace(/^https?:\/\//, '').split('/')[0];
+      const t0 = Date.now();
+      let timer = null;
+      try {
+        const c = new Contract(config.contractAddress, LEARNING_CREDENTIAL_REGISTRY_ABI, p);
+        const timeoutPromise = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('RPC timeout')), attemptTimeout); });
+        const existsPromise = c.credentialExists(credentialId).catch((e) => { throw e; });
+        const exists = await Promise.race([existsPromise, timeoutPromise]);
+        if (!exists) {
+          clearTimeout(timer); timer = null;
+          console.error('[avalanche] verifyCredential provider ok:', host, 'not-found', (Date.now() - t0) + 'ms');
+          return { exists: false, valid: false, revoked: false, credentialId };
+        }
+        const getCredentialPromise = c.getCredential(credentialId).catch((e) => { throw e; });
+        const isValidPromise = c.isCredentialValid(credentialId).catch((e) => { throw e; });
+        const [record, valid] = await Promise.all([
+          Promise.race([getCredentialPromise, timeoutPromise]),
+          Promise.race([isValidPromise, timeoutPromise]),
+        ]);
+        clearTimeout(timer); timer = null;
+        console.error('[avalanche] verifyCredential provider ok:', host, 'found', (Date.now() - t0) + 'ms');
+        return {
+          exists: true,
+          valid: Boolean(valid),
+          revoked: BigInt(record.revokedAt) > 0n,
+          credentialId,
+          evidenceHash: record.evidenceHash,
+          issuer: record.issuer,
+          issuedAt: Number(record.issuedAt),
+          revokedAt: Number(record.revokedAt),
+        };
+      } catch (error) {
+        if (timer) { clearTimeout(timer); timer = null; }
+        console.error('[avalanche] verifyCredential provider failed:', host, error?.code || 'unknown', (Date.now() - t0) + 'ms');
+        if (isRetryableRpcError(error)) {
+          lastError = error;
+        } else {
+          throw mapAvalancheError(error);
+        }
+      }
+    }
+    throw mapAvalancheError(lastError);
   }
 
   async function credentialIdForEvidence(evidenceHash) {
