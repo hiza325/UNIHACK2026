@@ -1,8 +1,7 @@
 import { SUPPORT_PROMPT } from '../support-prompt.js';
 import { retrieveSupportFaq } from './_support-retrieval.js';
+import { createAiGateway } from './_ai/gateway.js';
 
-const ANYROUTER_URL = 'https://anyrouter.dev/api/v1/chat/completions';
-const DEFAULT_MODEL = 'anyrouter/free';
 const LANGUAGES = new Set(['vi', 'en', 'jp']);
 
 const MAX_BODY_CHARS = 20000;
@@ -11,6 +10,7 @@ const MAX_MESSAGE_CHARS = 1200;
 const MAX_QUERY_CHARS = 400;
 const MAX_OUTPUT_CHARS = 1600;
 const UPSTREAM_TIMEOUT_MS = 20000;
+const TOTAL_TIMEOUT_MS = 45000;
 const RATE_LIMIT = 12;
 const RATE_WINDOW_MS = 60 * 1000;
 const RETRIEVAL_LIMIT = 3;
@@ -64,10 +64,6 @@ const requestWindows = new Map();
 
 function inputError(message) {
   return Object.assign(new Error(message), { status: 400, code: 'INVALID_INPUT' });
-}
-
-function upstreamError(message, code = 'UPSTREAM_ERROR') {
-  return Object.assign(new Error(message), { status: 502, code });
 }
 
 function resolveLanguage(value) {
@@ -188,9 +184,12 @@ function limitOutput(text, max) {
   return `${cut.replace(/[\s,;:.\-–—]+$/, '')}…`;
 }
 
-function sanitizeOutputText(text, apiKey) {
+function sanitizeOutputText(text, secrets) {
   let output = normalizeOutput(text);
-  if (apiKey) output = output.split(apiKey).join('[redacted]');
+  const list = Array.isArray(secrets) ? secrets : [secrets];
+  for (const secret of list) {
+    if (secret) output = output.split(secret).join('[redacted]');
+  }
   output = output.replace(/\bBearer\s+[A-Za-z0-9._-]{16,}/gi, 'Bearer [redacted]');
   return limitOutput(output, MAX_OUTPUT_CHARS).trim();
 }
@@ -199,44 +198,33 @@ function sourcesFor(matches) {
   return matches.map(match => ({ id: match.id, question: match.question }));
 }
 
-async function requestUpstream({ apiKey, model, messages, language, currentView, matches, fetcher, timeoutMs }) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetcher(ANYROUTER_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: buildSystemPrompt({ language, currentView, matches }) },
-          ...messages,
-        ],
-        temperature: 0.2,
-        max_tokens: 600,
-      }),
-      signal: controller.signal,
-    });
+// Only AI Learning provider keys are read; the widget never sees them.
+function configuredSecrets(env) {
+  return Object.keys(env || {})
+    .filter(name => /^(?:GROQ|GEMINI)_API_KEY(?:_\d+)?$/.test(name))
+    .map(name => String(env?.[name] || '').trim())
+    .filter(Boolean);
+}
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw upstreamError(data?.error?.message || `AnyRouter returned ${response.status}`);
-    }
+// The gateway takes one system prompt and one user prompt, so prior turns are
+// flattened into a short transcript. A single user message is passed as-is.
+function buildConversationPrompt(messages) {
+  if (messages.length === 1) return messages[0].content;
+  const transcript = messages
+    .map(message => `${message.role === 'assistant' ? 'Assistant' : 'User'}: ${message.content}`)
+    .join('\n');
+  return `Recent conversation, oldest first. Reply to the final user message.\n\n${transcript}`;
+}
 
-    const text = sanitizeOutputText(data?.choices?.[0]?.message?.content, apiKey);
-    if (!text) throw upstreamError('AnyRouter returned no text', 'EMPTY_OUTPUT');
-    return text;
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw Object.assign(upstreamError('Support AI timed out', 'TIMEOUT'), { status: 504 });
-    }
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
+function createSupportGateway(options = {}) {
+  return createAiGateway({
+    env: options.env || process.env,
+    fetcher: options.fetcher || globalThis.fetch,
+    timeoutMs: Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : UPSTREAM_TIMEOUT_MS,
+    totalTimeoutMs: Number(options.totalTimeoutMs) > 0 ? Number(options.totalTimeoutMs) : TOTAL_TIMEOUT_MS,
+    maxRetries: 0,
+    logger: options.logger,
+  });
 }
 
 /**
@@ -290,21 +278,28 @@ export async function generateSupportReply(payload, options = {}) {
     suggestions: suggestionsFor(language, matches),
   });
 
-  const apiKey = options.apiKey !== undefined ? options.apiKey : process.env.ANYROUTER_API_KEY;
-  if (!apiKey) return degradedReply('NOT_CONFIGURED');
+  const env = options.env || process.env;
+  const gateway = createSupportGateway({ ...options, env });
+  if (!gateway.status().ready) return degradedReply('NOT_CONFIGURED');
 
   try {
-    const text = await requestUpstream({
-      apiKey,
-      model: options.model || process.env.ANYROUTER_MODEL || DEFAULT_MODEL,
-      messages,
-      language,
-      currentView,
-      matches,
-      fetcher: options.fetcher || fetch,
-      timeoutMs: Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : UPSTREAM_TIMEOUT_MS,
+    const result = await gateway.complete({
+      systemPrompt: buildSystemPrompt({ language, currentView, matches }),
+      userPrompt: buildConversationPrompt(messages),
+      temperature: 0.2,
+      maxOutputTokens: 600,
+      json: false,
     });
-    return { text, grounded: true, sources, tier: retrieval.tier, suggestions: suggestionsFor(language, matches) };
+    const text = sanitizeOutputText(result.text, configuredSecrets(env));
+    if (!text) return degradedReply('EMPTY_OUTPUT');
+    return {
+      text,
+      grounded: true,
+      sources,
+      tier: retrieval.tier,
+      provider: result.provider,
+      suggestions: suggestionsFor(language, matches),
+    };
   } catch (error) {
     return degradedReply(error?.code || 'UPSTREAM_ERROR');
   }
@@ -313,7 +308,7 @@ export async function generateSupportReply(payload, options = {}) {
 /**
  * Backwards-compatible string wrapper used by the existing tests and callers.
  */
-export async function createAnyRouterSupportReply(payload, options = {}) {
+export async function createSupportReply(payload, options = {}) {
   const reply = await generateSupportReply(payload, options);
   return reply.text;
 }
@@ -333,6 +328,8 @@ function parseBody(req) {
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });

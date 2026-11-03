@@ -14,6 +14,8 @@ const RUBRIC_VERSION = 'paradox-rubric-v1';
 const requestWindows = new Map();
 const RATE_LIMIT = 15;
 const RATE_WINDOW_MS = 60 * 1000;
+const AI_PROBE_TIMEOUT_MS = 25000;
+const AI_PROBE_TOTAL_TIMEOUT_MS = 30000;
 
 function defaultDiagnosticLogger(env = process.env) {
   return env.VERCEL === '1' || env.NODE_ENV === 'production' ? console : null;
@@ -82,6 +84,54 @@ function normalizedComparableText(value) {
   return String(value || '').trim().toLocaleLowerCase().replace(/\s+/g, ' ');
 }
 
+// The follow-up turns only need the facts of the earlier assessment. Sending the
+// whole stored object (proof record, comparison, analysis model) both wastes
+// context and used to be cut mid-JSON at a fixed character offset, which made the
+// model reason about a truncated payload.
+function compactPreviousAnalysis(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+  const text = (input, max) => (typeof input === 'string' ? input.trim().slice(0, max) : '');
+  const compact = {
+    status: STATUSES.has(value.status) ? value.status : 'insufficient',
+    summary: text(value.summary, 700),
+    confidence: Number.isFinite(Number(value.confidence)) ? Number(value.confidence) : 0.5,
+    nextQuestion: text(value.nextQuestion, 400),
+    issues: Array.isArray(value.issues) ? value.issues.slice(0, 8).map(issue => ({
+      category: CATEGORIES.has(issue?.category) ? issue.category : 'logic',
+      step: text(issue?.step, 180),
+      explanation: text(issue?.explanation, 300),
+      suggestion: text(issue?.suggestion, 180),
+    })) : [],
+    strengths: Array.isArray(value.strengths) ? value.strengths.slice(0, 4).map(item => text(item, 160)).filter(Boolean) : [],
+    hint: value.hint && typeof value.hint === 'object'
+      ? { level: Number(value.hint.level) || 0, content: text(value.hint.content, 400) }
+      : null,
+    comparison: value.comparison && typeof value.comparison === 'object'
+      ? {
+          summary: text(value.comparison.summary, 500),
+          remainingIssues: Array.isArray(value.comparison.remainingIssues) ? value.comparison.remainingIssues.slice(0, 6).map(item => text(item, 160)).filter(Boolean) : [],
+        }
+      : null,
+    evaluation: value.evaluation && typeof value.evaluation === 'object'
+      ? {
+          status: text(value.evaluation.status, 40),
+          score: Number.isFinite(Number(value.evaluation.score)) ? Number(value.evaluation.score) : null,
+          evidenceSufficient: value.evaluation.evidenceSufficient === true,
+          remainingIssues: Array.isArray(value.evaluation.remainingIssues) ? value.evaluation.remainingIssues.slice(0, 6).map(item => text(item, 160)).filter(Boolean) : [],
+          criteria: value.evaluation.criteria && typeof value.evaluation.criteria === 'object'
+            ? Object.fromEntries(RUBRIC_KEYS.map(key => [key, Number(value.evaluation.criteria[key]?.score) || 0]))
+            : null,
+        }
+      : null,
+  };
+  for (const field of ['strengths', 'comparison', 'hint']) {
+    if (JSON.stringify(compact).length <= 6000) break;
+    compact[field] = Array.isArray(compact[field]) ? [] : null;
+  }
+  if (JSON.stringify(compact).length > 6000) compact.issues = compact.issues.slice(0, 4);
+  return JSON.stringify(compact);
+}
+
 function validateEvaluation(raw, context, analysisStatus, confidence) {
   if (context.mode !== 'resubmit') return null;
   if (!raw || typeof raw !== 'object' || !raw.criteria || typeof raw.criteria !== 'object') throw Object.assign(new Error('AI output is missing the resubmission evaluation'), { status: 502, code: 'INVALID_OUTPUT' });
@@ -111,6 +161,16 @@ function validateEvaluation(raw, context, analysisStatus, confidence) {
   };
 }
 
+function previousAnalysisNextQuestion(compact) {
+  if (!compact || typeof compact !== 'string') return '';
+  try {
+    const data = JSON.parse(compact);
+    return typeof data?.nextQuestion === 'string' ? data.nextQuestion.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
 export function validateDebateAnalysis(raw, context = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw Object.assign(new Error('AI output must be an object'), { status: 502, code: 'INVALID_OUTPUT' });
   if (!STATUSES.has(raw.status)) throw Object.assign(new Error('AI output has an invalid status'), { status: 502, code: 'INVALID_OUTPUT' });
@@ -123,11 +183,16 @@ export function validateDebateAnalysis(raw, context = {}) {
       suggestion: safeOutputText(issue.suggestion, 'issue.suggestion', 800),
     };
   }) : [];
-  if (raw.status === 'incorrect' && !issues.length) throw Object.assign(new Error('Incorrect analysis must identify an issue'), { status: 502, code: 'INVALID_OUTPUT' });
+  // In hint/discuss turns the model re-states the earlier verdict only as
+  // context; the hint or reply is the payload. Demanding fresh issues there made
+  // valid hints fail with INVALID_OUTPUT.
+  if (raw.status === 'incorrect' && !issues.length && ['analyze', 'resubmit'].includes(context.mode)) {
+    throw Object.assign(new Error('Incorrect analysis must identify an issue'), { status: 502, code: 'INVALID_OUTPUT' });
+  }
   let hint = null;
   if (context.mode === 'hint') {
-    const level = Number(raw.hint?.level);
-    const content = safeOutputText(raw.hint?.content, 'hint.content', 1400);
+    const level = raw.hint?.level == null ? context.hintLevel : Number(raw.hint.level);
+    const content = safeOutputText(raw.hint?.content || raw.reply, 'hint.content', 1400);
     if (level !== context.hintLevel) throw Object.assign(new Error('AI output changed the requested hint level'), { status: 502, code: 'INVALID_OUTPUT' });
     if ((context.previousHints || []).some(previous => normalizedComparableText(previous) === normalizedComparableText(content))) {
       throw Object.assign(new Error('AI output repeated a previous hint'), { status: 502, code: 'INVALID_OUTPUT' });
@@ -143,6 +208,13 @@ export function validateDebateAnalysis(raw, context = {}) {
     };
   }
   const confidence = Math.max(0, Math.min(1, Number.isFinite(Number(raw.confidence)) ? Number(raw.confidence) : 0.5));
+  const nextQuestion = safeOutputText(raw.nextQuestion, 'nextQuestion', 800, false);
+  if (nextQuestion) {
+    const priorQuestions = [...(context.previousQuestions || []), previousAnalysisNextQuestion(context.previousAnalysis)];
+    if (priorQuestions.some(prior => prior && normalizedComparableText(prior) === normalizedComparableText(nextQuestion))) {
+      throw Object.assign(new Error('AI output repeated a previous question'), { status: 502, code: 'INVALID_OUTPUT' });
+    }
+  }
   const evaluation = validateEvaluation(raw.evaluation, context, raw.status, confidence);
   return {
     status: raw.status,
@@ -150,8 +222,8 @@ export function validateDebateAnalysis(raw, context = {}) {
     confidence,
     issues,
     strengths: Array.isArray(raw.strengths) ? raw.strengths.slice(0, 5).map(value => safeOutputText(value, 'strength', 500)).filter(Boolean) : [],
-    nextQuestion: safeOutputText(raw.nextQuestion, 'nextQuestion', 800, false),
-    reply: safeOutputText(raw.reply, 'reply', 1800, ['discuss', 'hint'].includes(context.mode)),
+    nextQuestion,
+    reply: safeOutputText(raw.reply, 'reply', 1800, context.mode === 'discuss'),
     hint,
     comparison,
     evaluation,
@@ -170,7 +242,9 @@ export function normalizeDebatePayload(payload) {
     text: optionalText(item?.text, 1200),
   })).filter(item => item.text) : [];
   const previousHints = Array.isArray(payload?.previousHints) ? payload.previousHints.slice(0, 3).map(value => optionalText(typeof value === 'string' ? value : value?.content, 1400)).filter(Boolean) : [];
+  if (mode === 'hint' && hintLevel > previousHints.length + 1) throw inputError('Hint level must follow the previous hint level');
   const previousSolution = optionalText(payload?.previousSolution, 16000);
+  const previousQuestions = Array.isArray(payload?.previousQuestions) ? payload.previousQuestions.slice(0, 10).map(value => optionalText(typeof value === 'string' ? value : value?.question || value?.nextQuestion, 800)).filter(Boolean) : [];
   const question = optionalText(payload?.question, 1200);
   if (mode === 'resubmit' && !previousSolution) throw inputError('Previous solution is required for resubmission');
   if (['discuss', 'hint'].includes(mode) && !question) throw inputError('A follow-up question is required');
@@ -181,18 +255,17 @@ export function normalizeDebatePayload(payload) {
     hintLevel: mode === 'hint' ? hintLevel : 0,
     language: LANGUAGES.has(payload?.language) ? payload.language : 'vi',
     question,
-    previousAnalysis: payload?.previousAnalysis && typeof payload.previousAnalysis === 'object'
-      ? JSON.stringify(payload.previousAnalysis).slice(0, 6000)
-      : '',
+    previousAnalysis: compactPreviousAnalysis(payload?.previousAnalysis),
     conversation,
     previousHints,
     previousSolution,
+    previousQuestions,
     attemptNumber: Math.max(1, Math.min(1000, Math.round(Number(payload?.attemptNumber) || 1))),
   };
 }
 
 function debateUserContent(input) {
-  return `<mode>${input.mode}</mode>\n<problem>\n${input.problem}\n</problem>\n<learner_solution>\n${input.solution}\n</learner_solution>${input.previousSolution ? `\n<previous_solution>${input.previousSolution}</previous_solution>` : ''}${input.previousAnalysis ? `\n<previous_analysis>${input.previousAnalysis}</previous_analysis>` : ''}${input.conversation.length ? `\n<conversation_history>${JSON.stringify(input.conversation)}</conversation_history>` : ''}${input.previousHints.length ? `\n<prior_hints>${JSON.stringify(input.previousHints)}</prior_hints>` : ''}${input.hintLevel ? `\n<requested_hint_level>${input.hintLevel}</requested_hint_level>` : ''}${input.question ? `\n<follow_up_question>${input.question}</follow_up_question>` : ''}`;
+  return `<mode>${input.mode}</mode>\n<problem>\n${input.problem}\n</problem>\n<learner_solution>\n${input.solution}\n</learner_solution>${input.previousSolution ? `\n<previous_solution>${input.previousSolution}</previous_solution>` : ''}${input.previousAnalysis ? `\n<previous_analysis>${input.previousAnalysis}</previous_analysis>` : ''}${input.conversation.length ? `\n<conversation_history>${JSON.stringify(input.conversation)}</conversation_history>` : ''}${input.previousHints.length ? `\n<prior_hints>${JSON.stringify(input.previousHints)}</prior_hints>` : ''}${input.previousQuestions.length ? `\n<prior_questions>${JSON.stringify(input.previousQuestions)}</prior_questions>` : ''}${input.hintLevel ? `\n<requested_hint_level>${input.hintLevel}</requested_hint_level>` : ''}${input.question ? `\n<follow_up_question>${input.question}</follow_up_question>` : ''}`;
 }
 
 function debateSystemPrompt(language) {
@@ -201,7 +274,7 @@ function debateSystemPrompt(language) {
 
 /**
  * Runs the multi-step PARADOX debate through the shared AI gateway.
- * Gemini answers first; AnyRouter is the fallback. They are only used when the
+ * Groq answers first; Gemini is the fallback. They are only used when the
  * previous provider is missing, fails, times out, or returns output that fails
  * schema validation. The Socratic rules in DEBATE_PROMPT are always sent from
  * the server and are never client-supplied.
@@ -218,12 +291,20 @@ export async function createDebateAnalysisWithMeta(payload, options = {}) {
     maxRetries: options.maxRetries,
     retryDelayMs: options.retryDelayMs,
   });
-  const context = { mode: input.mode, hintLevel: input.hintLevel, previousHints: input.previousHints };
+  const context = {
+    mode: input.mode,
+    hintLevel: input.hintLevel,
+    previousHints: input.previousHints,
+    previousQuestions: input.previousQuestions,
+    previousAnalysis: input.previousAnalysis,
+  };
   const result = await gateway.complete({
     systemPrompt: debateSystemPrompt(input.language),
     userPrompt: debateUserContent(input),
     temperature: 0.1,
-    maxOutputTokens: 2200,
+    // Resubmissions carry the comparison plus the full rubric evaluation; the
+    // larger budget keeps that JSON from being cut mid-object.
+    maxOutputTokens: input.mode === 'resubmit' ? 3000 : 2200,
     json: true,
     validate: text => validateDebateAnalysis(parseJsonContent(text), context),
   });
@@ -271,6 +352,7 @@ export function createDebateHandler({
   storeFactory = createLearningRecordStore,
   recordServiceFactory = createLearningRecordService,
   logger = defaultDiagnosticLogger(),
+  probeFactory,
 } = {}) {
   function isAiStatusRequest(req) {
     const host = String(req?.headers?.host || 'localhost');
@@ -288,6 +370,16 @@ export function createDebateHandler({
     return pathname === '/api/ai/status';
   }
 
+  function isAiProbeRequest(req) {
+    if (req?.query?.probe === '1' || req?.query?.probe === 1) return true;
+    const host = String(req?.headers?.host || 'localhost');
+    try {
+      return new URL(String(req?.url || '/'), `http://${host}`).searchParams.get('probe') === '1';
+    } catch {
+      return false;
+    }
+  }
+
   function sendAiStatus(res) {
     res.setHeader('Cache-Control', 'no-store');
     const settings = resolveAiGatewaySettings();
@@ -303,15 +395,76 @@ export function createDebateHandler({
         validation: 'server-side JSON schema',
         fallback: ai.order.join(' -> '),
       },
+      probe: {
+        available: true,
+        checked: false,
+        endpoint: '/api/debate?aiStatus=1&probe=1',
+        note: 'ready only means at least one provider has a key; call the probe endpoint to verify upstream health.',
+      },
     });
   }
 
+  async function sendAiProbe(req, res) {
+    res.setHeader('Cache-Control', 'no-store');
+    const requestId = randomUUID();
+    res.setHeader('X-AI-Request-Id', requestId);
+    if (!allowRequest(req)) {
+      res.setHeader('Retry-After', '60');
+      return res.status(429).json({ error: 'Too many AI requests. Please wait a moment.', code: 'RATE_LIMIT', requestId });
+    }
+    const startedAt = Date.now();
+    try {
+      const result = probeFactory
+        ? await probeFactory()
+        : await createAiGateway({
+          timeoutMs: AI_PROBE_TIMEOUT_MS,
+          totalTimeoutMs: AI_PROBE_TOTAL_TIMEOUT_MS,
+          maxRetries: 0,
+        }).complete({
+          systemPrompt: 'You are a health probe. Reply with the single word OK.',
+          userPrompt: 'Reply with OK.',
+          temperature: 0,
+          maxOutputTokens: 128,
+          json: false,
+        });
+      return res.status(200).json({
+        probe: {
+          checked: true,
+          ok: true,
+          provider: result.provider,
+          model: result.providerModel,
+          latencyMs: result.latencyMs,
+          requestId,
+        },
+      });
+    } catch (error) {
+      const attempts = Array.isArray(error?.details?.attempts)
+        ? error.details.attempts.map(item => ({ provider: item.provider, attempt: item.attempt, code: item.code, durationMs: item.durationMs }))
+        : [];
+      return res.status(200).json({
+        probe: {
+          checked: true,
+          ok: false,
+          code: error?.code || 'UPSTREAM_ERROR',
+          status: Number(error?.status) || 502,
+          latencyMs: Date.now() - startedAt,
+          requestId,
+          attempts,
+          lastError: typeof error?.details?.lastError === 'string' ? error.details.lastError.slice(0, 200) : null,
+        },
+      });
+    }
+  }
+
   return async function handler(req, res) {
+    res.setHeader('Cache-Control', 'no-store');
+
     if (isAiStatusRequest(req)) {
       if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.setHeader('Allow', 'GET, HEAD');
         return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });
       }
+      if (isAiProbeRequest(req)) return sendAiProbe(req, res);
       return sendAiStatus(res);
     }
 
@@ -347,6 +500,17 @@ export function createDebateHandler({
           userId: session.user.id,
           input: normalizedInput,
         });
+        if (authorizedRecord?.servedHints) {
+          // The stored record owns the hint ladder: ignore whatever history the
+          // client sent and continue from the last hint actually delivered.
+          const servedLevel = authorizedRecord.servedHints.reduce((max, item) => Math.max(max, Number(item.level) || 0), 0);
+          if (normalizedInput.hintLevel !== servedLevel + 1) {
+            throw Object.assign(inputError('Hint level must follow the previous hint level'), { code: 'HINT_LEVEL_OUT_OF_ORDER' });
+          }
+          const serverHints = authorizedRecord.servedHints.map(item => String(item.content || '')).filter(Boolean);
+          normalizedInput.previousHints = serverHints;
+          payload.previousHints = serverHints;
+        }
       }
       if (authorizedRecord?.storedAnalysis) {
         const analysis = authorizedRecord.storedAnalysis;

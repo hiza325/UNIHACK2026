@@ -110,6 +110,19 @@ test.describe('auth', () => {
     expect(await page.evaluate(() => localStorage.getItem('paradox-session'))).toBeNull();
   });
 
+  test('local entry button shows a clear message and never auto-grants access when unconfigured', async ({ page }) => {
+    await page.goto('/');
+    await page.click('#landing-login');
+    const localButton = page.locator('#auth-local');
+    await expect(page.locator('#auth-form')).toBeVisible();
+    await expect(page.locator('input[name="email"]')).toBeVisible();
+    await expect(localButton).toBeVisible();
+    await localButton.click();
+    await expect(page.locator('#auth-error')).toContainText('LOCAL_AUTH_ENABLED=1');
+    expect(await page.evaluate(() => localStorage.getItem('paradox-session'))).toBeNull();
+    await expect(page.locator('.sidebar')).not.toBeVisible();
+  });
+
   test('an open browser session logs out when the account becomes suspended', async ({ page }) => {
     let suspended = false;
     let appealPayload;
@@ -175,7 +188,7 @@ test.describe('route guard', () => {
 });
 
 test.describe('admin', () => {
-  test('verified configured admin can open user management', async ({ page }) => {
+  test('client-side signups never receive the admin role', async ({ page }) => {
     await page.goto('/');
     await page.click('#hero-start');
     await page.fill('input[name="name"]', 'PARADOX Admin');
@@ -185,10 +198,23 @@ test.describe('admin', () => {
     await page.click('.auth-submit');
     await verifyLocalOtp(page);
 
-    await page.locator('[data-route="admin"]').click();
+    await page.goto('/#/admin');
+    await expect(page).toHaveURL(/#\/dashboard$/);
+    await expect(page.locator('.admin-page')).toHaveCount(0);
+  });
+
+  test('a session carrying the server-assigned admin role can open user management', async ({ page }) => {
+    await page.addInitScript(({ session, accounts }) => {
+      localStorage.setItem('paradox-session', JSON.stringify(session));
+      localStorage.setItem('paradox-accounts', JSON.stringify(accounts));
+    }, {
+      session: { id: 'admin-id', name: 'PARADOX Admin', email: 'admin@example.com', role: 'admin', status: 'active' },
+      accounts: [{ id: 'u1', name: 'Test User', email: 'test@example.com', role: 'user', status: 'active', createdAt: '2026-10-01T00:00:00.000Z' }],
+    });
+    await page.goto('/#/admin');
     await expect(page.locator('.admin-page')).toBeVisible();
     await expect(page.locator('[data-admin-user]')).toHaveCount(1);
-    await expect(page.locator('[data-admin-user]')).toContainText('admin@paradox.ai');
+    await expect(page.locator('[data-admin-user]')).toContainText('test@example.com');
     expect(await axeHighImpactViolations(page, 'admin')).toEqual([]);
   });
 });

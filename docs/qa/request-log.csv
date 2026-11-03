@@ -1,0 +1,3 @@
+testCaseId,category,priority,severity,status,evaluated,score,verdict,expectedVerdict,actualVerdict,requestId,endpoint,method,httpStatus,provider,model,attempts,retryCount,latencyMs,errorSource,errorCode,reviewerStatus,evidence
+F-08,,,,,,,,,,4dd6d996-2668-4831-88e9-3efc66f7d7e6,/api/debate,POST,429,,,,0,11,,RATE_LIMIT,PENDING_EXPERT_REVIEW,
+A-02,A-math-verdict,P1,Major,PASS,,,,incorrect,incorrect,,/api/debate,POST,200,gemini,gemini/gemini-stub-model,1,0,4,,,PENDING_EXPERT_REVIEW,

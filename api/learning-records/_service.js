@@ -321,7 +321,18 @@ export function createLearningRecordService({ store, now = () => new Date() } = 
         persistenceRequired: session.status !== 'completed',
       };
     }
-    return { session, submission, learnerId };
+    const authorization = { session, submission, learnerId };
+    if (input.mode === 'hint') {
+      // Hint progression is derived from the stored interactions so the client
+      // cannot skip levels by sending its own hint history.
+      const interactions = await store.listInteractions(session.id, learnerId);
+      authorization.servedHints = interactions
+        .filter(item => item.submission_id === submission.id && item.mode === 'hint' && item.role === 'assistant')
+        .map(item => ({ level: Number(item.hint_level) || 0, content: String(item.content || '') }))
+        .filter(item => item.level > 0 && item.content)
+        .sort((left, right) => left.level - right.level);
+    }
+    return authorization;
   }
 
   async function recordAiResult({ authorized, input, result, model }) {

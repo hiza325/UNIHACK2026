@@ -6,6 +6,7 @@ import { handlePublicVerify } from './_public-verify.js';
 import { generateQRDataUrl } from './_qr.js';
 import { createLearningRecordStore } from '../learning-records/_store.js';
 import { publicLearningEvaluation } from '../learning-records/_service.js';
+import { createAdminAuditLog } from '../admin/_audit.js';
 
 const QR_RATE = new Map();
 function qrRateLimit(ip) {
@@ -34,6 +35,7 @@ function sendCredentialError(res, error) {
     : 'Credential service is temporarily unavailable';
   return res.status(status).json({ error: safeMessage, ...(error?.code ? { code: error.code } : {}) });
 }
+<<<<<<< HEAD
 async function handlePublicQR(req, res) {
   const ip = String(req.headers?.['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
   // simple rate limit bucket (shared with public verify)
@@ -73,6 +75,18 @@ async function handlePublicQR(req, res) {
   }
 }
 export function createCredentialsHandler({ storeFactory = createCredentialStore, serviceFactory = createCredentialService, learningRecordStoreFactory = () => { try { return createLearningRecordStore(); } catch { return null; } } } = {}) {
+=======
+
+export function createCredentialsHandler({ storeFactory = createCredentialStore, serviceFactory = createCredentialService, learningRecordStoreFactory = () => { try { return createLearningRecordStore(); } catch { return null; } }, auditFactory = createAdminAuditLog } = {}) {
+  async function audit(entry) {
+    try {
+      await auditFactory().record(entry);
+    } catch {
+      // The audit trail is best-effort and must never block a credential action.
+    }
+  }
+
+>>>>>>> origin/main
   return async function credentialsHandler(req, res) {
     noStore(res);
     if (queryValue(req, 'public') === '1') {
@@ -109,16 +123,41 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
       }
       if (action === 'issue') {
         const session = await requireAdmin(req, res);
-        return res.status(201).json({ credential: await service.issue(body, publicUser(session.user)) });
+        const credential = await service.issue(body, publicUser(session.user));
+        await audit({
+          action: 'credential.issue',
+          actorId: session.user.id,
+          actorEmail: session.user.email || null,
+          targetType: 'credential',
+          targetId: credential?.credentialCode || body.credentialCode || null,
+          metadata: { learnerId: body.learnerId || null, isTest: body.isTest === true },
+        });
+        return res.status(201).json({ credential });
       }
       if (action === 'prepare-issue') {
         const session = await requireAdmin(req, res);
         const result = await service.prepareIssue(body, publicUser(session.user));
+        await audit({
+          action: 'credential.prepare-issue',
+          actorId: session.user.id,
+          actorEmail: session.user.email || null,
+          targetType: 'credential',
+          targetId: result?.credential?.credentialCode || body.credentialCode || null,
+          metadata: { learnerId: body.learnerId || null },
+        });
         return res.status(200).json(result);
       }
       if (action === 'confirm-issue') {
         const session = await requireAdmin(req, res);
         const result = await service.confirmIssue(body, publicUser(session.user));
+        await audit({
+          action: 'credential.confirm-issue',
+          actorId: session.user.id,
+          actorEmail: session.user.email || null,
+          targetType: 'credential',
+          targetId: result?.credential?.credentialCode || body.credentialCode || null,
+          metadata: { learnerId: body.learnerId || null },
+        });
         return res.status(200).json(result);
       }
       if (action === 'reconcile-credential') {
@@ -136,8 +175,17 @@ export function createCredentialsHandler({ storeFactory = createCredentialStore,
         return res.status(200).json({ evaluations: (evaluations || []).map(publicLearningEvaluation) });
       }
       if (action === 'revoke') {
-        await requireAdmin(req, res);
-        return res.status(200).json({ credential: await service.revoke(body.credentialCode) });
+        const session = await requireAdmin(req, res);
+        const credential = await service.revoke(body.credentialCode);
+        await audit({
+          action: 'credential.revoke',
+          actorId: session.user.id,
+          actorEmail: session.user.email || null,
+          targetType: 'credential',
+          targetId: credential?.credentialCode || body.credentialCode || null,
+          metadata: {},
+        });
+        return res.status(200).json({ credential });
       }
       return res.status(400).json({ error: 'Unsupported credential action', code: 'INVALID_CREDENTIAL_ACTION' });
     } catch (error) {
