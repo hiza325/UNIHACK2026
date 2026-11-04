@@ -2,6 +2,9 @@ import { test, expect } from '@playwright/test';
 
 const SESSION = { name: 'Test User', email: 'sessions@example.com' };
 const USER = { ...SESSION, id: '11111111-1111-4111-8111-111111111111', role: 'user', status: 'active' };
+// The display day is Nov 5 in Vietnam while the UTC runner is still on Nov 4.
+const NOW = '2026-11-05T06:24:00+07:00';
+const FIXTURE_DAY = '2026-11-05';
 
 function seedSession(page) {
   return page.addInitScript(user => {
@@ -11,9 +14,8 @@ function seedSession(page) {
 }
 
 function iso(offsetDays = 0, hour = 10) {
-  const date = new Date();
-  date.setDate(date.getDate() - offsetDays);
-  date.setHours(hour, 0, 0, 0);
+  const date = new Date(`${FIXTURE_DAY}T${String(hour).padStart(2, '0')}:00:00+07:00`);
+  date.setUTCDate(date.getUTCDate() - offsetDays);
   return date.toISOString();
 }
 
@@ -56,6 +58,7 @@ function sessionFixtures() {
 }
 
 async function setupSessions(page, { viewport, failCreate = false } = {}) {
+  await page.clock.setFixedTime(new Date(NOW));
   const state = sessionFixtures();
   state.failCreate = failCreate;
   await seedSession(page);
@@ -101,9 +104,9 @@ async function setupSessions(page, { viewport, failCreate = false } = {}) {
         subject: body.subject || 'General',
         status: 'in_progress',
         problem: body.problem,
-        startedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        lastActivityAt: new Date().toISOString(),
+        startedAt: NOW,
+        updatedAt: NOW,
+        lastActivityAt: NOW,
       };
       state.list.unshift(row);
       state.details[id] = {
@@ -123,7 +126,7 @@ async function setupSessions(page, { viewport, failCreate = false } = {}) {
     }
     if (body.action === 'archiveSession') {
       const row = state.list.find(item => item.id === body.sessionId);
-      if (row) row.archivedAt = new Date().toISOString();
+      if (row) row.archivedAt = NOW;
       await route.fulfill({ json: { session: row } });
       return;
     }
@@ -139,6 +142,9 @@ test('sidebar groups sessions and opens only the selected session conversation',
   await expect(page.locator('.ls-group')).toHaveCount(3);
   await expect(page.locator('.ls-session')).toHaveCount(3);
   await expect(page.locator('.ls-group').first()).toContainText('Hôm nay');
+  await expect(page.locator('.ls-group').nth(0).locator('[data-session-open]')).toHaveAttribute('data-session-open', 's1');
+  await expect(page.locator('.ls-group').nth(1).locator('[data-session-open]')).toHaveAttribute('data-session-open', 's2');
+  await expect(page.locator('.ls-group').nth(2).locator('[data-session-open]')).toHaveAttribute('data-session-open', 's3');
 
   await page.locator('[data-session-open="s1"]').click();
   await expect(page.locator('#problem-text')).toHaveValue('Tính đạo hàm của x^2.');
@@ -150,6 +156,28 @@ test('sidebar groups sessions and opens only the selected session conversation',
   await expect(page.locator('#messages')).toContainText('Bước nào trong lập luận bị sai?');
   await expect(page.locator('#messages')).not.toContainText('Vì sao đạo hàm của x bình phương là 2x?');
 });
+
+for (const timezoneId of ['UTC', 'Asia/Ho_Chi_Minh']) {
+  test.describe(`calendar boundaries in ${timezoneId}`, () => {
+    test.use({ timezoneId });
+    test('groups by Vietnam midnight and the seven-day boundary', async ({ page }) => {
+      const state = await setupSessions(page);
+      state.list = [
+        { ...state.list[0], id: 'today', lastActivityAt: '2026-11-04T17:00:00Z' },
+        { ...state.list[0], id: 'yesterday', lastActivityAt: '2026-11-04T16:59:59Z' },
+        { ...state.list[0], id: 'week', lastActivityAt: '2026-10-29T00:00:00+07:00' },
+        { ...state.list[0], id: 'older', lastActivityAt: '2026-10-28T23:59:59+07:00' },
+      ];
+      await page.goto('/#/audit');
+      const groups = page.locator('.ls-group');
+      await expect(groups).toHaveCount(4);
+      for (const [index, id] of ['today', 'yesterday', 'week', 'older'].entries()) {
+        await expect(groups.nth(index).locator('[data-session-open]')).toHaveAttribute('data-session-open', id);
+      }
+      await expect(groups.first()).toContainText('Hôm nay');
+    });
+  });
+}
 
 test('new session clears the current chat and does not load another session', async ({ page }) => {
   await setupSessions(page);
