@@ -384,6 +384,8 @@ export const actionMethods = {
       this.querySelector('[data-zk-status]')?.addEventListener('click', () => this.loadZkStatus());
       this.querySelector('#zk-verify-form')?.addEventListener('submit', event => { event.preventDefault(); const proofId = this.querySelector('#zk-proof-id')?.value?.trim(); if (proofId) this.verifyZkProof(proofId); });
       this.querySelector('#zk-generate-form')?.addEventListener('submit', event => { event.preventDefault(); const evaluationId = this.querySelector('#zk-evaluation-id')?.value?.trim(); if (evaluationId) this.generateZkProof(evaluationId, 80); });
+      this.querySelectorAll('[data-zk-verify]').forEach(button => button.addEventListener('click', () => this.verifyZkProof(button.dataset.zkVerify)));
+      this.querySelectorAll('[data-zk-generate]').forEach(button => button.addEventListener('click', () => this.generateZkProof(button.dataset.zkGenerate, 80)));
     }
   },
   openResetModal() {
