@@ -21,6 +21,27 @@ The additive migration `202611060001_learning_session_history.sql` adds:
 - Activity/archive indexes. Existing rows, interactions, submissions,
   evaluations, achievements and credentials are not deleted.
 
+### Trigger semantics
+
+The pre-existing `learning_sessions_set_updated_at` trigger is kept enabled but
+scoped with a `WHEN` guard. Updates that only touch `updated_at` or
+`last_activity_at` are ignored by that trigger, so the historical backfill
+cannot rewrite `updated_at`. Business-column updates, and updates that combine
+business columns with activity, still advance `updated_at`. The
+`learning_sessions_touch_activity` trigger always refreshes `last_activity_at`.
+
+The database tests in `tests/sql/` cover both halves of the contract:
+
+- `learning-session-history-backfill.sql` — applies the migration inside a
+  rolled-back transaction on a pre-migration database and proves all historical
+  `updated_at` values survive while `last_activity_at` is backfilled exactly.
+- `learning-session-history.sql` — proves business-only, activity-only and
+  combined updates behave as described.
+
+CI runs both on PostgreSQL 17 via the `database` job in
+`.github/workflows/test.yml`, using `tests/sql/supabase-bootstrap.sql` to create
+the Supabase auth/roles prerequisites.
+
 Archiving a session removes it from the sidebar/history list. It does **not**
 delete submissions, evaluations, achievements, certificates or blockchain
 references. The API enforces ownership before rename/archive.
@@ -90,9 +111,11 @@ The migration should not be applied to Production by the feature branch CI.
 
 - Code rollback: promote the previous Vercel deployment / redeploy the previous
   main commit.
-- Database rollback (only if required): drop the activity trigger, indexes and
-  the two new columns. Existing learning records are preserved. Archiving flags
-  would be lost, so rollback is a last resort after code rollback.
+- Database rollback (only if required): restore the original unconditional
+  `learning_sessions_set_updated_at` trigger, then drop the activity trigger,
+  indexes and the two new columns. Existing learning records are preserved.
+  Archiving flags would be lost, so rollback is a last resort after code
+  rollback.
 
 ## Test commands
 
@@ -101,6 +124,22 @@ npm ci
 npx playwright test tests/learning-records.spec.js tests/learning-sessions.spec.js
 npx playwright test tests/app.spec.js
 npm run test:all
+```
+
+Database tests (disposable PostgreSQL 17 only; never Production/Staging):
+
+```bash
+# 1. Create the Supabase auth/role prerequisites once.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/sql/supabase-bootstrap.sql
+
+# 2. Apply every migration before the learning-session history migration.
+#    Then run the backfill test; it applies the migration in a rolled-back
+#    transaction.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/sql/learning-session-history-backfill.sql
+
+# 3. Apply the learning-session history migration, then test the triggers.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202611060001_learning_session_history.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/sql/learning-session-history.sql
 ```
 
 Screenshots: `docs/learning-sessions/desktop.png` and

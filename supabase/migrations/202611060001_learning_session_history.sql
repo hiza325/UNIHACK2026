@@ -7,8 +7,23 @@ alter table public.learning_sessions
   add column if not exists last_activity_at timestamptz,
   add column if not exists archived_at timestamptz;
 
+-- The pre-existing updated_at trigger is unconditional: every UPDATE fires it
+-- and overwrites updated_at. Keep the trigger enabled, but ignore updates that
+-- only touch derived timestamps. This lets the historical backfill below write
+-- last_activity_at without rewriting updated_at, while normal business-column
+-- updates still advance updated_at.
+create or replace trigger learning_sessions_set_updated_at
+before update on public.learning_sessions
+for each row
+when (
+  (to_jsonb(old) - 'updated_at' - 'last_activity_at')
+  is distinct from
+  (to_jsonb(new) - 'updated_at' - 'last_activity_at')
+)
+execute function public.set_learning_record_updated_at();
+
 -- Backfill from the existing audit timestamp before making the new column
--- required. Existing rows are never deleted or rewritten beyond this timestamp.
+-- required. Existing rows are never deleted; this only writes last_activity_at.
 update public.learning_sessions
 set last_activity_at = coalesce(updated_at, started_at, created_at, now())
 where last_activity_at is null;

@@ -34,3 +34,47 @@ jobs:
           configPath: ./lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: true
+
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: paradox
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d paradox"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGPASSWORD: postgres
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGDATABASE: paradox
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bootstrap disposable Supabase prerequisites
+        run: psql -v ON_ERROR_STOP=1 -q -f tests/sql/supabase-bootstrap.sql
+      - name: Apply migrations before the learning-session history migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in $(ls supabase/migrations/*.sql | sort); do
+            case "$file" in
+              *202611060001_learning_session_history.sql) continue ;;
+            esac
+            echo "applying $file"
+            psql -v ON_ERROR_STOP=1 -q -f "$file"
+          done
+      - name: Verify historical updated_at backfill
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/learning-session-history-backfill.sql
+      - name: Apply learning-session history migration
+        run: psql -v ON_ERROR_STOP=1 -q -f supabase/migrations/202611060001_learning_session_history.sql
+      - name: Re-apply learning-session history migration (idempotency)
+        run: psql -v ON_ERROR_STOP=1 -q -f supabase/migrations/202611060001_learning_session_history.sql
+      - name: Verify trigger behavior for business, activity and combined updates
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/learning-session-history.sql
