@@ -401,6 +401,7 @@ export const actionMethods = {
     if (!ALLOWED_FILE_EXTENSIONS.includes(extension)) { this.showToast(this.t('fileInvalid')); return; }
     if (file.size > MAX_FILE_SIZE) { this.showToast(this.t('fileTooLarge')); return; }
     this.files[type] = [file];
+    this.markLearningSessionDirty();
     this.saveAuditState();
     this.render();
   },
@@ -409,6 +410,7 @@ export const actionMethods = {
     if (this.filePreviewUrls[type]) URL.revokeObjectURL(this.filePreviewUrls[type]);
     delete this.filePreviewUrls[type];
     this.files[type] = [];
+    this.markLearningSessionDirty();
     this.saveAuditState();
     this.render();
   },
@@ -535,8 +537,12 @@ export const actionMethods = {
     this.advance(1);
     this.appendMessage(this.escape(mode === 'resubmit' ? this.t('debateResubmitted') : this.t('submitted')), mode === 'resubmit');
     this.setAnalyzing(true);
+    const saveSnapshot = this.captureLearningSnapshot();
+    const requestToken = ++this.analysisRequestToken;
     try {
       const learningRecord = await this.prepareLearningRecord(mode, problem, solution, previousAttempt);
+      if (this.learningRecordsService?.enabled && learningRecord) this.markLearningSessionSaved(saveSnapshot);
+      if (!this.learningRecordsService?.enabled) this.markLearningSessionSaved(saveSnapshot);
       const result = await requestDebateAnalysis({
         mode,
         problem,
@@ -550,6 +556,7 @@ export const actionMethods = {
         attemptNumber: mode === 'resubmit' ? (this.learningRecordPendingRevision?.attemptNumber || activeSession.revisionCount + 2) : 1,
         ...(learningRecord ? { learningRecord } : {}),
       });
+      if (requestToken !== this.analysisRequestToken) return;
       if (mode === 'resubmit') {
         if (this.learningRecordPendingRevision?.submissionId === learningRecord?.submissionId) this.learningRecordPendingRevision = null;
         activeSession.revisionCount += 1;
@@ -592,9 +599,11 @@ export const actionMethods = {
     session.conversation = session.conversation.slice(-40);
     if (input) input.value = '';
     this.setAnalyzing(true);
+    const requestToken = ++this.analysisRequestToken;
     try {
       const learningRecord = this.currentLearningRecordContext();
       const result = await requestDebateAnalysis({ mode: 'discuss', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: value, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints, previousQuestions: session.questions, ...(learningRecord ? { learningRecord } : {}) });
+      if (requestToken !== this.analysisRequestToken) return;
       // A discuss turn answers in "reply"; its own status/issues are only context
       // and must not replace the assessment the learner is looking at.
       const reply = result.reply || result.summary;
@@ -623,9 +632,11 @@ export const actionMethods = {
     this.appendMessage(this.escape(requestText), true);
     session.conversation.push({ role: 'user', text: requestText });
     this.setAnalyzing(true);
+    const requestToken = ++this.analysisRequestToken;
     try {
       const learningRecord = this.currentLearningRecordContext();
       const result = await requestDebateAnalysis({ mode: 'hint', problem: this.auditProblemText, solution: this.auditText, language: this.lang, question: requestText, hintLevel: nextLevel, previousAnalysis: this.auditResult, conversation: session.conversation.slice(0, -1), previousHints: session.hints, previousQuestions: session.questions, ...(learningRecord ? { learningRecord } : {}) });
+      if (requestToken !== this.analysisRequestToken) return;
       const hint = result.hint;
       if (!hint || hint.level !== nextLevel) throw Object.assign(new Error('Invalid hint'), { code: 'INVALID_OUTPUT' });
       session.hintLevel = nextLevel;

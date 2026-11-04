@@ -118,6 +118,7 @@ export const dataMethods = {
     this.learningSessionSearch = '';
     this.learningSessionSelectedId = '';
     this.learningSessionInitialized = false;
+    this.learningSessionHydrated = false;
     this.learningSessionDrawerOpen = false;
     this.learningSessionMenuId = '';
     this.learningSessionRenamingId = '';
@@ -125,6 +126,12 @@ export const dataMethods = {
     this.learningSessionDeleteId = '';
     this.learningSessionSearchTimer = null;
     this.learningSessionLoadingId = '';
+    this.analysisRequestToken = (this.analysisRequestToken || 0) + 1;
+    this.sessionDirty = false;
+    this.sessionSavedSnapshot = null;
+    this.unsavedDialogOpen = false;
+    this.pendingUnsavedAction = null;
+    this.allowUnsavedNavigation = false;
   },
   async loadUserData() {
     this.resetInMemoryUserData();
@@ -187,6 +194,8 @@ export const dataMethods = {
       problem: state.files?.problem ? [state.files.problem] : [],
       work: state.files?.work ? [state.files.work] : []
     };
+    this.sessionSavedSnapshot = this.captureLearningSnapshot();
+    this.sessionDirty = false;
   },
   saveAuditState() {
     if (!this.auditDB) return;

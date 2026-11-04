@@ -55,8 +55,9 @@ function sessionFixtures() {
   return { list, details };
 }
 
-async function setupSessions(page, { viewport } = {}) {
+async function setupSessions(page, { viewport, failCreate = false } = {}) {
   const state = sessionFixtures();
+  state.failCreate = failCreate;
   await seedSession(page);
   if (viewport) await page.setViewportSize(viewport);
   await page.route('**/api/auth/session', route => route.fulfill({
@@ -88,6 +89,32 @@ async function setupSessions(page, { viewport } = {}) {
       return;
     }
     const body = request.postDataJSON() || {};
+    if (body.action === 'createSession' && state.failCreate) {
+      await route.fulfill({ status: 500, json: { error: 'Save failed', code: 'LEARNING_RECORD_DATABASE_ERROR' } });
+      return;
+    }
+    if (body.action === 'createSession') {
+      const id = `created-${state.list.length + 1}`;
+      const row = {
+        id,
+        title: String(body.title || body.problem || 'Learning session').split(/\r?\n/)[0].slice(0, 160),
+        subject: body.subject || 'General',
+        status: 'in_progress',
+        problem: body.problem,
+        startedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastActivityAt: new Date().toISOString(),
+      };
+      state.list.unshift(row);
+      state.details[id] = {
+        ...row,
+        submissions: [{ id: `sub-${id}`, attemptNumber: 1, type: 'initial', solution: body.initialSolution, analysis: null, analysisState: 'pending_analysis', submittedAt: row.startedAt }],
+        interactions: [],
+        evaluations: [],
+      };
+      await route.fulfill({ status: 201, json: { session: row, submission: state.details[id].submissions[0] } });
+      return;
+    }
     if (body.action === 'renameSession') {
       const row = state.list.find(item => item.id === body.sessionId);
       if (row) row.title = String(body.title || '').trim();
@@ -208,6 +235,122 @@ test('AI context for each session excludes messages from the other session', asy
   const second = JSON.stringify(payloads[1]);
   expect(first).not.toContain('Bước nào trong lập luận bị sai?');
   expect(second).not.toContain('Vì sao đạo hàm của x bình phương là 2x?');
+});
+
+test('new session clears fields and files, and unsaved edits are confirmed before discarding', async ({ page }) => {
+  await setupSessions(page);
+  await page.goto('/#/audit');
+  await page.locator('[data-session-open="s1"]').click();
+  await page.fill('#problem-text', 'Nội dung chưa lưu');
+  await page.setInputFiles('[data-file="problem"]', { name: 'draft.txt', mimeType: 'text/plain', buffer: Buffer.from('draft') });
+  await expect.poll(() => page.evaluate(() => document.querySelector('edu-app').sessionDirty)).toBe(true);
+  await expect.poll(() => page.evaluate(() => document.querySelector('edu-app').files.problem.length)).toBe(1);
+
+  await page.locator('.ls-new').click();
+  await expect(page.locator('#unsaved-modal')).toBeVisible();
+  await expect(page.locator('#unsaved-modal')).toContainText('Bạn có thay đổi chưa được lưu');
+  await expect(page.locator('#problem-text')).toHaveValue('Nội dung chưa lưu');
+  await page.locator('[data-unsaved-stay]').click();
+  await expect(page.locator('#unsaved-modal')).toBeHidden();
+  await expect(page.locator('#problem-text')).toHaveValue('Nội dung chưa lưu');
+
+  await page.locator('.ls-new').click();
+  await page.locator('[data-unsaved-leave]').click();
+  await expect(page.locator('.learning-current-head h2')).toHaveText('Phiên học mới');
+  await expect(page.locator('#problem-text')).toHaveValue('');
+  await expect(page.locator('#work-text')).toHaveValue('');
+  await expect.poll(() => page.evaluate(() => document.querySelector('edu-app').files.problem.length)).toBe(0);
+  await expect.poll(() => page.evaluate(() => document.querySelector('edu-app').sessionDirty)).toBe(false);
+});
+
+test('beforeunload warns only when there are unsaved changes', async ({ page }) => {
+  await setupSessions(page);
+  await page.goto('/#/audit');
+  const clean = await page.evaluate(() => {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(clean).toBe(false);
+  await page.fill('#problem-text', 'Draft only');
+  const dirty = await page.evaluate(() => {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(dirty).toBe(true);
+});
+
+test('switching sessions with unsaved text keeps the current data until explicitly discarded', async ({ page }) => {
+  await setupSessions(page);
+  await page.goto('/#/audit');
+  await page.locator('[data-session-open="s1"]').click();
+  await page.fill('#problem-text', 'Chưa lưu ở phiên một');
+  await page.locator('[data-session-open="s2"]').click();
+  await expect(page.locator('#unsaved-modal')).toBeVisible();
+  await page.locator('[data-unsaved-stay]').click();
+  await expect(page.locator('.learning-current-head h2')).toHaveText('Đạo hàm và giới hạn');
+  await expect(page.locator('#problem-text')).toHaveValue('Chưa lưu ở phiên một');
+
+  await page.locator('[data-session-open="s2"]').click();
+  await page.locator('[data-unsaved-leave]').click();
+  await expect(page.locator('.learning-current-head h2')).toHaveText('Logic và lập luận');
+  await expect(page.locator('#problem-text')).toHaveValue('Phân tích lập luận sau.');
+  await expect(page.locator('#messages')).toContainText('Bước nào trong lập luận bị sai?');
+});
+
+test('in-app navigation warns before leaving an unsaved draft', async ({ page }) => {
+  await setupSessions(page);
+  await page.goto('/#/audit');
+  await page.fill('#problem-text', 'Draft before leaving');
+  await page.locator('[data-route="dashboard"]').first().click();
+  await expect(page.locator('#unsaved-modal')).toBeVisible();
+  await expect(page).toHaveURL(/#\/audit$/);
+  await page.locator('[data-unsaved-stay]').click();
+  await expect(page).toHaveURL(/#\/audit$/);
+  await expect(page.locator('#problem-text')).toHaveValue('Draft before leaving');
+
+  await page.locator('[data-route="dashboard"]').first().click();
+  await page.locator('[data-unsaved-leave]').click();
+  await expect(page).toHaveURL(/#\/dashboard$/);
+  await expect(page.locator('.view-head h1')).toBeVisible();
+});
+
+test('browser back is guarded while a draft is unsaved', async ({ page }) => {
+  await setupSessions(page);
+  await page.goto('/#/dashboard');
+  await page.locator('[data-route="audit"]').first().click();
+  await expect(page).toHaveURL(/#\/audit$/);
+  await page.fill('#problem-text', 'Draft before back');
+  await page.goBack();
+  await expect(page.locator('#unsaved-modal')).toBeVisible();
+  await expect(page).toHaveURL(/#\/audit$/);
+  await page.locator('[data-unsaved-stay]').click();
+  await expect(page.locator('#problem-text')).toHaveValue('Draft before back');
+});
+
+test('successful server save clears dirty state', async ({ page }) => {
+  await setupSessions(page);
+  await page.route('**/api/debate', async route => {
+    await route.fulfill({
+      json: { analysis: { status: 'insufficient', summary: 'Please revise the missing evidence.', issues: [], strengths: [], reply: '' } },
+    });
+  });
+  await page.goto('/#/audit');
+  await page.fill('#problem-text', 'Một bài mới');
+  await page.fill('#work-text', 'Lời giải mới');
+  await page.locator('#start-audit').click();
+  await expect.poll(() => page.evaluate(() => document.querySelector('edu-app').sessionDirty), { timeout: 10000 }).toBe(false);
+});
+
+test('failed server save keeps dirty state', async ({ page }) => {
+  const state = await setupSessions(page, { failCreate: true });
+  await page.goto('/#/audit');
+  await page.fill('#problem-text', 'Bài lưu thất bại');
+  await page.fill('#work-text', 'Lời giải');
+  await page.locator('#start-audit').click();
+  await expect.poll(() => page.evaluate(() => document.querySelector('edu-app').sessionDirty), { timeout: 10000 }).toBe(true);
+  expect(state.failCreate).toBe(true);
 });
 
 test('mobile history is a drawer and closes without covering the composer', async ({ page }) => {

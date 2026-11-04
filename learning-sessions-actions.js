@@ -6,6 +6,41 @@ export const learningSessionActionMethods = {
   learningSessionStorageKey() {
     return this.userStorageKey('active-learning-session');
   },
+  clearLearningFiles() {
+    Object.values(this.filePreviewUrls || {}).forEach(url => URL.revokeObjectURL(url));
+    this.filePreviewUrls = {};
+    this.files = { problem: [], work: [] };
+  },
+  learningFileKey(file) {
+    return file ? `${file.name}:${file.size}:${file.lastModified}` : '';
+  },
+  captureLearningSnapshot() {
+    return {
+      problem: String(this.auditProblemText || ''),
+      text: String(this.auditText || ''),
+      problemFile: this.learningFileKey(this.files?.problem?.[0]),
+      workFile: this.learningFileKey(this.files?.work?.[0]),
+    };
+  },
+  learningSnapshotsEqual(left, right) {
+    if (!left || !right) return false;
+    return left.problem === right.problem && left.text === right.text
+      && left.problemFile === right.problemFile && left.workFile === right.workFile;
+  },
+  markLearningSessionDirty() {
+    const current = this.captureLearningSnapshot();
+    this.sessionDirty = this.sessionSavedSnapshot
+      ? !this.learningSnapshotsEqual(this.sessionSavedSnapshot, current)
+      : Boolean(current.problem || current.text || current.problemFile || current.workFile);
+  },
+  markLearningSessionSaved(savedSnapshot) {
+    const current = this.captureLearningSnapshot();
+    this.sessionSavedSnapshot = savedSnapshot || current;
+    this.sessionDirty = !this.learningSnapshotsEqual(this.sessionSavedSnapshot, current);
+  },
+  hasUnsavedLearningChanges() {
+    return Boolean(this.sessionDirty);
+  },
   learningSessionById(id) {
     return (this.learningSessionList || []).find(session => session.id === id) || null;
   },
@@ -51,13 +86,16 @@ export const learningSessionActionMethods = {
         const savedId = localStorage.getItem(this.learningSessionStorageKey());
         if (savedId && this.learningSessionList.some(session => session.id === savedId)) {
           await this.openLearningSession(savedId, { silent: true });
-        } else if (!this.learningRecordSessionId && !this.auditProblemText && !this.auditText) {
+        } else if (!this.sessionDirty && !this.learningSessionHydrated) {
+          // No valid saved session: do not expose a previous local audit
+          // snapshot as if it belonged to a new session.
           this.resetLearningSessionState();
         }
         this.learningSessionInitialized = true;
       }
     } catch (error) {
       this.learningSessionListError = error?.code || 'LEARNING_SESSION_LIST_FAILED';
+      if (!this.sessionDirty && !this.learningSessionHydrated) this.resetLearningSessionState();
     } finally {
       this.learningSessionListLoading = false;
       if (this.view === 'audit') this.render();
@@ -73,20 +111,79 @@ export const learningSessionActionMethods = {
     this.debateSession = learningSessionDefault();
     this.auditMessages = [];
     this.step = 0;
+    this.clearLearningFiles();
     this.learningSessionSelectedId = '';
+    this.learningSessionHydrated = false;
     this.learningSessionMenuId = '';
     this.learningSessionRenamingId = '';
     this.learningSessionDeleteId = '';
     this.learningSessionLoadingId = '';
+    this.sessionDirty = false;
+    this.sessionSavedSnapshot = this.captureLearningSnapshot();
+    localStorage.removeItem(this.learningSessionStorageKey());
   },
-  newLearningSession({ silent = false } = {}) {
-    if (this.isAnalyzing) return;
+  newLearningSession({ silent = false, skipUnsavedCheck = false } = {}) {
+    if (this.isAnalyzing) { this.showToast(this.t('sessionBusy')); return; }
+    if (!skipUnsavedCheck && this.hasUnsavedLearningChanges()) {
+      this.requestUnsavedSessionAction({ type: 'new' });
+      return;
+    }
     this.resetLearningSessionState();
     localStorage.removeItem(this.learningSessionStorageKey());
     this.saveAuditState();
     if (!silent && this.view === 'audit') {
       this.render();
       requestAnimationFrame(() => this.querySelector('#problem-text')?.focus());
+    }
+  },
+  requestUnsavedSessionAction(action) {
+    this.pendingUnsavedAction = action;
+    this.unsavedDialogOpen = true;
+    const modal = this.querySelector('#unsaved-modal');
+    if (modal) {
+      modal.hidden = false;
+      modal.querySelector('[data-unsaved-stay]')?.focus();
+    } else {
+      this.render();
+      requestAnimationFrame(() => this.querySelector('[data-unsaved-stay]')?.focus());
+    }
+  },
+  closeUnsavedDialog() {
+    this.unsavedDialogOpen = false;
+    this.pendingUnsavedAction = null;
+    const modal = this.querySelector('#unsaved-modal');
+    if (modal) modal.hidden = true;
+    this.querySelector('#problem-text')?.focus();
+  },
+  async confirmUnsavedLeave() {
+    const action = this.pendingUnsavedAction;
+    this.unsavedDialogOpen = false;
+    this.pendingUnsavedAction = null;
+    this.sessionDirty = false;
+    const modal = this.querySelector('#unsaved-modal');
+    if (modal) modal.hidden = true;
+    if (!action) return;
+    if (action.type === 'new') {
+      this.resetLearningSessionState();
+      localStorage.removeItem(this.learningSessionStorageKey());
+      this.saveAuditState();
+      this.render();
+      return;
+    }
+    if (action.type === 'open') {
+      this.resetLearningSessionState();
+      await this.openLearningSession(action.sessionId, { skipUnsavedCheck: true });
+      return;
+    }
+    if (action.type === 'archive') {
+      await this.archiveLearningSession(action.sessionId, { skipUnsavedCheck: true });
+      return;
+    }
+    if (action.type === 'navigate') {
+      this.resetLearningSessionState();
+      this.saveAuditState();
+      this.allowUnsavedNavigation = true;
+      this.navigate(action.view);
     }
   },
   learningSessionMessages(detail) {
@@ -125,6 +222,7 @@ export const learningSessionActionMethods = {
       solution: String(latest.solution || ''),
       attemptNumber: latest.attemptNumber,
     } : null;
+    this.clearLearningFiles();
     this.auditProblemText = String(detail.problem || '');
     this.auditText = String(latest?.solution || '');
     const analyzed = [...submissions].reverse().find(item => item.analysis)?.analysis || null;
@@ -140,13 +238,21 @@ export const learningSessionActionMethods = {
     this.auditMessages = this.learningSessionMessages(detail);
     this.step = analyzed?.status === 'correct' ? 5 : analyzed?.status === 'incorrect' ? 2 : analyzed?.status === 'insufficient' ? 1 : 0;
     this.learningSessionSelectedId = detail.id;
+    this.learningSessionHydrated = true;
     this.learningSessionMenuId = '';
     this.learningSessionRenamingId = '';
     this.learningSessionDeleteId = '';
+    this.sessionSavedSnapshot = this.captureLearningSnapshot();
+    this.sessionDirty = false;
     localStorage.setItem(this.learningSessionStorageKey(), detail.id);
   },
-  async openLearningSession(sessionId, { silent = false } = {}) {
-    if (!sessionId || this.isAnalyzing || this.learningSessionLoadingId === sessionId) return;
+  async openLearningSession(sessionId, { silent = false, skipUnsavedCheck = false } = {}) {
+    if (this.isAnalyzing) { this.showToast(this.t('sessionBusy')); return; }
+    if (!sessionId || this.learningSessionLoadingId === sessionId) return;
+    if (!skipUnsavedCheck && sessionId !== this.learningSessionSelectedId && this.hasUnsavedLearningChanges()) {
+      this.requestUnsavedSessionAction({ type: 'open', sessionId });
+      return;
+    }
     if (!this.learningRecordsService?.enabled) {
       if (!silent) this.showToast(this.t('sessionUnavailable'));
       return;
@@ -216,8 +322,12 @@ export const learningSessionActionMethods = {
     this.learningSessionDeleteId = '';
     this.render();
   },
-  async archiveLearningSession(sessionId) {
+  async archiveLearningSession(sessionId, { skipUnsavedCheck = false } = {}) {
     if (!sessionId || this.isAnalyzing) return;
+    if (!skipUnsavedCheck && sessionId === this.learningSessionSelectedId && this.hasUnsavedLearningChanges()) {
+      this.requestUnsavedSessionAction({ type: 'archive', sessionId });
+      return;
+    }
     try {
       await this.learningRecordsService.archiveSession(sessionId);
       this.learningSessionList = this.learningSessionList.filter(session => session.id !== sessionId);

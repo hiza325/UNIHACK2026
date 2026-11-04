@@ -13,6 +13,12 @@ export const routerMethods = {
   },
   handleRoute() {
     const raw = location.hash.startsWith('#/') ? location.hash.slice(2).replace(/\/+$/, '') : '';
+    if (this.user && this.view === 'audit' && raw !== 'audit' && this.hasUnsavedLearningChanges() && !this.allowUnsavedNavigation) {
+      history.replaceState(null, '', `${location.pathname}${location.search}#/audit`);
+      this.requestUnsavedSessionAction({ type: 'navigate', view: APP_VIEWS.includes(raw) ? raw : 'dashboard' });
+      return;
+    }
+    this.allowUnsavedNavigation = false;
     document.body.classList.remove('sitemap-mode');
     if (raw === 'sitemap') { this.view = 'sitemap'; this.renderSitemap(); return; }
     window.scrollTo(0, 0);

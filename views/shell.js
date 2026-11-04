@@ -15,7 +15,7 @@ export const shellViews = {
         ${this.topbar(pageTitle)}
         ${this.viewMarkup()}
       </main>
-    </div><footer class="app-footer">${this.t('contestFooter')}</footer><div class="toast" id="toast" role="status"></div>${this.supportWidgetMarkup()}`;
+    </div><footer class="app-footer">${this.t('contestFooter')}</footer><div class="toast" id="toast" role="status"></div>${this.supportWidgetMarkup()}<div class="confirm-backdrop" id="unsaved-modal" ${this.unsavedDialogOpen ? '' : 'hidden'}><section class="confirm-panel" role="dialog" aria-modal="true" aria-labelledby="unsaved-title"><span class="badge-icon">⚠</span><h2 id="unsaved-title">${this.t('unsavedTitle')}</h2><p>${this.t('unsavedBody')}</p><div class="confirm-actions"><button class="ghost-button" type="button" data-unsaved-stay>${this.t('unsavedStay')}</button><button class="danger-button" type="button" data-unsaved-leave>${this.t('unsavedLeave')}</button></div></section></div>`;
     this.bind();
   },
   sidebar() {

@@ -55,9 +55,26 @@ clients cannot update/delete these tables directly.
 - mobile drawer with backdrop and close control.
 
 The chat area only uses the selected session's interactions. A new session clears
-the current problem/solution/result/messages; no previous session context is
-sent to the AI. Refresh restores the saved active session only after checking it
-is still present in the user's list.
+the current problem/solution/result/messages, selected files and previews; no
+previous session context is sent to the AI. Refresh restores the saved active
+session only after checking it is still present in the user's list.
+
+## Unsaved changes
+
+- A snapshot (`problem`, `solution`, selected file metadata) tracks dirty state.
+- Typing or selecting/removing a file marks the session dirty; loading server
+  data does not.
+- A successful create-session/create-submission response records the snapshot
+  and clears dirty state only if no newer edits happened while saving.
+- A failed save leaves dirty state enabled.
+- `beforeunload` asks the browser to show its native warning when dirty.
+- New session, session switch, in-app navigation and browser Back show an
+  in-app confirmation modal with “Keep editing” as the default choice.
+- Changing sessions while AI is analysing is blocked to prevent late responses
+  from being written into another session.
+- Modern browsers control the `beforeunload` wording and may suppress it on
+  mobile or after a forced browser/process close; the in-app modal remains the
+  reliable confirmation for explicit session/page changes.
 
 ## Migration order
 

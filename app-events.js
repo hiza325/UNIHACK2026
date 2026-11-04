@@ -5,6 +5,8 @@ export const eventMethods = {
       window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
       return;
     }
+    if (event.target.closest?.('[data-unsaved-stay]')) { this.closeUnsavedDialog(); return; }
+    if (event.target.closest?.('[data-unsaved-leave]')) { this.confirmUnsavedLeave(); return; }
     if (event.target.closest?.('[data-session-drawer]')) { this.toggleLearningSessionDrawer(); return; }
     if (event.target.closest?.('[data-session-close]')) { this.toggleLearningSessionDrawer(false); return; }
     if (event.target.closest?.('[data-session-new]')) { this.newLearningSession(); return; }
@@ -106,8 +108,8 @@ export const eventMethods = {
     if (event.target.id === 'passport-code') event.target.setCustomValidity('');
     if (event.target.id === 'learning-session-search') { this.scheduleLearningSessionSearch(event.target.value); return; }
     if (event.target.id === 'history-search') { this.historyPage = 1; this.filterHistory(); }
-    if (event.target.id === 'work-text') { this.auditText = event.target.value; this.saveAuditState(); }
-    if (event.target.id === 'problem-text') { this.auditProblemText = event.target.value; this.saveAuditState(); }
+    if (event.target.id === 'work-text') { this.auditText = event.target.value; this.markLearningSessionDirty(); this.saveAuditState(); }
+    if (event.target.id === 'problem-text') { this.auditProblemText = event.target.value; this.markLearningSessionDirty(); this.saveAuditState(); }
     if (event.target.id === 'admin-search') { this.filterAdminUsers(event.target.value); return; }
     if (event.target.id === 'cert-evaluation-select') { this.selectCertificateEvaluation(event.target.value); return; }
     if (event.target.id === 'hint-level') {
@@ -147,6 +149,7 @@ export const eventMethods = {
   },
   onKeydown(event) {
     if (event.key !== 'Escape') return;
+    if (this.unsavedDialogOpen) { this.closeUnsavedDialog(); return; }
     if (this.learningSessionMenuId || this.learningSessionRenamingId || this.learningSessionDeleteId) {
       this.learningSessionMenuId = '';
       this.learningSessionRenamingId = '';

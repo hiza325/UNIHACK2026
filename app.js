@@ -53,6 +53,7 @@ class EduApp extends HTMLElement {
     this.learningSessionSearch = '';
     this.learningSessionSelectedId = '';
     this.learningSessionInitialized = false;
+    this.learningSessionHydrated = false;
     this.learningSessionDrawerOpen = false;
     this.learningSessionMenuId = '';
     this.learningSessionRenamingId = '';
@@ -60,6 +61,17 @@ class EduApp extends HTMLElement {
     this.learningSessionDeleteId = '';
     this.learningSessionSearchTimer = null;
     this.learningSessionLoadingId = '';
+    this.sessionDirty = false;
+    this.sessionSavedSnapshot = null;
+    this.unsavedDialogOpen = false;
+    this.pendingUnsavedAction = null;
+    this.allowUnsavedNavigation = false;
+    this.analysisRequestToken = 0;
+    this.onBeforeUnload = event => {
+      if (!this.hasUnsavedLearningChanges()) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
     this.isAnalyzing = false;
     this.auditStorageReady = false;
     this.filePreviewUrls = {};
@@ -106,6 +118,7 @@ class EduApp extends HTMLElement {
     this.addEventListener('submit', this.onSubmit);
     window.addEventListener('keydown', this.onKeydown);
     window.addEventListener('hashchange', this.onHashChange);
+    window.addEventListener('beforeunload', this.onBeforeUnload);
     window.addEventListener('scroll', this.updateBackToTop, { passive: true });
     document.addEventListener('visibilitychange', this.onSessionVisibilityChange);
     window.addEventListener('focus', this.onSessionWindowFocus);
@@ -128,6 +141,7 @@ class EduApp extends HTMLElement {
     this.removeEventListener('submit', this.onSubmit);
     window.removeEventListener('keydown', this.onKeydown);
     window.removeEventListener('hashchange', this.onHashChange);
+    window.removeEventListener('beforeunload', this.onBeforeUnload);
     window.removeEventListener('scroll', this.updateBackToTop);
     document.removeEventListener('visibilitychange', this.onSessionVisibilityChange);
     window.removeEventListener('focus', this.onSessionWindowFocus);

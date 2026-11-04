@@ -121,7 +121,8 @@ export const extraCopy = {
     sessionCancel: 'Hủy', sessionSave: 'Lưu', sessionMenu: 'Tùy chọn phiên', sessionCurrent: 'Phiên hiện tại',
     sessionDraftTitle: 'Phiên học mới', sessionUntitled: 'Phiên chưa đặt tên', sessionOpen: 'Mở phiên',
     sessionWelcome: 'Nhập đề bài và lời giải để bắt đầu phiên mới. Lịch sử các phiên trước nằm bên trái.',
-    sessionLoadMore: 'Tải thêm phiên', sessionDrawer: 'Mở lịch sử phiên', sessionClose: 'Đóng lịch sử', sessionLastActive: 'Cập nhật',
+    sessionLoadMore: 'Tải thêm phiên', sessionBusy: 'Vui lòng chờ AI phân tích xong trước khi đổi phiên.', sessionDrawer: 'Mở lịch sử phiên', sessionClose: 'Đóng lịch sử', sessionLastActive: 'Cập nhật',
+    unsavedTitle: 'Bạn có thay đổi chưa được lưu', unsavedBody: 'Đề bài, lời giải hoặc tệp bạn vừa nhập chưa được lưu. Nếu tiếp tục, những thay đổi này có thể bị mất.', unsavedStay: 'Tiếp tục chỉnh sửa', unsavedLeave: 'Rời đi và bỏ thay đổi',
     dashRecentSub: 'Những bài bạn vừa phản biện', dashSessions: 'Phiên hoàn thành',
     dashOpen: 'Mở',
 
@@ -370,7 +371,8 @@ export const extraCopy = {
     sessionCancel: 'Cancel', sessionSave: 'Save', sessionMenu: 'Session options', sessionCurrent: 'Current session',
     sessionDraftTitle: 'New learning session', sessionUntitled: 'Untitled session', sessionOpen: 'Open session',
     sessionWelcome: 'Enter a problem and your solution to start a new session. Previous sessions are in the left panel.',
-    sessionLoadMore: 'Load more sessions', sessionDrawer: 'Open session history', sessionClose: 'Close history', sessionLastActive: 'Updated',
+    sessionLoadMore: 'Load more sessions', sessionBusy: 'Wait for the current AI analysis to finish before switching sessions.', sessionDrawer: 'Open session history', sessionClose: 'Close history', sessionLastActive: 'Updated',
+    unsavedTitle: 'You have unsaved changes', unsavedBody: 'The problem, solution or file you just entered has not been saved. If you continue, those changes may be lost.', unsavedStay: 'Keep editing', unsavedLeave: 'Leave and discard changes',
     dashRecentSub: 'Work you reviewed recently', dashSessions: 'Completed sessions',
     dashOpen: 'Open',
 
@@ -619,7 +621,8 @@ export const extraCopy = {
     sessionCancel: 'キャンセル', sessionSave: '保存', sessionMenu: 'セッションの操作', sessionCurrent: '現在のセッション',
     sessionDraftTitle: '新しい学習セッション', sessionUntitled: '無題のセッション', sessionOpen: 'セッションを開く',
     sessionWelcome: '問題と解答を入力して新しいセッションを開始します。以前のセッションは左側にあります。',
-    sessionLoadMore: 'さらに読み込む', sessionDrawer: 'セッション履歴を開く', sessionClose: '履歴を閉じる', sessionLastActive: '更新',
+    sessionLoadMore: 'さらに読み込む', sessionBusy: 'セッションを切り替える前にAI分析の完了をお待ちください。', sessionDrawer: 'セッション履歴を開く', sessionClose: '履歴を閉じる', sessionLastActive: '更新',
+    unsavedTitle: '保存されていない変更があります', unsavedBody: '入力した問題、解答、またはファイルはまだ保存されていません。続行すると変更が失われる可能性があります。', unsavedStay: '編集を続ける', unsavedLeave: '離れて変更を破棄',
     dashRecentSub: '最近レビューした解答', dashSessions: '完了したセッション',
     dashOpen: '開く',
 
