@@ -65,7 +65,7 @@ jobs:
           set -euo pipefail
           for file in $(ls supabase/migrations/*.sql | sort); do
             case "$file" in
-              *202611060001_learning_session_history.sql) continue ;;
+              *202611060001_learning_session_history.sql) break ;;
             esac
             echo "applying $file"
             psql -v ON_ERROR_STOP=1 -q -f "$file"
@@ -78,3 +78,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -q -f supabase/migrations/202611060001_learning_session_history.sql
       - name: Verify trigger behavior for business, activity and combined updates
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/learning-session-history.sql
+      - name: Apply forward trigger guard twice and verify behavior
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/202611060002_learning_session_trigger_guard.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/202611060002_learning_session_trigger_guard.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/learning-session-history.sql
