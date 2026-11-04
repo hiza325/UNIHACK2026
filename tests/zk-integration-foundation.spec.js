@@ -134,7 +134,7 @@ function fakeResponse(status, body) {
 }
 
 const TEST_DB_ENV = {
-  SUPABASE_URL: 'https://example.supabase.co',
+  SUPABASE_URL: 'http://127.0.0.1:54321',
   SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
 };
 

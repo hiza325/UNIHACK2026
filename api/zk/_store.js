@@ -124,7 +124,7 @@ function requireDecimal(value, field) {
   return normalized;
 }
 
-function assertInsertRecord(record) {
+export function assertInsertRecord(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) {
     throw storeError('ZK proof record must be an object', 'ZK_INVALID_INPUT', 400);
   }
@@ -214,13 +214,50 @@ function assertInsertRecord(record) {
   });
 }
 
+export function zkStagingDatabaseContext(env = process.env) {
+  const url = String(env.SUPABASE_URL || '').trim();
+  if (!url) throw storeError('ZK proof database is not configured', 'ZK_DATABASE_NOT_CONFIGURED', 503);
+
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw storeError('ZK database URL is invalid', 'ZK_DATABASE_URL_INVALID', 503);
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw storeError('ZK database URL is invalid', 'ZK_DATABASE_URL_INVALID', 503);
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1') {
+    return { environment: 'local', projectRef: null };
+  }
+  if (!host.endsWith('.supabase.co')) {
+    throw storeError('ZK database URL is not a trusted Supabase project URL', 'ZK_DATABASE_PROJECT_UNTRUSTED', 503);
+  }
+
+  const projectRef = host.split('.')[0];
+  const expectedRef = String(env.ZK_STAGING_SUPABASE_PROJECT_REF || 'ekkyygjlshrhibrdmhlx').trim().toLowerCase();
+  if (expectedRef === 'bwjpnyifsoiwoetxflzf') {
+    throw storeError('ZK staging project ref cannot target production', 'ZK_STAGING_PROJECT_CONFIG_INVALID', 503);
+  }
+  if (projectRef === 'bwjpnyifsoiwoetxflzf') {
+    throw storeError('ZK database points to the protected production Supabase project', 'ZK_PRODUCTION_DATABASE_FORBIDDEN', 503);
+  }
+  if (projectRef !== expectedRef) {
+    throw storeError('ZK database project does not match the approved staging project', 'ZK_STAGING_PROJECT_MISMATCH', 503);
+  }
+  return { environment: 'staging', projectRef };
+}
+
 export function zkStoreConfig(env = process.env) {
   const url = String(env.SUPABASE_URL || '').replace(/\/$/, '');
   const serviceKey = String(env.SUPABASE_SERVICE_ROLE_KEY || '');
   if (!url || !serviceKey) {
     throw storeError('ZK proof database is not configured', 'ZK_DATABASE_NOT_CONFIGURED', 503);
   }
-  return { url, serviceKey };
+  const database = zkStagingDatabaseContext(env);
+  return { url, serviceKey, database };
 }
 
 function mapStoreError(response, data) {
