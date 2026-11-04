@@ -1047,12 +1047,15 @@ body.dark .verification-interpretation { background: #202a24; }
 .suggestion-chip:hover { border-color: #5141bc; background: #f1effb; }
 .suggestion-chip:focus-visible { outline: 2px solid #5141bc; outline-offset: 1px; }
 .support-message { display: flex; margin-bottom: 10px; }
-.support-message span { max-width: 88%; padding: 10px 12px; border: 1px solid #e0e5dc; border-radius: 4px 12px 12px; background: #fff; color: #465248; font-size: 11px; line-height: 1.65; }
-.support-message span strong { color: #24382c; font-weight: 700; }
-.support-message span em { font-style: italic; }
-.support-message span code { padding: 1px 4px; border-radius: 4px; background: #eef1e8; font: 10px 'DM Mono', monospace; }
+.support-message > :is(span, .support-bubble) { max-width: 88%; padding: 10px 12px; border: 1px solid #e0e5dc; border-radius: 4px 12px 12px; background: #fff; color: #465248; font-size: 11px; line-height: 1.65; overflow-wrap: anywhere; min-width: 0; }
+.support-bubble strong { color: #24382c; font-weight: 700; }
+.support-bubble em { font-style: italic; }
+.support-bubble code { padding: 1px 4px; border-radius: 4px; background: #eef1e8; font: 10px 'DM Mono', monospace; }
+.support-bubble .support-code { white-space: pre-wrap; margin: 8px 0; }
+.support-bubble ul, .support-bubble ol { padding-left: 20px; margin: 6px 0; }
+.support-status { display: block; margin-top: 8px; opacity: .8; }
 .support-message.user { justify-content: flex-end; }
-.support-message.user span { border-color: #d8e4c8; border-radius: 12px 4px 12px 12px; background: #edf5e3; color: #31452f; }
+.support-message.user .support-bubble { border-color: #d8e4c8; border-radius: 12px 4px 12px 12px; background: #edf5e3; color: #31452f; }
 .support-typing span { color: #59645c; font-style: italic; }
 .support-form { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 8px; padding: 12px 14px; border-top: 1px solid #e2e5dc; background: #fff; }
 .support-form input { min-width: 0; height: 40px; padding: 0 11px; border: 1px solid #d6dbd2; border-radius: 8px; background: #fbfcf8; color: #24382c; font-size: 11px; }
@@ -1068,10 +1071,10 @@ body.dark .support-head h2 { color: #f1f5f2; }
 body.dark .support-kicker, body.dark .support-head button { color: #bdc9c1; }
 body.dark .support-head button:hover { background: #2c3932; }
 body.dark .support-messages { background: #18211c; }
-body.dark .support-message span { border-color: #354139; background: #222e27; color: #dce5df; }
-body.dark .support-message span strong { color: #f1f5f2; }
-body.dark .support-message span code { background: #2c3932; }
-body.dark .support-message.user span { border-color: #465b48; background: #2b3b2d; color: #edf5e8; }
+body.dark .support-message > :is(span, .support-bubble) { border-color: #354139; background: #222e27; color: #dce5df; }
+body.dark .support-bubble strong { color: #f1f5f2; }
+body.dark .support-bubble code { background: #2c3932; }
+body.dark .support-message.user .support-bubble { border-color: #465b48; background: #2b3b2d; color: #edf5e8; }
 body.dark .support-form, body.dark .support-note { border-color: #354139; background: #202b25; }
 body.dark .support-suggestions { background: #202b25; }
 body.dark .support-suggestions-label { color: #bdc9c1; }

@@ -52,31 +52,55 @@ export const supportMethods = {
         <header class="support-head"><div><span class="support-kicker">PARADOX AI</span><h2 id="support-title">${this.t('supportTitle')}</h2></div><button type="button" data-support-close aria-label="${this.t('close')}"><span aria-hidden="true">×</span></button></header>
         <div class="support-messages" id="support-messages" aria-live="polite">${messages.map(item => this.supportMessageMarkup(item)).join('')}${this.supportLoading ? this.supportTypingMarkup() : ''}</div>
         ${this.supportSuggestionsMarkup()}
-        <form class="support-form" id="support-form"><label class="sr-only" for="support-input">${this.t('supportPlaceholder')}</label><input id="support-input" name="message" maxlength="600" autocomplete="off" placeholder="${this.t('supportPlaceholder')}" ${this.supportLoading ? 'disabled' : ''}><button type="submit" aria-label="${this.t('send')}" ${this.supportLoading ? 'disabled' : ''}><span aria-hidden="true">↑</span></button></form>
+        <form class="support-form" id="support-form"><label class="sr-only" for="support-input">${this.t('supportPlaceholder')}</label><input id="support-input" name="message" maxlength="1200" autocomplete="off" placeholder="${this.t('supportPlaceholder')}" ${this.supportLoading ? 'disabled' : ''}><button type="submit" aria-label="${this.t('send')}" ${this.supportLoading ? 'disabled' : ''}><span aria-hidden="true">↑</span></button></form>
         <p class="support-note">${this.t('supportScope')}</p>
       </section>
     </aside>`;
   },
   formatSupportText(text) {
-    // Escape first so no model output can become markup, then restore a tiny safe subset:
-    // **bold**, __bold__, *italic*, _italic_, `inline code` and line breaks.
-    const escaped = this.escape(String(text ?? ''));
-    const codeTokens = [];
-    let safe = escaped.replace(/`([^`\n]+)`/g, (_, code) => `\uE000${codeTokens.push(`<code>${code}</code>`) - 1}\uE000`);
-    safe = safe
+    const inline = value => value.split(/(`[^`\n]+`)/g).map(part => {
+      const escaped = this.escape(part);
+      if (part.startsWith('`') && part.endsWith('`')) return `<code>${this.escape(part.slice(1, -1))}</code>`;
+      return escaped
       .replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>')
       .replace(/(^|[^_\w])__([^_\n]+?)__(?![\w_])/g, '$1<strong>$2</strong>')
       .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>')
-      .replace(/(^|[^_\w])_([^_\n]+?)_(?![\w_])/g, '$1<em>$2</em>');
-    safe = safe.replace(/\uE000(\d+)\uE000/g, (_, index) => codeTokens[Number(index)]);
-    return safe.replace(/\n/g, '<br>');
+       .replace(/(^|[^_\w])_([^_\n]+?)_(?![\w_])/g, '$1<em>$2</em>');
+    }).join('');
+    // Split before escaping: code contents never pass through Markdown rules.
+    return String(text ?? '').split(/(```[^\n]*\n[\s\S]*?(?:```|$))/g).map(part => {
+      if (part.startsWith('```')) return `<pre class="support-code"><code>${this.escape(part.replace(/^```[^\n]*\n/, '').replace(/```$/, ''))}</code></pre>`;
+      let list = '';
+      const lines = part.split('\n').map(line => {
+        const match = line.match(/^\s*(?:(\d+)\.\s+|[-*]\s+)(.*)$/);
+        const type = match ? (match[1] ? 'ol' : 'ul') : '';
+        const transition = (list && list !== type ? `</${list}>` : '') + (type && list !== type ? `<${type}>` : '');
+        list = type;
+        if (match) return `${transition}<li${match[1] ? ` value="${Number(match[1])}"` : ''}>${inline(match[2])}</li>`;
+        return transition + (/^#{1,6}\s+/.test(line) ? `<strong>${inline(line.replace(/^#{1,6}\s+/, ''))}</strong>` : inline(line)) + '<br>';
+      });
+      return lines.join('') + (list ? `</${list}>` : '');
+    }).join('');
+  },
+  supportStatusText() {
+    const labels = {
+      vi: { incomplete: 'Phản hồi chưa hoàn tất. Bạn có thể thử lại với từng ý riêng.', degraded: 'AI đang gián đoạn; dưới đây chỉ là hướng dẫn tham khảo từ tài liệu, có thể chưa đủ cho mọi ý.', retry: 'Thử lại', complete: 'Đã trả lời xong' },
+      en: { incomplete: 'The reply is incomplete. Try again with one question at a time.', degraded: 'AI is unavailable; this documentation fallback may not cover every part.', retry: 'Retry', complete: 'Reply complete' },
+      jp: { incomplete: '回答が完了していません。質問を分けて再試行できます。', degraded: 'AIに接続できません。以下は資料からの参考情報で、すべての質問を網羅しない場合があります。', retry: '再試行', complete: '回答完了' },
+    };
+    return labels[this.lang] || labels.en;
   },
   supportMessageMarkup(message) {
     const text = String(message.text ?? '');
     const safe = message.role === 'user'
       ? this.escape(text).replace(/\n/g, '<br>')
       : this.formatSupportText(text);
-    return `<div class="support-message ${message.role === 'user' ? 'user' : 'assistant'}"><span>${safe}</span></div>`;
+    const labels = this.supportStatusText();
+    const interrupted = ['incomplete', 'degraded', 'error'].includes(message.status);
+    const latest = message === this.supportMessages.at(-1);
+    const notice = message.role === 'assistant' && message.status
+      ? `<small class="support-status" role="status">${this.escape(message.status === 'error' ? '' : labels[message.status] || labels.incomplete)}${message.code === 'TIMEOUT' || message.code === 'RATE_LIMITED' ? ` ${this.escape(this.supportErrorText(message))}` : ''}</small>${interrupted && latest ? `<button type="button" data-support-retry ${this.supportLoading ? 'disabled' : ''}>${labels.retry}</button>` : ''}` : '';
+    return `<div class="support-message ${message.role === 'user' ? 'user' : 'assistant'}"><div class="support-bubble">${safe}${notice}</div></div>`;
   },
   updateBackToTop() {
     const button = this.querySelector('[data-back-to-top]');
@@ -86,6 +110,7 @@ export const supportMethods = {
     return `<div class="support-message assistant support-typing" role="status"><span>${this.t('supportThinking')}</span></div>`;
   },
   supportErrorText(error) {
+    if (error?.code === 'INTERRUPTED_RESPONSE') return ({ vi: 'Phản hồi bị gián đoạn. Vui lòng thử lại.', en: 'The response was interrupted. Please retry.', jp: '応答が中断されました。再試行してください。' })[this.lang] || this.t('supportError');
     if (error?.code === 'NOT_CONFIGURED') return this.t('supportNotConfigured');
     if (error?.code === 'RATE_LIMITED') return this.t('supportRateLimited');
     if (error?.code === 'TIMEOUT') return this.t('supportTimeout');
@@ -115,10 +140,12 @@ export const supportMethods = {
     if (input) input.disabled = this.supportLoading;
     if (submit) submit.disabled = this.supportLoading;
   },
-  async sendSupportMessage(text) {
-    const value = String(text || '').trim().slice(0, 600);
+  async sendSupportMessage(text, retry = false) {
+    const value = String(text || '').trim();
     if (!value || this.supportLoading) return;
-    this.supportMessages.push({ role: 'user', text: value });
+    if (value.length > 1200) return;
+    if (retry) this.supportMessages.pop(); // Replace the interrupted reply, never append a continuation guess.
+    else this.supportMessages.push({ role: 'user', text: value });
     this.supportMessages = this.supportMessages.slice(-20);
     this.supportLoading = true;
     this.supportSuggestions = [];
@@ -126,15 +153,20 @@ export const supportMethods = {
     try {
       const reply = await requestSupportReply(this.supportMessages, this.lang, this.view || 'landing');
       const resolved = typeof reply === 'string' ? { text: reply, suggestions: [] } : reply;
-      this.supportMessages.push({ role: 'assistant', text: resolved.text });
+      this.supportMessages.push({ role: 'assistant', text: resolved.text, status: resolved.status || 'incomplete', code: resolved.code });
       this.supportSuggestions = Array.isArray(resolved.suggestions) ? resolved.suggestions.slice(0, 4) : [];
     } catch (error) {
-      this.supportMessages.push({ role: 'assistant', text: this.supportErrorText(error) });
+      this.supportMessages.push({ role: 'assistant', text: this.supportErrorText(error), status: 'error', code: error.code });
     } finally {
       this.supportLoading = false;
       this.supportMessages = this.supportMessages.slice(-20);
       this.renderSupportConversation();
       this.querySelector('#support-input')?.focus();
     }
+  },
+  retrySupportMessage() {
+    if (this.supportLoading || !['incomplete', 'degraded', 'error'].includes(this.supportMessages.at(-1)?.status)) return;
+    const question = this.supportMessages.at(-2);
+    if (question?.role === 'user') return this.sendSupportMessage(question.text, true);
   },
 };
