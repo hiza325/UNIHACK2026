@@ -16,7 +16,7 @@ export const zkViews = {
       </article>`).join('') || '<p class="passport-empty-list">No eligible evaluations.</p>';
     const proofs = (this.zkProofs || []).map(item => `
       <article class="credential-row">
-        <div class="credential-main"><span class="credential-code">${this.escape(item.proofId)}</span><h3>${this.escape(item.circuit)} · threshold ${this.escape(item.threshold)}</h3><p>${this.escape(item.issuedAt)} · ${this.escape(item.status)}</p></div>
+        <div class="credential-main"><span class="credential-code">${this.escape(item.proofId)}</span><h3>${this.escape(item.circuit?.name || 'score_threshold')} · threshold ${this.escape(item.threshold)}</h3><p>${this.escape(item.issuedAt)} · ${this.escape(item.status)}</p></div>
         ${item.classification === 'DEMO' ? this.zkDemoBadge() : `<span class="credential-status ${item.classification === 'OFFICIAL' ? 'verified' : 'pending'}">${this.escape(item.classification || 'UNCLASSIFIED')}</span>`}
         <button class="row-action" type="button" data-zk-verify="${this.escape(item.proofId)}">Verify ↗</button>
       </article>`).join('') || '<p class="passport-empty-list">No proofs yet.</p>';
