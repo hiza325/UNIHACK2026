@@ -4,11 +4,27 @@ on:
   pull_request:
     paths:
       - 'zk/**'
+      - 'api/zk/**'
+      - 'api/learning-records/index.js'
+      - 'tests/zk-*.spec.js'
+      - 'tests/static-server.mjs'
+      - 'supabase/migrations/*zk*'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vercel.json'
       - '.github/workflows/zk.yml'
   push:
     branches: [main]
     paths:
       - 'zk/**'
+      - 'api/zk/**'
+      - 'api/learning-records/index.js'
+      - 'tests/zk-*.spec.js'
+      - 'tests/static-server.mjs'
+      - 'supabase/migrations/*zk*'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vercel.json'
       - '.github/workflows/zk.yml'
   workflow_dispatch:
 
