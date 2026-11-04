@@ -20,7 +20,7 @@ import { createLearningRecordStore } from '../learning-records/_store.js';
 import { createZkProofStore } from './_store.js';
 import { loadKeyConfig } from './_keys.js';
 import { ZK_ALLOWED_THRESHOLDS, resolveThreshold } from './_policy.js';
-import { toPublicProofRecord } from './_projection.js';
+import { toPublicProofRecord, toPublicProofSummary } from './_projection.js';
 import { createZkVerificationService } from './_verify.js';
 import { createZkProofGenerationService } from './_generate.js';
 import { loadDemoEvaluatorSigner } from './_signing.js';
@@ -30,6 +30,7 @@ const RATE_WINDOW_MS = 60_000;
 const RATE_LIMITS = Object.freeze({
   status: 60,
   getProof: 60,
+  listProofs: 30,
   verifyProof: 10,
   generateProof: 5,
 });
@@ -149,6 +150,24 @@ export function createZkRouter({
           allowedThresholds: [...ZK_ALLOWED_THRESHOLDS],
           setupMode: keyConfig.setupMode,
         });
+      }
+
+      if (action === 'listProofs') {
+        if (req.method !== 'GET') return methodNotAllowed(res, 'GET');
+        consumeRate(req, 'listProofs', new Date(now()).getTime());
+        let session;
+        try {
+          session = await sessionResolver(req, res);
+        } catch {
+          return sendJson(res, 401, { error: 'Authentication is required', code: 'ZK_UNAUTHENTICATED' });
+        }
+        const learnerId = String(session?.user?.id || '').trim();
+        if (!learnerId) return sendJson(res, 401, { error: 'Authentication is required', code: 'ZK_UNAUTHENTICATED' });
+        const limit = Math.max(1, Math.min(100, Number(req?.query?.limit) || 50));
+        const offset = Math.max(0, Math.min(10_000, Number(req?.query?.offset) || 0));
+        const store = storeFactory();
+        const rows = await store.listByLearner(learnerId, { limit, offset });
+        return sendJson(res, 200, { proofs: rows.map(toPublicProofSummary) });
       }
 
       if (action === 'getProof') {

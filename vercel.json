@@ -17,6 +17,10 @@
       "destination": "/api/learning-records?zkAction=status"
     },
     {
+      "source": "/api/zk/proofs",
+      "destination": "/api/learning-records?zkAction=listProofs"
+    },
+    {
       "source": "/api/zk/proofs/:proofId",
       "destination": "/api/learning-records?zkAction=getProof&proofId=:proofId"
     },

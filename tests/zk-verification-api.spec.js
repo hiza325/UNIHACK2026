@@ -557,28 +557,33 @@ test('zkAction routes before auth and cannot create proofs', async () => {
   expect(unknown.statusCode).toBe(404);
 });
 
-test('Vercel rewrites map only read-only ZK routes and add no function', async () => {
+test('Vercel rewrites map supported ZK routes', async () => {
   const config = JSON.parse(await readFile(fileURLToPath(new URL('../vercel.json', import.meta.url)), 'utf8'));
   const routes = Object.fromEntries((config.rewrites || []).map(rule => [rule.source, rule.destination]));
   expect(routes['/api/zk/status']).toBe('/api/learning-records?zkAction=status');
+  expect(routes['/api/zk/proofs']).toBe('/api/learning-records?zkAction=listProofs');
   expect(routes['/api/zk/proofs/:proofId']).toBe('/api/learning-records?zkAction=getProof&proofId=:proofId');
+  expect(routes['/api/zk/generate']).toBe('/api/learning-records?zkAction=generateProof');
   expect(routes['/api/zk/verify']).toBe('/api/learning-records?zkAction=verifyProof');
-  expect(routes['/api/zk/proofs']).toBeUndefined();
 });
 
-test('local static server resolves only the three read-only ZK routes', () => {
+test('local static server resolves supported ZK routes', () => {
   expect(resolveZkRoute('/api/zk/status')).toEqual({ zkAction: 'status' });
   expect(resolveZkRoute('/api/zk/verify')).toEqual({ zkAction: 'verifyProof' });
+  expect(resolveZkRoute('/api/zk/generate')).toEqual({ zkAction: 'generateProof' });
+  expect(resolveZkRoute('/api/zk/proofs')).toEqual({ zkAction: 'listProofs' });
   expect(resolveZkRoute(`/api/zk/proofs/${PROOF_ID}`)).toEqual({ zkAction: 'getProof', proofId: PROOF_ID });
-  expect(resolveZkRoute('/api/zk/proofs')).toBeNull();
 });
 
-test('local HTTP routing exposes only read-only ZK paths and no create route', async ({ request }) => {
+test('local HTTP routing exposes supported ZK paths and rejects unknown mutations', async ({ request }) => {
   const status = await request.get('/api/zk/status');
   expect([200, 503]).toContain(status.status());
 
-  const create = await request.post('/api/zk/proofs', { data: {} });
-  expect(create.status()).toBe(404);
+  const listPost = await request.post('/api/zk/proofs', { data: {} });
+  expect(listPost.status()).toBe(405);
+
+  const generate = await request.post('/api/zk/generate', { data: {} });
+  expect([400, 401, 503]).toContain(generate.status());
 
   const statusPost = await request.post('/api/learning-records?zkAction=status', { data: {} });
   expect(statusPost.status()).toBe(405);

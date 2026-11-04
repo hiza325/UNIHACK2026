@@ -59,6 +59,10 @@ export function createLearningRecordsService({ enabled = false, apiBaseUrl = '/a
     async getZkStatus() {
       return zkRequest('/status');
     },
+    async listZkProofs({ limit = 50, offset = 0 } = {}) {
+      const data = await zkRequest(`/proofs?${new URLSearchParams({ limit: String(limit), offset: String(offset) })}`);
+      return data.proofs;
+    },
     async getZkProof(proofId) {
       const data = await zkRequest(`/proofs/${encodeURIComponent(proofId)}`);
       return data.proof;

@@ -68,6 +68,7 @@ export function resolveZkRoute(pathname) {
   if (pathname === '/api/zk/status') return { zkAction: 'status' };
   if (pathname === '/api/zk/generate') return { zkAction: 'generateProof' };
   if (pathname === '/api/zk/verify') return { zkAction: 'verifyProof' };
+  if (pathname === '/api/zk/proofs') return { zkAction: 'listProofs' };
   const match = String(pathname).match(/^\/api\/zk\/proofs\/([^/]+)$/);
   if (match) return { zkAction: 'getProof', proofId: decodeURIComponent(match[1]) };
   return null;
