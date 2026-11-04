@@ -269,6 +269,7 @@ export function createZkVerificationService({
       && row.credential_is_test === false
       && keyConfig.setupMode === 'production'
       && keyConfig.productionVerified === true
+      && keyConfig.previewDemo !== true
       && keyConfig.manifest?.trustedSetup?.productionReady === true
       && String(keyConfig.manifest?.trustedSetup?.mode || '') !== 'local-single-contributor'
       && keyConfig.activeTrustedIssuers?.get?.(row.issuer_key_id)?.environment === 'production'

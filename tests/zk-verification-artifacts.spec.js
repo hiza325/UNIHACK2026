@@ -7,8 +7,6 @@ import { join, relative } from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
-import { artifactsReady } from '../zk/lib/artifacts.mjs';
-
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SCRIPT = join(ROOT, 'scripts', 'zk-verification-artifacts.mjs');
 const execFileAsync = promisify(execFile);
@@ -273,7 +271,6 @@ test('missing lock and missing pins fail closed', async () => {
 });
 
 test('repository artifacts pass the build-time check with the lock file', async () => {
-  test.skip(!(await artifactsReady()), 'ZK build artifacts are not present; run `cd zk && npm run build`.');
   const result = await run(['--check', '--json']);
   expect(result.code).toBe(0, result.stderr);
   const payload = JSON.parse(result.stdout);

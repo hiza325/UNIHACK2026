@@ -4,7 +4,7 @@ import { access, readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { artifactPaths, artifactsReady, BUILD_DIR } from '../zk/lib/artifacts.mjs';
+import { artifactPaths, BUILD_DIR } from '../zk/lib/artifacts.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const REQUIRED_ARTIFACTS = ['verification_key.json', 'manifest.json'];
@@ -27,7 +27,6 @@ test('Vercel packages only the read-only verification key and manifest', async (
 });
 
 test('local bundle contains the required artifacts and pinned verification key', async () => {
-  test.skip(!(await artifactsReady()), 'ZK build artifacts are not present; run `cd zk && npm run build`.');
   const paths = artifactPaths(BUILD_DIR);
   const config = JSON.parse(await readFile(join(ROOT, 'vercel.json'), 'utf8'));
   const includeFiles = config.functions['api/learning-records/index.js'].includeFiles;

@@ -275,6 +275,29 @@ test('verification distinguishes DEMO, UNCLASSIFIED and OFFICIAL', async () => {
     .toMatchObject({ valid: true, classification: 'DEMO' });
 });
 
+test('previewDemo key configuration can never be classified OFFICIAL', async () => {
+  const previewKey = keyConfig({
+    previewDemo: true,
+    manifest: { trustedSetup: { productionReady: true, mode: 'multi-party-ceremony' } },
+  });
+  // An official snapshot checked under a preview demo key config must not be
+  // promoted to OFFICIAL; it remains UNCLASSIFIED rather than being trusted.
+  expect(await makeService({ keys: previewKey }).verify(PROOF_ID)).toMatchObject({
+    valid: true,
+    classification: 'UNCLASSIFIED',
+    proof: { classification: 'UNCLASSIFIED' },
+  });
+  expect(classifyProofSnapshot({
+    credential: {
+      credential_code: 'PXP-2026-REAL-0001',
+      is_test: false,
+      source: 'ai-evaluation',
+    },
+    keyConfig: previewKey,
+    issuerKeyId: 'kid-1',
+  })).toEqual({ proofMode: 'demo', credentialIsTest: false });
+});
+
 test('verification fails closed for invalid Groth16 proof', async () => {
   const service = makeService({ verifyGroth16: async () => false });
   const result = await service.verify(PROOF_ID);

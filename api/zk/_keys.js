@@ -12,6 +12,10 @@
  * Production fails closed when the vkey hash is missing/mismatched, when the
  * manifest is not marked production-ready, or when only development setup is
  * available.
+ *
+ * A Vercel Preview may run a development setup only when the platform marks
+ * the deployment as preview (VERCEL=1, VERCEL_ENV=preview) and
+ * ZK_PREVIEW_DEMO=1. Preview is always DEMO and is never OFFICIAL.
  */
 
 import { createHash, createPublicKey } from 'node:crypto';
@@ -33,6 +37,38 @@ function keyError(message, code, status = 503, cause) {
 function resolvePath(value) {
   const path = String(value).trim();
   return isAbsolute(path) ? path : resolve(path);
+}
+
+/**
+ * Vercel injects VERCEL=1 and VERCEL_ENV as reserved system variables. They
+ * are the deployment trust anchor; NODE_ENV alone is not sufficient because
+ * Vercel sets NODE_ENV=production for preview deployments too.
+ */
+function deploymentContext(env) {
+  return {
+    vercel: String(env.VERCEL || '').trim() === '1',
+    vercelEnv: String(env.VERCEL_ENV || '').trim().toLowerCase(),
+  };
+}
+
+function previewDemoContext(env) {
+  const { vercel, vercelEnv } = deploymentContext(env);
+  if (vercelEnv !== 'preview') return false;
+  if (!vercel) {
+    throw keyError(
+      'Preview deployment environment is not trusted',
+      'ZK_DEPLOYMENT_ENV_UNTRUSTED',
+      503,
+    );
+  }
+  if (String(env.ZK_PREVIEW_DEMO || '') !== '1') {
+    throw keyError(
+      'Preview DEMO mode is not explicitly enabled',
+      'ZK_PREVIEW_DEMO_REQUIRED',
+      503,
+    );
+  }
+  return true;
 }
 
 function parseDate(value, field) {
@@ -174,6 +210,10 @@ export async function loadVerificationKey({
     throw keyError('ZK trusted setup mode is invalid', 'ZK_TRUSTED_SETUP_MODE_INVALID', 503);
   }
 
+  // Any ZK runtime on a Vercel preview must be explicitly opted in. This is
+  // separate from the production pins and never makes a preview OFFICIAL.
+  const previewDemo = previewDemoContext(env);
+
   const vkeyPath = resolvePath(env.ZK_VKEY_PATH || DEFAULT_VKEY_PATH);
   let vkeyBuffer;
   try {
@@ -229,11 +269,36 @@ export async function loadVerificationKey({
 
   let productionVerified = false;
   if (setupMode === 'development') {
-    if (String(env.NODE_ENV || '').trim().toLowerCase() === 'production') {
-      throw keyError('Development trusted setup is forbidden in production', 'ZK_DEVELOPMENT_SETUP_FORBIDDEN', 503);
-    }
-    if (String(env.ZK_ALLOW_DEVELOPMENT_SETUP || '') !== '1') {
-      throw keyError('Development trusted setup is not allowed', 'ZK_DEVELOPMENT_SETUP_NOT_ALLOWED', 503);
+    if (previewDemo) {
+      // Trusted Vercel Preview + explicit ZK_PREVIEW_DEMO=1. Vercel sets
+      // NODE_ENV=production here, so the preview flag is the only allowed
+      // override for a development trusted setup.
+    } else {
+      const { vercel, vercelEnv } = deploymentContext(env);
+      if (vercelEnv === 'production') {
+        throw keyError('Development trusted setup is forbidden in production', 'ZK_DEVELOPMENT_SETUP_FORBIDDEN', 503);
+      }
+      if (vercel) {
+        if (vercelEnv !== 'development') {
+          throw keyError(
+            'Deployment environment is not trusted for development setup',
+            'ZK_DEPLOYMENT_ENV_UNTRUSTED',
+            503,
+          );
+        }
+      } else if (vercelEnv) {
+        throw keyError(
+          'Deployment environment is not trusted for development setup',
+          'ZK_DEPLOYMENT_ENV_UNTRUSTED',
+          503,
+        );
+      }
+      if (String(env.NODE_ENV || '').trim().toLowerCase() === 'production') {
+        throw keyError('Development trusted setup is forbidden in production', 'ZK_DEVELOPMENT_SETUP_FORBIDDEN', 503);
+      }
+      if (String(env.ZK_ALLOW_DEVELOPMENT_SETUP || '') !== '1') {
+        throw keyError('Development trusted setup is not allowed', 'ZK_DEVELOPMENT_SETUP_NOT_ALLOWED', 503);
+      }
     }
   } else {
     if (manifest?.trustedSetup?.productionReady !== true
@@ -259,6 +324,10 @@ export async function loadVerificationKey({
     productionVerified = true;
   }
 
+  // Preview deployments are DEMO-only by construction, even if someone
+  // configures a production manifest/pins there.
+  if (previewDemo) productionVerified = false;
+
   if (manifest?.circuit?.version && String(manifest.circuit.version) !== circuitVersion) {
     throw keyError('ZK circuit version does not match the manifest', 'ZK_CIRCUIT_VERSION_MISMATCH', 503);
   }
@@ -272,6 +341,7 @@ export async function loadVerificationKey({
     manifest,
     circuitVersion,
     setupMode,
+    previewDemo,
     productionVerified,
   });
 }
@@ -296,6 +366,7 @@ export async function loadKeyConfig({
     vkeyPath: verification.vkeyPath,
     circuitVersion: verification.circuitVersion,
     setupMode: verification.setupMode,
+    previewDemo: verification.previewDemo,
     productionVerified: verification.productionVerified,
     manifest: verification.manifest,
     manifestHash: verification.manifestHash,
