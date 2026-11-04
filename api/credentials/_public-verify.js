@@ -162,6 +162,7 @@ export async function handlePublicVerify(req, res) {
       title: dbRow.title || null,
       skill: dbRow.skill || null,
       source: dbRow.source || null,
+      isTest: Boolean(dbRow.is_test) || String(dbRow.credential_code || '').toUpperCase().startsWith('PXP-TEST-'),
       metadataIntegrity,
     } : null,
     message: status === 'VALID'
