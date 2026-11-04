@@ -13,12 +13,17 @@
  * its own method allowlist and rate limit.
  */
 
+import { currentUser, publicUser } from '../auth/_supabase.js';
 import { createAvalancheGateway } from '../credentials/_avalanche.js';
+import { createCredentialStore } from '../credentials/_store.js';
+import { createLearningRecordStore } from '../learning-records/_store.js';
 import { createZkProofStore } from './_store.js';
 import { loadKeyConfig } from './_keys.js';
-import { ZK_ALLOWED_THRESHOLDS } from './_policy.js';
+import { ZK_ALLOWED_THRESHOLDS, resolveThreshold } from './_policy.js';
 import { toPublicProofRecord } from './_projection.js';
 import { createZkVerificationService } from './_verify.js';
+import { createZkProofGenerationService } from './_generate.js';
+import { loadDemoEvaluatorSigner } from './_signing.js';
 
 const MAX_BODY_BYTES = 4096;
 const RATE_WINDOW_MS = 60_000;
@@ -26,6 +31,7 @@ const RATE_LIMITS = Object.freeze({
   status: 60,
   getProof: 60,
   verifyProof: 10,
+  generateProof: 5,
 });
 const RATE_BUCKETS = new Map();
 
@@ -111,9 +117,14 @@ function methodNotAllowed(res, allow) {
 
 export function createZkRouter({
   storeFactory = createZkProofStore,
+  recordStoreFactory = createLearningRecordStore,
+  credentialStoreFactory = createCredentialStore,
   keyLoader = loadKeyConfig,
   verificationFactory = createZkVerificationService,
+  generationFactory = createZkProofGenerationService,
   gatewayFactory = () => createAvalancheGateway({ write: false }),
+  issuerSignerFactory = () => loadDemoEvaluatorSigner({ env: process.env }),
+  sessionResolver = currentUser,
   now = () => new Date(),
 } = {}) {
   return async function zkRouter({ action, req, res, proofId }) {
@@ -150,6 +161,82 @@ export function createZkRouter({
         const row = await store.findById(id);
         if (!row) return sendJson(res, 404, { error: 'ZK proof was not found', code: 'ZK_PROOF_NOT_FOUND' });
         return sendJson(res, 200, { proof: toPublicProofRecord(row) });
+      }
+
+      if (action === 'generateProof') {
+        if (req.method !== 'POST') return methodNotAllowed(res, 'POST');
+        consumeRate(req, 'generateProof', new Date(now()).getTime());
+
+        const body = readJsonBody(req);
+        const keys = Object.keys(body);
+        const allowedKeys = ['evaluationId', 'threshold'];
+        if (keys.length < 1 || keys.length > 2 || !keys.includes('evaluationId')
+          || keys.some(key => !allowedKeys.includes(key))
+          || typeof body.evaluationId !== 'string' || !body.evaluationId.trim() || body.evaluationId.length > 64) {
+          return sendJson(res, 400, { error: 'Body must contain evaluationId and optional threshold', code: 'ZK_INVALID_BODY' });
+        }
+        if (body.threshold !== undefined
+          && (!Number.isInteger(body.threshold) || !ZK_ALLOWED_THRESHOLDS.includes(body.threshold))) {
+          return sendJson(res, 400, { error: 'Threshold is not allowed', code: 'ZK_INVALID_THRESHOLD' });
+        }
+
+        let session;
+        try {
+          session = await sessionResolver(req, res);
+        } catch {
+          return sendJson(res, 401, { error: 'Authentication is required', code: 'ZK_UNAUTHENTICATED' });
+        }
+        const user = session?.user;
+        if (!user?.id) return sendJson(res, 401, { error: 'Authentication is required', code: 'ZK_UNAUTHENTICATED' });
+        const learnerId = String(user.id).trim();
+
+        let keyConfig;
+        try {
+          keyConfig = await keyLoader();
+        } catch (error) {
+          return sendJson(res, 503, { ready: false, code: error?.code || 'ZK_KEY_CONFIG_UNAVAILABLE' });
+        }
+
+        const store = storeFactory();
+        const recordStore = recordStoreFactory();
+        const credentialStore = credentialStoreFactory();
+        let gateway;
+        try {
+          gateway = await gatewayFactory();
+        } catch {
+          return sendJson(res, 503, { valid: false, reason: 'CREDENTIAL_STATUS_UNAVAILABLE', retryable: true });
+        }
+        let issuerSigner;
+        try {
+          issuerSigner = await issuerSignerFactory();
+        } catch (error) {
+          return sendJson(res, 503, { error: 'ZK issuer signing is unavailable', code: error?.code || 'ZK_ISSUER_SIGNING_UNAVAILABLE' });
+        }
+
+        const dependencies = {
+          getEvaluation: async (evaluationId, learnerId) => recordStore.findEvaluation(evaluationId, learnerId),
+          getCredential: async (evaluation) => credentialStore.findByEvaluationId(evaluation.id),
+          getOnChainCredential: async (credential) => gateway.verifyCredential(credential.credential_id_hash),
+        };
+
+        const service = generationFactory({
+          store,
+          keyConfig,
+          issuerSigner,
+          dependencies,
+          now: () => new Date(now()),
+        });
+
+        try {
+          const generated = await service.generate({
+            learnerId,
+            evaluationId: body.evaluationId.trim(),
+            threshold: body.threshold,
+          });
+          return sendJson(res, 200, generated);
+        } catch (error) {
+          return sendError(res, error);
+        }
       }
 
       if (action === 'verifyProof') {

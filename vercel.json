@@ -21,6 +21,10 @@
       "destination": "/api/learning-records?zkAction=getProof&proofId=:proofId"
     },
     {
+      "source": "/api/zk/generate",
+      "destination": "/api/learning-records?zkAction=generateProof"
+    },
+    {
       "source": "/api/zk/verify",
       "destination": "/api/learning-records?zkAction=verifyProof"
     },

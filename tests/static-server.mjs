@@ -66,6 +66,7 @@ const API_HANDLERS = new Map([
 
 export function resolveZkRoute(pathname) {
   if (pathname === '/api/zk/status') return { zkAction: 'status' };
+  if (pathname === '/api/zk/generate') return { zkAction: 'generateProof' };
   if (pathname === '/api/zk/verify') return { zkAction: 'verifyProof' };
   const match = String(pathname).match(/^\/api\/zk\/proofs\/([^/]+)$/);
   if (match) return { zkAction: 'getProof', proofId: decodeURIComponent(match[1]) };
