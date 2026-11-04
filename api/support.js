@@ -1,14 +1,14 @@
 import { SUPPORT_PROMPT } from '../support-prompt.js';
 import { retrieveSupportFaq } from './_support-retrieval.js';
 import { createAiGateway } from './_ai/gateway.js';
+import { supportProviders } from './_support-providers.js';
 
 const LANGUAGES = new Set(['vi', 'en', 'jp']);
 
 const MAX_BODY_CHARS = 20000;
 const MAX_MESSAGES = 10;
 const MAX_MESSAGE_CHARS = 1200;
-const MAX_QUERY_CHARS = 400;
-const MAX_OUTPUT_CHARS = 1600;
+const MAX_QUERY_CHARS = MAX_MESSAGE_CHARS;
 const UPSTREAM_TIMEOUT_MS = 20000;
 const TOTAL_TIMEOUT_MS = 45000;
 const RATE_LIMIT = 12;
@@ -115,7 +115,9 @@ function normalizeMessages(messages) {
     .slice(-MAX_MESSAGES)
     .map(message => ({
       role: message?.role === 'assistant' ? 'assistant' : 'user',
-      content: String(message?.text || message?.content || '').trim().slice(0, MAX_MESSAGE_CHARS),
+      content: message?.role === 'assistant'
+        ? String(message?.text || message?.content || '').trim().slice(0, MAX_MESSAGE_CHARS)
+        : String(message?.text || message?.content || '').trim(),
     }))
     .filter(message => message.content);
 }
@@ -144,10 +146,11 @@ function buildSystemPrompt({ language, currentView, matches }) {
     'If the excerpts do not contain the answer, say warmly that you do not have official guidance and ask one short question about what the user is seeing.',
     'Do not invent features, prices, policies, deadlines, URLs or guarantees that are not in the excerpts.',
     'Write like a patient human guide: an empathetic opening when appropriate, a direct answer, clear numbered steps, and a short offer to help further only if it is useful.',
-    'Formatting: the chat bubble renders **bold** only. Use **bold** sparingly for a key word or step label; never bold whole sentences. No # headings, tables, links, images, HTML tags, backticks or code fences.',
+    'Formatting: use short paragraphs, lists, and **bold** sparingly. Inline code and fenced code blocks are supported when needed for documented website guidance. No HTML or images.',
     'Every sentence must be in the reply language; do not mix in English sentences.',
     'Finish the reply completely; never stop mid-sentence or mid-word.',
     'Keep the reply concise, usually under 120 words.',
+    'Address each part of the final question that the excerpts cover. Explicitly say which parts lack official guidance; do not silently omit them. Prioritize essential steps over an introductory greeting.',
     `Reply in this interface language: ${language}. Current view: ${currentView}.`,
     '',
     'Documentation excerpts:',
@@ -159,29 +162,7 @@ function normalizeOutput(text) {
   return String(text || '')
     .replace(/\r\n?/g, '\n')
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
-    .replace(/```[a-zA-Z0-9]*\n?/g, '')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
-    .replace(/^\s{0,3}>\s?/gm, '')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
     .trim();
-}
-
-// Cut long output at a sentence (or word) boundary instead of mid-sentence.
-function limitOutput(text, max) {
-  if (text.length <= max) return text;
-  const slice = text.slice(0, max);
-  const sentenceEnd = Math.max(
-    slice.lastIndexOf('. '), slice.lastIndexOf('! '), slice.lastIndexOf('? '),
-    slice.lastIndexOf('.\n'), slice.lastIndexOf('!\n'), slice.lastIndexOf('?\n'),
-    slice.lastIndexOf('。'), slice.lastIndexOf('！'), slice.lastIndexOf('？'),
-  );
-  if (sentenceEnd >= max * 0.6) return slice.slice(0, sentenceEnd + 1).trim();
-  const wordEnd = slice.lastIndexOf(' ');
-  const cut = wordEnd >= max * 0.6 ? slice.slice(0, wordEnd) : slice;
-  return `${cut.replace(/[\s,;:.\-–—]+$/, '')}…`;
 }
 
 function sanitizeOutputText(text, secrets) {
@@ -191,7 +172,7 @@ function sanitizeOutputText(text, secrets) {
     if (secret) output = output.split(secret).join('[redacted]');
   }
   output = output.replace(/\bBearer\s+[A-Za-z0-9._-]{16,}/gi, 'Bearer [redacted]');
-  return limitOutput(output, MAX_OUTPUT_CHARS).trim();
+  return output.trim();
 }
 
 function sourcesFor(matches) {
@@ -224,6 +205,7 @@ function createSupportGateway(options = {}) {
     totalTimeoutMs: Number(options.totalTimeoutMs) > 0 ? Number(options.totalTimeoutMs) : TOTAL_TIMEOUT_MS,
     maxRetries: 0,
     logger: options.logger,
+    providers: options.providers,
   });
 }
 
@@ -239,6 +221,9 @@ export async function generateSupportReply(payload, options = {}) {
   const language = resolveLanguage(payload?.language);
   const currentView = String(payload?.currentView || 'landing').slice(0, 40);
   const messages = normalizeMessages(payload?.messages);
+  if (messages.some(message => message.role === 'user' && message.content.length > MAX_MESSAGE_CHARS)) {
+    throw inputError(`Messages must not exceed ${MAX_MESSAGE_CHARS} characters`);
+  }
   if (!messages.some(message => message.role === 'user')) {
     throw inputError('A user message is required');
   }
@@ -259,6 +244,7 @@ export async function generateSupportReply(payload, options = {}) {
   if (retrieval.tier === 'none' || !matches.length) {
     return {
       text: FALLBACK_TEXT[language].notFound,
+      status: 'complete',
       grounded: false,
       sources: [],
       tier: retrieval.tier,
@@ -274,12 +260,14 @@ export async function generateSupportReply(payload, options = {}) {
     sources,
     tier: retrieval.tier,
     degraded: true,
+    status: 'degraded',
     code,
     suggestions: suggestionsFor(language, matches),
   });
 
   const env = options.env || process.env;
-  const gateway = createSupportGateway({ ...options, env });
+  const { providers, completions } = supportProviders();
+  const gateway = createSupportGateway({ ...options, env, providers });
   if (!gateway.status().ready) return degradedReply('NOT_CONFIGURED');
 
   try {
@@ -294,6 +282,7 @@ export async function generateSupportReply(payload, options = {}) {
     if (!text) return degradedReply('EMPTY_OUTPUT');
     return {
       text,
+      ...completions.get(result.provider),
       grounded: true,
       sources,
       tier: retrieval.tier,

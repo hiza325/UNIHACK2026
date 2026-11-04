@@ -104,7 +104,7 @@ test('Support API reuses the previous question to understand a short follow-up',
   expect(reply.sources.map(source => source.id)).toContain('A17');
 });
 
-test('Support API keeps bold markers but normalizes unsupported Markdown', async () => {
+test('Support API preserves Markdown and inline code', async () => {
   const fetcher = async () => jsonResponse({
     choices: [{ message: { content: '**Bước 1:** Kiểm tra thư rác.\n\n### Lưu ý\nDùng `spam`. **Gửi lại** nếu cần.' } }],
   });
@@ -116,12 +116,12 @@ test('Support API keeps bold markers but normalizes unsupported Markdown', async
 
   expect(reply.text).toContain('**Bước 1:**');
   expect(reply.text).toContain('**Gửi lại**');
-  expect(reply.text).not.toContain('###');
-  expect(reply.text).not.toContain('`');
+  expect(reply.text).toContain('###');
+  expect(reply.text).toContain('`spam`');
   expect(reply.text).toContain('spam');
 });
 
-test('Support API trims very long output at a sentence boundary', async () => {
+test('Support API preserves the end of a long response', async () => {
   const sentence = 'Bạn kiểm tra hộp thư rác và bấm gửi lại mã OTP. ';
   const fetcher = async () => jsonResponse({
     choices: [{ message: { content: `**Hướng dẫn:** ${sentence.repeat(60)}` } }],
@@ -132,7 +132,7 @@ test('Support API trims very long output at a sentence boundary', async () => {
     messages: [{ role: 'user', text: 'Tôi không nhận được mã OTP' }],
   }, { env: { GROQ_API_KEY: 'server-secret' }, fetcher });
 
-  expect(reply.text.length).toBeLessThanOrEqual(1600);
+  expect(reply.text).toBe(`**Hướng dẫn:** ${sentence.repeat(60)}`.trim());
   expect(reply.text.endsWith('.')).toBe(true);
   expect(reply.text.endsWith('...')).toBe(false);
 });

@@ -7,6 +7,7 @@ export const eventMethods = {
     }
     if (event.target.closest?.('[data-support-toggle]')) { this.toggleSupport(); return; }
     if (event.target.closest?.('[data-support-close]')) { this.toggleSupport(false); return; }
+    if (event.target.closest?.('[data-support-retry]')) { this.retrySupportMessage(); return; }
     const suggestion = event.target.closest?.('[data-support-suggestion]');
     if (suggestion) {
       const list = this.activeSupportSuggestions();

@@ -216,7 +216,11 @@ export function createAiGateway({
         body: request.body,
         signal: controller.signal,
       });
-      const data = typeof response?.json === 'function' ? await response.json().catch(() => ({})) : {};
+      const data = typeof response?.json === 'function' ? await response.json().catch(error => {
+        // Preserve deadline cancellation during body consumption, not just headers.
+        if (error?.name === 'AbortError') throw error;
+        return {};
+      }) : {};
       if (!response?.ok) {
         const retryable = RETRYABLE_HTTP_STATUSES.has(Number(response?.status));
         const detail = entry.provider.extractError(data) || `${entry.provider.label} returned HTTP ${response?.status}`;
