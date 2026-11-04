@@ -238,6 +238,8 @@ export function publicLearningSession(row) {
     completedAt: row.completed_at || null,
     durationSeconds: row.duration_seconds || 0,
     updatedAt: row.updated_at,
+    lastActivityAt: row.last_activity_at || row.updated_at || row.started_at,
+    archivedAt: row.archived_at || null,
   };
 }
 
@@ -298,7 +300,7 @@ export function createLearningRecordService({ store, now = () => new Date() } = 
       solution_text: requiredText(body?.solution, 'Solution', 1, 16000),
       analysis_state: 'pending_analysis',
     });
-    await store.updateSession(session.id, learnerId, { status: 'in_progress' });
+    await store.updateSession(session.id, learnerId, { status: 'in_progress', last_activity_at: now().toISOString() });
     return publicSubmission(submission);
   }
 
@@ -427,8 +429,10 @@ export function createLearningRecordService({ store, now = () => new Date() } = 
       latest_score: result.evaluation?.score ?? null,
       completed_at: completed ? completedAt : null,
       duration_seconds: durationSeconds(session, now()),
+      last_activity_at: completedAt,
     } : {
       duration_seconds: durationSeconds(session, now()),
+      last_activity_at: completedAt,
     });
     return { session: publicLearningSession(updatedSession), evaluation };
   }
@@ -444,11 +448,13 @@ export function createLearningRecordService({ store, now = () => new Date() } = 
       await store.updateSession(session.id, learnerId, {
         status: 'analysis_unavailable',
         duration_seconds: durationSeconds(session, now()),
+        last_activity_at: now().toISOString(),
       });
       return;
     }
     await store.updateSession(session.id, learnerId, {
       duration_seconds: durationSeconds(session, now()),
+      last_activity_at: now().toISOString(),
     });
   }
 
@@ -462,7 +468,20 @@ export function createLearningRecordService({ store, now = () => new Date() } = 
       const learnerId = requireUuid(user?.id, 'Learner ID');
       const session = await ownSession(sessionId, learnerId);
       const completedAt = now().toISOString();
-      return publicLearningSession(await store.updateSession(session.id, learnerId, { status: 'abandoned', completed_at: completedAt, duration_seconds: durationSeconds(session, now()) }));
+      return publicLearningSession(await store.updateSession(session.id, learnerId, { status: 'abandoned', completed_at: completedAt, duration_seconds: durationSeconds(session, now()), last_activity_at: completedAt }));
+    },
+    async renameSession(sessionId, title, user) {
+      const learnerId = requireUuid(user?.id, 'Learner ID');
+      const session = await ownSession(sessionId, learnerId);
+      if (session.archived_at) throw recordError('Archived learning sessions cannot be renamed', 'LEARNING_SESSION_ARCHIVED', 409);
+      const clean = requiredText(title, 'Title', 1, 160);
+      return publicLearningSession(await store.updateSession(session.id, learnerId, { title: clean }));
+    },
+    async archiveSession(sessionId, user) {
+      const learnerId = requireUuid(user?.id, 'Learner ID');
+      const session = await ownSession(sessionId, learnerId);
+      if (session.archived_at) return publicLearningSession(session);
+      return publicLearningSession(await store.updateSession(session.id, learnerId, { archived_at: now().toISOString() }));
     },
     async listSessions(user, options = {}) {
       const learnerId = requireUuid(user?.id, 'Learner ID');

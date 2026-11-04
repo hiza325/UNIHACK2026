@@ -22,7 +22,7 @@ function createMemoryStore() {
     async insertSession(record) {
       sessionIndex += 1;
       const id = `${String(sessionIndex).padStart(8, '0')}-aaaa-4aaa-8aaa-aaaaaaaaaaaa`;
-      const row = { id, started_at: '2026-10-28T10:00:00.000Z', created_at: '2026-10-28T10:00:00.000Z', updated_at: '2026-10-28T10:00:00.000Z', duration_seconds: 0, latest_score: null, ...record };
+      const row = { id, started_at: '2026-10-28T10:00:00.000Z', created_at: '2026-10-28T10:00:00.000Z', updated_at: '2026-10-28T10:00:00.000Z', last_activity_at: '2026-10-28T10:00:00.000Z', archived_at: null, duration_seconds: 0, latest_score: null, ...record };
       sessions.push(row);
       return { ...row };
     },
@@ -37,7 +37,12 @@ function createMemoryStore() {
       return { ...row };
     },
     async findSession(id, learnerId) { return sessions.find(item => item.id === id && item.learner_id === learnerId) || null; },
-    async listSessions(learnerId) { return sessions.filter(item => item.learner_id === learnerId); },
+    async listSessions(learnerId, { search = '' } = {}) {
+      const term = String(search || '').toLowerCase();
+      return sessions.filter(item => item.learner_id === learnerId
+        && !item.archived_at
+        && (!term || String(item.title || '').toLowerCase().includes(term)));
+    },
     async insertSubmission(record) {
       submissionIndex += 1;
       const id = `${String(submissionIndex).padStart(8, '0')}-bbbb-4bbb-8bbb-bbbbbbbbbbbb`;
@@ -508,4 +513,114 @@ test('ten unique valid completed sessions unlock Critical Thinker and invalid du
 
   expect(summary.metrics.validCompletedSessions).toBe(10);
   expect(summary.achievements.find(item => item.id === 'critical-thinker')).toMatchObject({ current: 10, target: 10, earned: true });
+});
+
+test('learning session title can be renamed without touching learning evidence', async () => {
+  const store = createMemoryStore();
+  const service = createLearningRecordService({ store, now: () => new Date('2026-10-28T10:05:00.000Z') });
+  const created = await service.createSession({ problem: 'Explain a theorem', initialSolution: 'First attempt', subject: 'Logic' }, LEARNER);
+  expect(created.session.title).toBe('Explain a theorem');
+  const renamed = await service.renameSession(created.session.id, '  Theorem revisit  ', LEARNER);
+  expect(renamed.title).toBe('Theorem revisit');
+  expect(renamed.archivedAt).toBeNull();
+  expect(store.submissions.filter(row => row.session_id === created.session.id)).toHaveLength(1);
+  await expect(service.renameSession(created.session.id, 'Forged title', OTHER_LEARNER)).rejects.toMatchObject({ code: 'LEARNING_SESSION_NOT_FOUND' });
+  await expect(service.renameSession(created.session.id, '', LEARNER)).rejects.toMatchObject({ code: 'INVALID_LEARNING_RECORD_INPUT' });
+});
+
+test('archiving a session hides it from history while preserving submissions and evaluations', async () => {
+  const store = createMemoryStore();
+  const service = createLearningRecordService({ store, now: () => new Date('2026-10-28T10:05:00.000Z') });
+  const created = await service.createSession({ problem: 'Explain a theorem', initialSolution: 'First attempt', subject: 'Logic' }, LEARNER);
+  const archived = await service.archiveSession(created.session.id, LEARNER);
+  expect(archived.archivedAt).toBe('2026-10-28T10:05:00.000Z');
+  expect(await service.listSessions(LEARNER)).toEqual([]);
+  expect(store.sessions).toHaveLength(1);
+  expect(store.sessions[0].archived_at).toBe('2026-10-28T10:05:00.000Z');
+  expect(store.submissions.filter(row => row.session_id === created.session.id)).toHaveLength(1);
+  await expect(service.renameSession(created.session.id, 'Cannot rename', LEARNER)).rejects.toMatchObject({ code: 'LEARNING_SESSION_ARCHIVED' });
+  await expect(service.archiveSession(created.session.id, OTHER_LEARNER)).rejects.toMatchObject({ code: 'LEARNING_SESSION_NOT_FOUND' });
+});
+
+test('session history search is scoped to the learner and matches title deterministically', async () => {
+  const store = createMemoryStore();
+  const service = createLearningRecordService({ store });
+  const first = await service.createSession({ problem: 'Derivative exercise', initialSolution: 'Step one', subject: 'Math' }, LEARNER);
+  await service.createSession({ problem: 'Logic proof', initialSolution: 'Step one', subject: 'Logic' }, LEARNER);
+  await service.createSession({ problem: 'Derivative other', initialSolution: 'Step one', subject: 'Math' }, OTHER_LEARNER);
+  const filtered = await service.listSessions(LEARNER, { search: 'derivative' });
+  expect(filtered.map(session => session.id)).toEqual([first.session.id]);
+  expect((await service.listSessions(OTHER_LEARNER, { search: 'derivative' })).map(session => session.title)).toEqual(['Derivative other']);
+});
+
+test('session activity is exposed for grouping and updated by AI interaction', async () => {
+  const store = createMemoryStore();
+  const service = createLearningRecordService({ store, now: () => new Date('2026-10-28T10:05:00.000Z') });
+  const created = await service.createSession({ problem: 'Solve 2x = 8', initialSolution: 'x = 6', subject: 'Algebra' }, LEARNER);
+  expect(created.session.lastActivityAt).toBe('2026-10-28T10:00:00.000Z');
+  const input = { mode: 'discuss', problem: 'Solve 2x = 8', solution: 'x = 6', question: 'Why?', hintLevel: 0 };
+  const authorized = await service.authorizeAiRequest({ sessionId: created.session.id, submissionId: created.submission.id, userId: LEARNER.id, input });
+  await service.recordAiResult({ authorized, input, result: { status: 'incorrect', summary: 'Review', reply: 'Because.' }, model: 'test-model' });
+  const detail = await service.getSession(created.session.id, LEARNER);
+  expect(detail.lastActivityAt).toBe('2026-10-28T10:05:00.000Z');
+  expect(detail.interactions.filter(item => item.mode === 'discussion')).toHaveLength(2);
+});
+
+test('learning-record API supports search, rename and archive actions', async () => {
+  const originalUrl = process.env.SUPABASE_URL;
+  const originalAnonKey = process.env.SUPABASE_ANON_KEY;
+  process.env.SUPABASE_URL = 'https://example.supabase.co';
+  process.env.SUPABASE_ANON_KEY = 'test-anon-key';
+  try {
+    const store = createMemoryStore();
+    const service = createLearningRecordService({ store });
+    const created = await service.createSession({ problem: 'Derivative exercise', initialSolution: 'Step one' }, LEARNER);
+    const handler = createLearningRecordsHandler({
+      storeFactory: () => store,
+      sessionResolver: async () => ({ user: { ...LEARNER, email: 'learner@example.com' } }),
+    });
+    const renameResponse = apiResponse();
+    await handler({ method: 'POST', body: { action: 'renameSession', sessionId: created.session.id, title: 'Renamed by API' }, headers: {} }, renameResponse);
+    expect(renameResponse.statusCode).toBe(200);
+    expect(renameResponse.payload.session.title).toBe('Renamed by API');
+
+    const searchResponse = apiResponse();
+    await handler({ method: 'GET', query: { search: 'renamed' }, headers: {} }, searchResponse);
+    expect(searchResponse.statusCode).toBe(200);
+    expect(searchResponse.payload.sessions.map(session => session.id)).toEqual([created.session.id]);
+
+    const archiveResponse = apiResponse();
+    await handler({ method: 'POST', body: { action: 'archiveSession', sessionId: created.session.id }, headers: {} }, archiveResponse);
+    expect(archiveResponse.statusCode).toBe(200);
+    expect(archiveResponse.payload.session.archivedAt).toBeTruthy();
+
+    const afterArchive = apiResponse();
+    await handler({ method: 'GET', query: {}, headers: {} }, afterArchive);
+    expect(afterArchive.payload.sessions).toEqual([]);
+    expect(store.submissions.filter(row => row.session_id === created.session.id)).toHaveLength(1);
+  } finally {
+    if (originalUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = originalUrl;
+    if (originalAnonKey === undefined) delete process.env.SUPABASE_ANON_KEY; else process.env.SUPABASE_ANON_KEY = originalAnonKey;
+  }
+});
+
+test('session list store query excludes archived rows and scopes title search', async () => {
+  const urls = [];
+  const store = createLearningRecordStore({
+    env: { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'test-service-key' },
+    fetcher: async url => {
+      urls.push(new URL(url));
+      return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+  await store.listSessions(LEARNER.id, { search: 'logic (draft)*', limit: 25, offset: 50 });
+  expect(urls).toHaveLength(1);
+  const url = urls[0];
+  expect(url.pathname).toContain('/learning_sessions');
+  expect(url.searchParams.get('learner_id')).toBe(`eq.${LEARNER.id}`);
+  expect(url.searchParams.get('archived_at')).toBe('is.null');
+  expect(url.searchParams.get('order')).toBe('last_activity_at.desc,started_at.desc');
+  expect(url.searchParams.get('title')).toBe('ilike.*logic draft*');
+  expect(url.searchParams.get('limit')).toBe('25');
+  expect(url.searchParams.get('offset')).toBe('50');
 });

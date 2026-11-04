@@ -34,6 +34,7 @@ export const routerMethods = {
     this.render();
     if (this.view === 'admin') { this.loadAdminAccounts(); if (typeof this.restoreCertificateIssuance === 'function') this.restoreCertificateIssuance(); }
     if (this.view === 'passport' && typeof this.loadPassportEligibleEvaluations === 'function') this.loadPassportEligibleEvaluations();
+    if (this.view === 'audit') this.loadLearningSessions();
     if (['dashboard', 'profile', 'passport'].includes(this.view)) this.loadLearningPassportSnapshot();
     if (['dashboard', 'history', 'analytics', 'profile'].includes(this.view)) this.loadLearningRecordHistory();
   },

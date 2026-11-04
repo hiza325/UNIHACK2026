@@ -10,6 +10,7 @@ import { supportMethods } from './app-support.js';
 import { learningPassportActionMethods } from './learning-passport-actions.js';
 import { createLearningPassportService } from './learning-passport-service.js';
 import { learningRecordActionMethods } from './learning-records-actions.js';
+import { learningSessionActionMethods } from './learning-sessions-actions.js';
 import { certificateIssuanceMethods } from './certificate-issuance-actions.js';
 import { createLearningRecordsService } from './learning-records-service.js';
 import { defineComponents } from './components.js';
@@ -45,6 +46,20 @@ class EduApp extends HTMLElement {
     this.auditText = '';
     this.auditResult = null;
     this.debateSession = { revisionCount: 0, hintLevel: 0, hints: [], attempts: [], conversation: [] };
+    this.learningSessionList = [];
+    this.learningSessionListLoading = false;
+    this.learningSessionHasMore = false;
+    this.learningSessionListError = '';
+    this.learningSessionSearch = '';
+    this.learningSessionSelectedId = '';
+    this.learningSessionInitialized = false;
+    this.learningSessionDrawerOpen = false;
+    this.learningSessionMenuId = '';
+    this.learningSessionRenamingId = '';
+    this.learningSessionRenameDraft = '';
+    this.learningSessionDeleteId = '';
+    this.learningSessionSearchTimer = null;
+    this.learningSessionLoadingId = '';
     this.isAnalyzing = false;
     this.auditStorageReady = false;
     this.filePreviewUrls = {};
@@ -101,6 +116,7 @@ class EduApp extends HTMLElement {
       this.handleRoute();
       this.loadAuditState().then(() => {
         this.auditStorageReady = true;
+        if (this.user && this.view === 'audit') this.loadLearningSessions({ force: true, restore: true });
         if (this.user && ['audit', 'dashboard'].includes(this.view)) this.render();
       });
     });
@@ -132,6 +148,6 @@ class EduApp extends HTMLElement {
   escape(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 }
 
-Object.assign(EduApp.prototype, dataMethods, viewMethods, actionMethods, routerMethods, themeMethods, eventMethods, notificationMethods, supportMethods, learningPassportActionMethods, learningRecordActionMethods, certificateIssuanceMethods);
+Object.assign(EduApp.prototype, dataMethods, viewMethods, actionMethods, routerMethods, themeMethods, eventMethods, notificationMethods, supportMethods, learningPassportActionMethods, learningRecordActionMethods, learningSessionActionMethods, certificateIssuanceMethods);
 
 defineComponents(EduApp);

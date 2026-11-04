@@ -42,6 +42,7 @@ export function createLearningRecordsHandler({ storeFactory = createLearningReco
         const options = {
           limit: boundedInteger(queryValue(req, 'limit'), 50, 1, 100),
           offset: boundedInteger(queryValue(req, 'offset'), 0, 0, 10_000),
+          search: String(queryValue(req, 'search') || '').slice(0, 80),
         };
         if (queryValue(req, 'view') === 'evaluations') {
           return res.status(200).json({ evaluations: await service.listEligibleEvaluations(user, options) });
@@ -59,6 +60,8 @@ export function createLearningRecordsHandler({ storeFactory = createLearningReco
       if (body.action === 'createSession') return res.status(201).json(await service.createSession(body, user));
       if (body.action === 'createSubmission') return res.status(201).json({ submission: await service.createSubmission(body, user) });
       if (body.action === 'abandonSession') return res.status(200).json({ session: await service.abandonSession(body.sessionId, user) });
+      if (body.action === 'renameSession') return res.status(200).json({ session: await service.renameSession(body.sessionId, body.title, user) });
+      if (body.action === 'archiveSession') return res.status(200).json({ session: await service.archiveSession(body.sessionId, user) });
       return res.status(400).json({ error: 'Unsupported learning record action', code: 'INVALID_LEARNING_RECORD_ACTION' });
     } catch (error) {
       return sendRecordError(res, error);

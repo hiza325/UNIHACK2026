@@ -59,11 +59,18 @@ export function createLearningRecordStore({ env = process.env, fetcher = globalT
     async findSession(id, learnerId) {
       return request('learning_sessions', { query: { select: '*', id: `eq.${id}`, learner_id: `eq.${learnerId}`, limit: '1' }, single: true });
     },
-    async listSessions(learnerId, { limit = 50, offset = 0, activeOnly = false } = {}) {
+    async listSessions(learnerId, { limit = 50, offset = 0, activeOnly = false, search = '' } = {}) {
+      const term = String(search || '').trim().slice(0, 80).replace(/[*,()%]/g, ' ').replace(/\s+/g, ' ').trim();
       return request('learning_sessions', {
         query: {
-          select: '*', learner_id: `eq.${learnerId}`, order: 'started_at.desc', limit: String(limit), offset: String(offset),
+          select: '*',
+          learner_id: `eq.${learnerId}`,
+          archived_at: 'is.null',
+          order: 'last_activity_at.desc,started_at.desc',
+          limit: String(limit),
+          offset: String(offset),
           ...(activeOnly ? { status: 'in.(in_progress,analysis_unavailable)' } : {}),
+          ...(term ? { title: `ilike.*${term}*` } : {}),
         },
       });
     },

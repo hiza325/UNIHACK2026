@@ -1,5 +1,110 @@
 /* audit views — extracted from app-views.js. Methods are merged into viewMethods. */
 export const auditViews = {
+  learningSessionActivityLabel(session) {
+    const value = session?.lastActivityAt || session?.updatedAt || session?.startedAt;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    if (this.localDateKey(date) === this.localDateKey()) {
+      return this.formatDisplayDate(date, { hour: '2-digit', minute: '2-digit' });
+    }
+    return this.formatDisplayDate(date, { day: '2-digit', month: '2-digit' });
+  },
+  learningSessionStatusLabel(status) {
+    if (status === 'completed') return this.t('statusCompleted');
+    if (status === 'abandoned') return this.t('statusAbandoned');
+    if (status === 'analysis_unavailable') return this.t('statusError');
+    return this.t('histProgress');
+  },
+  learningSessionGroups() {
+    const groups = { today: [], yesterday: [], week: [], older: [] };
+    const todayKey = this.localDateKey();
+    const today = Date.parse(`${todayKey}T00:00:00Z`);
+    for (const session of this.learningSessionList || []) {
+      const value = session.lastActivityAt || session.updatedAt || session.startedAt;
+      const date = new Date(value);
+      const key = Number.isNaN(date.getTime()) ? '' : this.localDateKey(date);
+      const day = key ? Math.round((today - Date.parse(`${key}T00:00:00Z`)) / 86_400_000) : 999;
+      if (day <= 0) groups.today.push(session);
+      else if (day === 1) groups.yesterday.push(session);
+      else if (day <= 7) groups.week.push(session);
+      else groups.older.push(session);
+    }
+    return [
+      ['today', this.t('sessionToday'), groups.today],
+      ['yesterday', this.t('sessionYesterday'), groups.yesterday],
+      ['week', this.t('sessionLast7'), groups.week],
+      ['older', this.t('sessionOlder'), groups.older],
+    ].filter(([, , sessions]) => sessions.length);
+  },
+  learningSessionItemMarkup(session) {
+    const id = this.escape(session.id);
+    const selected = this.learningSessionSelectedId === session.id;
+    const loading = this.learningSessionLoadingId === session.id;
+    const renaming = this.learningSessionRenamingId === session.id;
+    const deleting = this.learningSessionDeleteId === session.id;
+    const menu = this.learningSessionMenuId === session.id;
+    const title = this.escape(session.title || this.t('sessionUntitled'));
+    const activity = this.escape(this.learningSessionActivityLabel(session));
+    const status = this.escape(this.learningSessionStatusLabel(session.status));
+    const renameForm = renaming ? `<form class="ls-rename" data-session-rename-form="${id}">
+      <input class="ls-rename-input" data-session-rename-input name="title" maxlength="160" value="${this.escape(session.title || '')}" aria-label="${this.t('sessionRename')}">
+      <div class="ls-rename-actions"><button class="ghost-button" type="submit">${this.t('sessionSave')}</button><button class="ghost-button" type="button" data-session-cancel-rename>${this.t('sessionCancel')}</button></div>
+    </form>` : '';
+    const deleteConfirm = deleting ? `<div class="ls-confirm" role="alert">
+      <strong>${this.t('sessionDeleteConfirm')}</strong>
+      <small>${this.t('sessionDeleteNote')}</small>
+      <div class="ls-confirm-actions"><button class="ghost-button danger" type="button" data-session-confirm-delete="${id}">${this.t('sessionDelete')}</button><button class="ghost-button" type="button" data-session-cancel-delete>${this.t('sessionCancel')}</button></div>
+    </div>` : '';
+    const popover = menu ? `<div class="ls-menu" role="menu">
+      <button type="button" role="menuitem" data-session-rename="${id}">${this.t('sessionRename')}</button>
+      <button type="button" role="menuitem" data-session-ask-delete="${id}">${this.t('sessionDelete')}</button>
+    </div>` : '';
+    return `<article class="ls-session ${selected ? 'active' : ''}" data-session-id="${id}">
+      <button type="button" class="ls-session-open" data-session-open="${id}" aria-current="${selected ? 'true' : 'false'}" ${loading ? 'disabled' : ''}>
+        <span class="ls-title">${loading ? this.t('sessionLoading') : title}</span>
+        <span class="ls-meta">${activity}${activity ? ' · ' : ''}${status}</span>
+      </button>
+      <button type="button" class="ls-more" data-session-menu="${id}" aria-label="${this.t('sessionMenu')}" aria-expanded="${menu}">⋯</button>
+      ${popover}${renameForm}${deleteConfirm}
+    </article>`;
+  },
+  learningSessionSidebarMarkup() {
+    const groups = this.learningSessionGroups();
+    const list = groups.map(([key, label, sessions]) => `<section class="ls-group" data-session-group="${key}"><h3>${this.escape(label)}</h3>${sessions.map(session => this.learningSessionItemMarkup(session)).join('')}</section>`).join('');
+    const unavailable = !this.learningRecordsService?.enabled;
+    const empty = !this.learningSessionListLoading && !unavailable && !this.learningSessionList.length;
+    return `<aside class="learning-sessions ${this.learningSessionDrawerOpen ? 'open' : ''}" id="learning-session-panel" aria-label="${this.t('sessionHistory')}">
+      <div class="ls-head"><div><span class="ls-kicker">PARADOX AI</span><h2>${this.t('sessionHistory')}</h2></div><button type="button" class="ls-close" data-session-close aria-label="${this.t('sessionClose')}">×</button></div>
+      <button type="button" class="ls-new" data-session-new><span aria-hidden="true">＋</span> ${this.t('sessionNew')}</button>
+      <label class="ls-search"><span class="sr-only">${this.t('sessionSearch')}</span><input id="learning-session-search" type="search" autocomplete="off" placeholder="${this.t('sessionSearch')}" value="${this.escape(this.learningSessionSearch)}"></label>
+      <div class="ls-list" aria-live="polite">
+        ${unavailable ? `<p class="ls-note">${this.t('sessionUnavailable')}</p>` : ''}
+        ${this.learningSessionListError ? `<p class="ls-note error">${this.t('sessionLoadError')} <button type="button" class="ls-retry" data-session-retry>↻</button></p>` : ''}
+        ${empty && !this.learningSessionListError ? `<p class="ls-note">${this.learningSessionSearch ? this.t('sessionNoResults') : this.t('sessionEmpty')}</p>` : ''}
+        ${list}
+        ${this.learningSessionHasMore ? `<button type="button" class="ls-more-sessions" data-session-more>${this.t('sessionLoadMore')}</button>` : ''}
+      </div>
+    </aside>
+    <div class="learning-session-backdrop" data-session-backdrop data-session-close ${this.learningSessionDrawerOpen ? '' : 'hidden'}></div>`;
+  },
+  learningSessionCurrentHeaderMarkup() {
+    const selected = this.learningSessionById(this.learningSessionSelectedId);
+    const title = selected?.title || (this.learningRecordSessionId ? this.t('sessionUntitled') : this.t('sessionDraftTitle'));
+    const activity = selected ? this.learningSessionActivityLabel(selected) : '';
+    const status = selected ? this.learningSessionStatusLabel(selected.status) : '';
+    return `<div class="learning-current-head">
+      <div><span class="ls-kicker">${this.t('sessionCurrent')}</span><h2>${this.escape(title)}</h2><p>${activity ? `${this.t('sessionLastActive')} ${this.escape(activity)} · ${this.escape(status)}` : this.t('sessionWelcome')}</p></div>
+      <button type="button" class="ghost-button" data-session-new>＋ ${this.t('sessionNew')}</button>
+    </div>`;
+  },
+  learningSessionMobileBarMarkup() {
+    const selected = this.learningSessionById(this.learningSessionSelectedId);
+    const title = selected?.title || this.t('sessionDraftTitle');
+    return `<div class="learning-session-mobilebar">
+      <button type="button" class="ghost-button" data-session-drawer aria-expanded="${this.learningSessionDrawerOpen}" aria-controls="learning-session-panel">☰ ${this.t('sessionHistory')}</button>
+      <strong>${this.escape(title)}</strong>
+    </div>`;
+  },
   viewAudit() {
     const t = k => this.t(k);
     const name = this.escape(this.user.name || this.user.email);
@@ -7,6 +112,11 @@ export const auditViews = {
     const metrics = this.learningMetrics();
     return `<div class="page">
       ${this.viewHead(greeting, 'subtitle')}
+      <div class="learning-workspace">
+        ${this.learningSessionSidebarMarkup()}
+        <div class="learning-main">
+          ${this.learningSessionMobileBarMarkup()}
+          ${this.learningSessionCurrentHeaderMarkup()}
       <div class="content-grid"><div class="left-stack">
         <section class="card audit-card"><div class="card-heading"><div><h2 class="card-title">${t('sessionTitle')}</h2><p class="card-caption">${t('sessionCaption')}</p></div><span class="session-id">SESSION #${new Date().getFullYear()}-014</span></div>
           <audit-stepper class="stepper" role="list" aria-label="${t('sessionTitle')}">${this.auditStepsMarkup()}</audit-stepper>
@@ -30,6 +140,8 @@ export const auditViews = {
         ${this.sourceCard()}
         ${this.activityCard()}
       </div></div>
+        </div>
+      </div>
     </div>`;
   },
   debateResultMarkup() {

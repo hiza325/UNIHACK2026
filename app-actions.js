@@ -573,6 +573,11 @@ export const actionMethods = {
     } finally {
       this.setAnalyzing(false);
       this.saveAuditState();
+      if (this.learningRecordsService?.enabled && this.learningRecordSessionId) {
+        this.learningSessionSelectedId = this.learningRecordSessionId;
+        localStorage.setItem(this.learningSessionStorageKey(), this.learningRecordSessionId);
+        this.loadLearningSessions({ force: true, restore: false });
+      }
       this.loadLearningRecordHistory({ force: true });
     }
   },
@@ -605,6 +610,7 @@ export const actionMethods = {
       this.showToast(message);
     } finally {
       this.setAnalyzing(false);
+      this.touchLearningSessionActivity();
       this.saveAuditState();
     }
   },
@@ -638,6 +644,7 @@ export const actionMethods = {
       this.showToast(message);
     } finally {
       this.setAnalyzing(false);
+      this.touchLearningSessionActivity();
       this.saveAuditState();
     }
   },

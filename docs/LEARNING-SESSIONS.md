@@ -1,0 +1,90 @@
+# Learning Session History
+
+## Model
+
+The feature reuses the existing learning-record schema instead of creating a
+second conversation store:
+
+- `learning_sessions` — one independent learning session per row (`title`,
+  `problem_text`, `started_at`, status and timestamps).
+- `learning_interactions` — ordered user/assistant messages for analysis,
+  discussion and hints; every row has `session_id` and `learner_id`.
+- `learning_submissions` — attempts, solutions and AI analysis.
+- `learning_evaluations` — rubric results, proof records and credential
+  references.
+
+The additive migration `202611060001_learning_session_history.sql` adds:
+
+- `learning_sessions.last_activity_at` (backfilled from `updated_at`/`started_at`).
+- `learning_sessions.archived_at` (history visibility only).
+- A trigger that refreshes `last_activity_at` when a session is updated.
+- Activity/archive indexes. Existing rows, interactions, submissions,
+  evaluations, achievements and credentials are not deleted.
+
+Archiving a session removes it from the sidebar/history list. It does **not**
+delete submissions, evaluations, achievements, certificates or blockchain
+references. The API enforces ownership before rename/archive.
+
+## API
+
+Existing endpoint: `GET/POST /api/learning-records`.
+
+New/changed read options:
+
+- `GET ?limit=&offset=&search=` — scoped to the signed-in learner, excludes
+  archived sessions, ordered by `last_activity_at`.
+- `GET ?id=` — returns the session plus submissions, interactions and evaluations.
+
+New POST actions:
+
+- `renameSession` `{ sessionId, title }` — title 1–160 characters.
+- `archiveSession` `{ sessionId }` — hides the session while retaining records.
+
+The server uses the authenticated learner ID and the service-role store with
+explicit `learner_id` filters. Existing RLS select-own policies remain in place;
+clients cannot update/delete these tables directly.
+
+## UI
+
+`views/audit.js` renders a left session rail with:
+
+- new session, title search, Today/Yesterday/Previous 7 days/Older groups;
+- active session, last activity and status;
+- three-dot rename/archive menu with explicit confirmation;
+- paginated “load more” when more than 50 sessions exist;
+- mobile drawer with backdrop and close control.
+
+The chat area only uses the selected session's interactions. A new session clears
+the current problem/solution/result/messages; no previous session context is
+sent to the AI. Refresh restores the saved active session only after checking it
+is still present in the user's list.
+
+## Migration order
+
+1. Apply the migration to Staging and verify columns, trigger, indexes and RLS.
+2. Deploy the branch to a Staging Preview.
+3. Run the session isolation/API/UI tests and a live smoke test.
+4. Apply the migration to Production **before** deploying the code.
+5. Deploy the code and run the Production smoke test.
+
+The migration should not be applied to Production by the feature branch CI.
+
+## Rollback
+
+- Code rollback: promote the previous Vercel deployment / redeploy the previous
+  main commit.
+- Database rollback (only if required): drop the activity trigger, indexes and
+  the two new columns. Existing learning records are preserved. Archiving flags
+  would be lost, so rollback is a last resort after code rollback.
+
+## Test commands
+
+```bash
+npm ci
+npx playwright test tests/learning-records.spec.js tests/learning-sessions.spec.js
+npx playwright test tests/app.spec.js
+npm run test:all
+```
+
+Screenshots: `docs/learning-sessions/desktop.png` and
+`docs/learning-sessions/mobile.png`.

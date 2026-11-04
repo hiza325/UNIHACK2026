@@ -110,6 +110,21 @@ export const dataMethods = {
     this.learningRecordsLoadAttempted = false;
     this.learningRecordSyncError = '';
     this.learningRecordsRefreshQueued = false;
+    if (this.learningSessionSearchTimer) window.clearTimeout(this.learningSessionSearchTimer);
+    this.learningSessionList = [];
+    this.learningSessionListLoading = false;
+    this.learningSessionHasMore = false;
+    this.learningSessionListError = '';
+    this.learningSessionSearch = '';
+    this.learningSessionSelectedId = '';
+    this.learningSessionInitialized = false;
+    this.learningSessionDrawerOpen = false;
+    this.learningSessionMenuId = '';
+    this.learningSessionRenamingId = '';
+    this.learningSessionRenameDraft = '';
+    this.learningSessionDeleteId = '';
+    this.learningSessionSearchTimer = null;
+    this.learningSessionLoadingId = '';
   },
   async loadUserData() {
     this.resetInMemoryUserData();
