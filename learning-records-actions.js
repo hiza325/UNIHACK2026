@@ -218,4 +218,22 @@ export const learningRecordActionMethods = {
       this.showToast(this.t('dashResumeError'));
     }
   },
+  async loadZkStatus() {
+    if (!this.learningRecordsService?.enabled) { this.zkStatus = { ready: false, code: 'LEARNING_RECORDS_DISABLED' }; this.render(); return; }
+    try { this.zkStatus = await this.learningRecordsService.getZkStatus(); }
+    catch (error) { this.zkStatus = { ready: false, code: error?.code || 'ZK_STATUS_UNAVAILABLE', error: error?.message }; }
+    this.render();
+  },
+  async verifyZkProof(proofId) {
+    if (!this.learningRecordsService?.enabled) { this.zkVerifyResult = { valid: false, reason: 'LEARNING_RECORDS_DISABLED' }; this.render(); return; }
+    try { this.zkVerifyResult = await this.learningRecordsService.verifyZkProof(proofId); }
+    catch (error) { this.zkVerifyResult = { valid: false, reason: error?.code || 'ZK_VERIFY_UNAVAILABLE', error: error?.message }; }
+    this.render();
+  },
+  async generateZkProof(evaluationId, threshold = 80) {
+    if (!this.learningRecordsService?.enabled) { this.zkGenerateResult = { status: 'disabled', code: 'LEARNING_RECORDS_DISABLED' }; this.render(); return; }
+    try { this.zkGenerateResult = await this.learningRecordsService.generateZkProof(evaluationId, threshold); }
+    catch (error) { this.zkGenerateResult = { status: 'failed', code: error?.code || 'ZK_GENERATE_UNAVAILABLE', error: error?.message }; }
+    this.render();
+  },
 };

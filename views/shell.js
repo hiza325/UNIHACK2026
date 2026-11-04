@@ -61,6 +61,7 @@ export const shellViews = {
       case 'profile': return this.viewProfile();
       case 'passport': return this.viewPassport();
       case 'verify': return this.viewPassportVerify();
+      case 'zk': return this.viewZk();
       case 'about': return this.viewAbout();
       case 'settings': return this.viewSettings();
       case 'admin': return this.viewAdmin();
