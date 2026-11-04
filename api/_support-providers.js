@@ -5,6 +5,18 @@ export function supportProviders() {
   const completions = new Map();
   const providers = AI_PROVIDERS.map(provider => ({
     ...provider,
+    buildRequest(input) {
+      const request = provider.buildRequest(input);
+      if (provider.id !== 'gemini') return request;
+      const body = JSON.parse(request.body);
+      // Gemini counts thinking tokens inside maxOutputTokens. Support answers are
+      // short, so keep reasoning shallow instead of spending the reply budget on it.
+      body.generationConfig = {
+        ...body.generationConfig,
+        thinkingConfig: { ...(body.generationConfig?.thinkingConfig || {}), thinkingLevel: 'low' },
+      };
+      return { ...request, body: JSON.stringify(body) };
+    },
     extractText(data) {
       const gemini = provider.id === 'gemini';
       const candidate = gemini ? data?.candidates?.[0] : data?.choices?.[0];

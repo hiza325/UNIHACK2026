@@ -52,8 +52,27 @@ test('long multi-part question reaches prompt intact and over-limit input is rej
   expect(body.messages.at(-1).content).toBe(question);
   expect(body.messages[0].content).toContain('Address each part');
   expect(body.messages[0].content).toContain('Do not solve homework');
-  expect(body.max_tokens).toBe(600);
+  expect(body.max_tokens).toBe(1200);
   await expect(generateSupportReply({ messages: [{ role: 'user', text: 'x'.repeat(1201) }] })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+});
+
+test('support lowers Gemini thinking only; shared Learning/Debate provider is untouched', async () => {
+  let geminiBody;
+  await generateSupportReply(payload, {
+    env: { GEMINI_API_KEY: 'fake-key' },
+    fetcher: async (_, options) => {
+      geminiBody = JSON.parse(options.body);
+      return json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: 'Hướng dẫn.' }] } }] });
+    },
+  });
+  expect(geminiBody.generationConfig.thinkingConfig).toEqual({ thinkingLevel: 'low' });
+  expect(geminiBody.generationConfig.maxOutputTokens).toBe(1200);
+
+  const { AI_PROVIDERS } = await import('../api/_ai/providers.js');
+  const gemini = AI_PROVIDERS.find(provider => provider.id === 'gemini');
+  const shared = JSON.parse(gemini.buildRequest({ apiKey: 'k', model: 'm', systemPrompt: 's', userPrompt: 'u', temperature: 0.2, maxOutputTokens: 600, json: false }).body);
+  expect(shared.generationConfig.thinkingConfig).toBeUndefined();
+  expect(shared.generationConfig.maxOutputTokens).toBe(600);
 });
 
 test('rate limit and broken non-streaming body return explicit degraded guidance', async () => {

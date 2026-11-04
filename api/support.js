@@ -11,6 +11,10 @@ const MAX_MESSAGE_CHARS = 1200;
 const MAX_QUERY_CHARS = MAX_MESSAGE_CHARS;
 const UPSTREAM_TIMEOUT_MS = 20000;
 const TOTAL_TIMEOUT_MS = 45000;
+// Live Preview measurement: Gemini spent almost all of 600 tokens on thinking
+// and stopped after 69-83 visible characters. Thinking is lowered support-only;
+// this budget leaves room for the concise reply defined by the prompt.
+const MAX_OUTPUT_TOKENS = 1200;
 const RATE_LIMIT = 12;
 const RATE_WINDOW_MS = 60 * 1000;
 const RETRIEVAL_LIMIT = 3;
@@ -275,7 +279,7 @@ export async function generateSupportReply(payload, options = {}) {
       systemPrompt: buildSystemPrompt({ language, currentView, matches }),
       userPrompt: buildConversationPrompt(messages),
       temperature: 0.2,
-      maxOutputTokens: 600,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
       json: false,
     });
     const text = sanitizeOutputText(result.text, configuredSecrets(env));
