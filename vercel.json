@@ -29,6 +29,7 @@
       "destination": "/verify.html"
     }
   ],
+  "installCommand": "npm ci && node scripts/zk-verification-artifacts.mjs --check",
   "functions": {
     "api/learning-records/index.js": {
       "includeFiles": "zk/build/*.json"

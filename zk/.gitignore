@@ -1,5 +1,9 @@
 node_modules/
-build/
+build/*
+# Public verification artifacts only. Proving keys, witness, ptau, r1cs and
+# the Solidity verifier stay ignored.
+!build/verification_key.json
+!build/manifest.json
 tools/
 .env
 .env.*

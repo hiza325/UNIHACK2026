@@ -17,6 +17,13 @@ test('Vercel packages only the read-only verification key and manifest', async (
   expect(typeof functionConfig.includeFiles).toBe('string');
   expect(functionConfig.includeFiles).toBe('zk/build/*.json');
   expect(functionConfig.includeFiles).not.toMatch(/\.zkey|\.wasm|\.ptau|\.r1cs|\.wtns/i);
+  expect(config.installCommand).toContain('scripts/zk-verification-artifacts.mjs --check');
+
+  const vercelIgnore = await readFile(join(ROOT, '.vercelignore'), 'utf8');
+  expect(vercelIgnore).toContain('zk/build/*');
+  expect(vercelIgnore).toContain('!zk/build/verification_key.json');
+  expect(vercelIgnore).toContain('!zk/build/manifest.json');
+  expect(vercelIgnore).toContain('zk/circuits/');
 });
 
 test('local bundle contains the required artifacts and pinned verification key', async () => {
@@ -45,6 +52,14 @@ test('local bundle contains the required artifacts and pinned verification key',
 
   expect(vkeyHash).toMatch(/^[0-9a-f]{64}$/);
   expect(manifestHash).toMatch(/^[0-9a-f]{64}$/);
+  const lock = JSON.parse(await readFile(join(ROOT, 'zk/verification-artifacts.lock.json'), 'utf8'));
+  expect(lock).toMatchObject({
+    schemaVersion: 'paradox-zk-verification-lock-v1',
+    classification: 'DEMO',
+    vkeySha256: vkeyHash,
+    manifestSha256: manifestHash,
+    circuitVersion: '1.0.0',
+  });
   expect(manifest.circuit?.name).toBe('score_threshold');
   expect(manifest.trustedSetup?.productionReady).toBe(false);
   expect(manifest.trustedSetup?.mode).toBe('local-single-contributor');

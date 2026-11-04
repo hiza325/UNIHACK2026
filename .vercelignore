@@ -2,3 +2,14 @@
 internal/core-browser-deployer/
 scripts/serve-core-browser-deployer.mjs
 tests/core-browser-deployer.spec.js
+
+# Never upload proving material. Only the two public JSON verification
+# artifacts may be uploaded from zk/build.
+zk/build/*
+!zk/build/verification_key.json
+!zk/build/manifest.json
+zk/circuits/
+zk/contracts/
+zk/tools/
+zk/tests/
+zk/docs/

@@ -236,9 +236,11 @@ async function writeManifest() {
     sha256File(PATHS.zkey),
     sha256File(PATHS.vkey),
   ]);
+  // No timestamp here: manifest.json is pinned by SHA-256 and must be
+  // byte-for-byte reproducible across rebuilds. Build time belongs in CI
+  // metadata, not in a public verification artifact.
   const manifest = {
     schemaVersion: 'paradox-zk-build-manifest-v1',
-    generatedAt: new Date().toISOString(),
     circuit: {
       name: 'score_threshold',
       version: '1.0.0',

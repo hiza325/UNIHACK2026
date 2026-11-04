@@ -17,6 +17,9 @@
     "contract:deploy:fuji": "npm run contract:build && node scripts/deploy-learning-credential-registry.mjs",
     "contract:deployer:core": "npm run contract:build && node scripts/serve-core-browser-deployer.mjs",
     "zk:rls:smoke": "node scripts/zk-rls-smoke.mjs",
+    "zk:artifacts:check": "node scripts/zk-verification-artifacts.mjs --check",
+    "zk:artifacts:lock": "node scripts/zk-verification-artifacts.mjs --write-lock",
+    "zk:artifacts:build": "npm --prefix zk run build && node scripts/zk-verification-artifacts.mjs --write-lock --force",
     "test": "playwright test",
     "test:all": "npm run contract:test && npm test",
     "test:ui": "playwright test --ui"
