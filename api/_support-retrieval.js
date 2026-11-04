@@ -25,6 +25,8 @@ const STOPWORDS = new Set([
 ]);
 
 const MAX_QUERY_TOKENS = 24;
+// Calibrated with tests/support-calibration.spec.js (63 representative queries)
+// before being fixed; see that suite before changing either threshold.
 const STRONG_SCORE = 15;
 const PARTIAL_SCORE = 8;
 
@@ -60,11 +62,25 @@ const QUERY_ALIASES = [
   ['keyboard shortcut', 'phim tat'],
   ['reset password', 'dat lai mat khau'],
   ['forgot password', 'quen mat khau'],
+  ['quen mat khau dang nhap', 'quen mat khau'],
   ['change password', 'doi mat khau'],
   ['email verification', 'xac minh email'],
   ['verification code', 'otp'],
   ['ma xac minh', 'otp'],
   ['ma xac thuc', 'otp'],
+  ['khong toi email', 'khong nhan mail'],
+  ['khong thay email', 'khong nhan mail'],
+  ['email khong toi', 'khong nhan mail'],
+  ['du lieu hoc tap', 'du lieu'],
+  ['duoc luu o dau', 'luu tru'],
+  ['luu o dau', 'luu tru'],
+  ['tao tai khoan', 'dang ky tai khoan'],
+  ['huy hieu first step', 'first step'],
+  ['huy hieu error hunter', 'error hunter'],
+  ['huy hieu independent learner', 'independent learner'],
+  ['huy hieu comeback master', 'comeback master'],
+  ['huy hieu consistency', 'consistency'],
+  ['huy hieu master of reasoning', 'master of reasoning'],
   ['trang web bi trang', 'trang trang'],
   ['man hinh trang', 'trang trang'],
   ['white screen', 'trang trang'],
@@ -73,6 +89,7 @@ const QUERY_ALIASES = [
   ['chung chi', 'credential'],
   ['chung nhan', 'credential'],
   ['certificate', 'credential'],
+  ['ma qr', 'xac minh credential'],
   ['on chain', 'on-chain'],
   ['blockchain', 'on-chain'],
   ['testnet', 'on-chain'],
@@ -210,18 +227,29 @@ function toMatch(item) {
 }
 
 /**
- * Retrieve the support entries that are most relevant to a natural-language query.
- *
- * The returned tier distinguishes a confident match, a partial match and the
- * absence of any confirmed documentation.
+ * Return the entry whose stored question is exactly the user's question
+ * (ignoring numbering, case, punctuation and Vietnamese diacritics). Exact
+ * documented questions must always answer themselves, even when their topic is
+ * not in the anchor vocabulary or contains an academic word.
  */
-export function retrieveSupportFaq(query, options = {}) {
-  const limit = clamp(Math.round(Number(options.limit) || 4), 1, 6);
+export function findExactSupportFaq(query) {
+  const normalized = normalizeText(String(query || '').replace(/^\s*\d+\.\s*/, ''));
+  if (!normalized) return null;
+  const document = documents.find(item => item.questionNorm === normalized);
+  if (!document) return null;
+  return toMatch({ document, score: 100, coverage: 1, cosine: 1, strongMatches: 1 });
+}
+
+/**
+ * Rank every documented entry for a query without applying an acceptance tier.
+ * The composer uses the raw ranking to inspect score margins and ambiguity.
+ */
+export function rankSupportFaq(query) {
   const queryNorm = expandQuery(query);
   const queryTokenList = tokenList(queryNorm).slice(0, MAX_QUERY_TOKENS);
   const queryTokens = [...new Set(queryTokenList)];
   if (!queryNorm || !queryTokens.length) {
-    return { tier: 'none', normalizedQuery: queryNorm, matches: [] };
+    return { normalizedQuery: queryNorm, queryTokens, scored: [] };
   }
 
   const queryVector = vectorFor(queryTokens);
@@ -244,7 +272,7 @@ export function retrieveSupportFaq(query, options = {}) {
     for (const phrase of document.keywordPhrases) {
       if (!phrase) continue;
       if (phrase.includes(' ')) {
-        if (queryNorm.includes(phrase)) phraseBonus += 8;
+        if (queryNorm.includes(phrase)) phraseBonus += 14;
       } else if (queryTokens.includes(phrase)) {
         phraseBonus += 3;
       }
@@ -252,7 +280,7 @@ export function retrieveSupportFaq(query, options = {}) {
 
     for (const intent of INTENT_PHRASES) {
       if (queryNorm.includes(intent) && document.questionNorm.includes(intent)) {
-        phraseBonus += intent === 'o dau' ? 22 : 5;
+        phraseBonus += intent === 'o dau' ? 6 : 5;
       }
     }
 
@@ -277,7 +305,19 @@ export function retrieveSupportFaq(query, options = {}) {
   }).filter(item => item.strongMatches > 0 && item.score > 0)
     .sort((left, right) => right.score - left.score || left.document.entry.id.localeCompare(right.document.entry.id));
 
-  if (!scored.length) return { tier: 'none', normalizedQuery: queryNorm, matches: [] };
+  return { normalizedQuery: queryNorm, queryTokens, scored };
+}
+
+/**
+ * Retrieve the support entries that are most relevant to a natural-language query.
+ *
+ * The returned tier distinguishes a confident match, a partial match and the
+ * absence of any confirmed documentation.
+ */
+export function retrieveSupportFaq(query, options = {}) {
+  const limit = clamp(Math.round(Number(options.limit) || 4), 1, 6);
+  const { normalizedQuery, scored } = rankSupportFaq(query);
+  if (!scored.length) return { tier: 'none', normalizedQuery, matches: [] };
 
   const best = scored[0];
   const tier = best.coverage >= 0.5 && best.score >= STRONG_SCORE
@@ -286,7 +326,7 @@ export function retrieveSupportFaq(query, options = {}) {
       ? 'partial'
       : 'none';
 
-  if (tier === 'none') return { tier, normalizedQuery: queryNorm, matches: [] };
+  if (tier === 'none') return { tier, normalizedQuery, matches: [] };
 
   const minimumScore = Math.max(PARTIAL_SCORE, best.score * 0.5);
   const matches = scored
@@ -294,7 +334,7 @@ export function retrieveSupportFaq(query, options = {}) {
     .slice(0, limit)
     .map(toMatch);
 
-  return { tier, normalizedQuery: queryNorm, matches };
+  return { tier, normalizedQuery, matches };
 }
 
 export const SUPPORT_RETRIEVAL_META = {

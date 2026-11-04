@@ -62,7 +62,9 @@ PARADOX AI là trợ lý phản biện học tập của Nexus Academy Analytics
 | `api/auth/` | API đăng ký, OTP, đăng nhập, session cookie và đăng xuất qua Supabase |
 | `api/admin/users.js` | API quản trị người dùng, được bảo vệ bằng role admin phía server |
 | `api/debate.js` | Proxy AI Debate Engine, validation đầu vào/đầu ra, gọi AI Gateway và health check `/api/ai/status` |
-| `api/_ai/` | AI Gateway server-only: catalogue provider, timeout, retry, fallback Groq → Gemini |
+| `api/_ai/` | AI Gateway server-only: catalogue provider, timeout, retry, fallback Groq → Gemini (chỉ AI Learning/Debate) |
+| `api/support.js`, `api/_support-*` | Trợ lý FAQ-only: chuẩn hoá tiếng Việt, retrieval 150 FAQ, ghép câu trả lời; không gọi AI provider |
+| `support-ai.js`, `app-support.js` | Client và giao diện chatbot tra cứu FAQ |
 | `debate-ai.js`, `debate-prompt.js` | Client gọi Debate API và system prompt học thuật phía server |
 | `api/learning-records/` | API, service và Supabase store cho phiên học, bài nộp, tương tác và đánh giá |
 | `learning-records-service.js`, `learning-records-actions.js` | Đồng bộ Audit/History với learning-record API cho phiên Supabase thật |
@@ -221,16 +223,16 @@ npm run fonts:vendor
 
 ## AI hỗ trợ sử dụng website
 
-Widget trợ lý nổi chỉ hướng dẫn cách sử dụng PARADOX; system prompt không cho phép giải bài hoặc trả lời câu hỏi học thuật. Frontend gọi endpoint cùng domain `/api/support`; key không được gửi xuống trình duyệt.
+Widget trợ lý nổi chỉ hướng dẫn cách sử dụng PARADOX; trợ lý không giải bài hoặc trả lời câu hỏi học thuật. Frontend gọi endpoint cùng domain `/api/support`.
 
-Backend/serverless function tại `api/support.js` dùng chung AI Gateway với AI Learning (`api/_ai/`):
+Backend/serverless function tại `api/support.js` **không gọi AI provider** và không cần API key:
 
-- Provider chính: Groq Cloud — `https://api.groq.com/openai/v1/chat/completions`, model mặc định `openai/gpt-oss-120b`
-- Provider dự phòng: Google Gemini — model mặc định `gemini-3.5-flash-lite`
-- Key: biến môi trường `GROQ_API_KEY` (dự phòng `GEMINI_API_KEY`)
-- Model tùy chọn: `GROQ_MODEL` / `GEMINI_MODEL`, thứ tự provider đổi bằng `AI_PROVIDER_ORDER`
+- Dữ liệu: 150 mục FAQ tĩnh trong `api/_support-faq.js`
+- Tìm kiếm: chuẩn hoá tiếng Việt có/không dấu, alias, xếp hạng lexical trong `api/_support-retrieval.js`
+- Trả lời: ghép nguyên văn `answer` đã lưu, tối đa 4 ý, kèm câu hỏi nguồn; không suy diễn
+- Không có gateway, prompt LLM, `maxOutputTokens`, `thinkingLevel` hay token limit
 
-Tạo file `.env` từ `.env.example` để ghi nhớ tên biến (file `.env` đã được gitignore). Key Groq bắt đầu bằng `gsk_` và được tạo tại [Groq Console](https://console.groq.com/keys); key Gemini tại [Google AI Studio](https://ai.google.dev/gemini-api/docs/api-key). Không ghi key vào `support-ai-config.js`.
+AI Learning và AI Debate vẫn dùng AI Gateway (`api/_ai/`) và các biến `GROQ_API_KEY` / `GEMINI_API_KEY` như trước. Không ghi key vào `support-ai-config.js`.
 
 Khi chạy local, sao chép `.env.example` thành `.env`, thay key rồi chạy:
 
@@ -291,7 +293,7 @@ Server tự tính tổng và không tin tổng điểm/trạng thái do mô hìn
 ### Tối ưu và Proof of Learning
 
 - Frontend gộp các request giống nhau đang chạy và cache mode `analyze` trong 2 phút, tối đa 50 kết quả. `discuss`, `hint` và `resubmit` không cache để tránh dùng lại ngữ cảnh cũ.
-- API giới hạn 15 request/phút/client; gateway chỉ đọc `GROQ_API_KEY`, `GEMINI_API_KEY` và các biến model tương ứng ở server. Support widget dùng chung gateway và hai key này, không còn provider riêng.
+- API giới hạn 15 request/phút/client; gateway chỉ đọc `GROQ_API_KEY`, `GEMINI_API_KEY` và các biến model tương ứng ở server. Support widget tra cứu FAQ cục bộ, không dùng gateway hay hai key này.
 - Mọi output AI được chuẩn hóa và kiểm tra lại; trạng thái rubric được suy ra phía server.
 - Mỗi lần nộp lại tạo `proofRecord` phiên bản `paradox-proof-of-learning-v1`, gồm SHA-256 content hash, rubric version, attempt number, thời gian, model, confidence, trạng thái và các tiêu chí. Backend lưu cấu trúc này cùng evaluation; đây chỉ là bằng chứng off-chain chuẩn bị cho credential, không tự tạo transaction hoặc chứng nhận blockchain.
 

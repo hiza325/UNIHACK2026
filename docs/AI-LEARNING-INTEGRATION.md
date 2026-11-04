@@ -19,14 +19,14 @@
 | Provider chính | Gemini | **Groq Cloud** |
 | Provider dự phòng | DeepSeek/Mistral | **Gemini** |
 | Key AI Learning | `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY` | `GROQ_API_KEY`, `GEMINI_API_KEY` |
-| Support widget | `ANYROUTER_API_KEY` | Dùng chung gateway: `GROQ_API_KEY` → `GEMINI_API_KEY`; không còn AnyRouter trong code |
+| Support widget | Không dùng AI provider | Tra cứu 150 FAQ tĩnh trong `api/_support-faq.js`; không có gateway, prompt hay token limit |
 | Prompt | `debate-prompt.js` (`DEBATE_PROMPT`) | Giữ nguyên, server luôn tự gắn prompt |
 
 ### Prompt đang có trong repo
 
 1. `DEBATE_PROMPT` trong `debate-prompt.js` — prompt học thuật chính, phục vụ 4 mode `analyze`, `discuss`, `hint`, `resubmit`.
 2. Rubric `resubmit` 4 tiêu chí × 0–25 điểm nằm trong cùng prompt và được **server** tự tính lại tổng/trạng thái (`api/debate.js`).
-3. `SUPPORT_PROMPT` trong `support-prompt.js` — prompt của widget hỗ trợ website (không dùng cho AI Learning).
+3. Support widget (`api/support.js`) — tra cứu FAQ cục bộ, không dùng AI Learning gateway, prompt hay provider key.
 
 ---
 
@@ -65,7 +65,7 @@ Groq là OpenAI-compatible: `Authorization: Bearer …`, `messages`, `max_tokens
 
 ### 2.2. Ghi chú
 
-AI Learning chỉ dùng hai provider ở trên. Widget hỗ trợ website (`api/support.js`) là một tích hợp riêng, không thuộc catalogue này.
+AI Learning chỉ dùng hai provider ở trên. Widget hỗ trợ website (`api/support.js`) là một tích hợp riêng: tra cứu FAQ cục bộ và không gọi bất kỳ AI provider nào.
 
 ---
 
@@ -326,7 +326,7 @@ git diff --check
 
 - Không có key thật trong repo, test, tài liệu hay `docs/` — chỉ tên biến.
 - Không thêm biến public cho frontend; không import `api/_ai/*` từ browser.
-- Support widget dùng chung gateway/provider như AI Learning (`GROQ_API_KEY` → `GEMINI_API_KEY`); không còn provider riêng.
+- Support widget tra cứu FAQ cục bộ; không dùng gateway/provider, không cần `GROQ_API_KEY` hay `GEMINI_API_KEY`.
 - Gateway không log prompt/lời giải của người học; `details` chỉ chứa metadata kỹ thuật.
 - Rate limit 15 request/phút/IP vẫn giữ nguyên ở `api/debate.js`.
 - Không thay đổi Smart Contract, không gửi giao dịch, không tạo credential hay dữ liệu production.
