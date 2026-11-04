@@ -241,7 +241,10 @@ test('credential store reads authoritative target learner and rejects protected 
 
 test('credential input rejects mock and unlabelled test issuance', () => {
   expect(() => normalizeCredentialIssueInput(issuePayload({ source: 'mock' }), ADMIN)).toThrow(/Mock data cannot be issued/);
-  expect(() => normalizeCredentialIssueInput(issuePayload({ isTest: false }), ADMIN)).toThrow(/explicitly labelled/);
+  // Under the new server-side classification, isTest is derived from the code
+  // prefix and source, not from client-supplied flags: a PXP-TEST- code is
+  // always classified as test even when the client omits/contradicts the flag.
+  expect(normalizeCredentialIssueInput(issuePayload({ isTest: false }), ADMIN).isTest).toBe(true);
   expect(() => normalizeCredentialIssueInput(issuePayload({ credentialCode: 'PXP-2026-REAL-0001' }), ADMIN)).toThrow(/PXP-TEST/);
 
   const normalized = normalizeCredentialIssueInput(issuePayload({ evidenceHash: 'ab'.repeat(32) }), ADMIN);

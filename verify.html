@@ -28,6 +28,7 @@
     .meta-MISMATCH { color: #dc2626; font-weight: 700; }
     .warn { border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; border-radius: 8px; padding: 10px 12px; margin: 12px 0; }
     .note { color: #92400e; font-size: 13px; }
+    .test-badge { display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 6px; padding: 2px 8px; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
   </style>
 </head>
 <body>
@@ -60,6 +61,7 @@
         if (integrity === 'MISMATCH') {
           html += '<div class="warn">Certificate metadata (name, title, date) does not match the signed attestation stored at issuance. Do not trust metadata shown for this code.</div>';
         } else if (data.credential && (data.credential.title || data.credential.skill)) {
+          if (data.credential.isTest) html += '<p class="test-badge">TEST / DEMO credential — not an official certificate.</p>';
           html += '<dl>';
           if (data.credential.title) html += '<dt>Title</dt><dd>' + escapeHtml(data.credential.title) + '</dd>';
           if (data.credential.skill) html += '<dt>Skill</dt><dd>' + escapeHtml(data.credential.skill) + '</dd>';
