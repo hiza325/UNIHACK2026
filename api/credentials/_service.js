@@ -29,9 +29,12 @@ export function normalizeCredentialIssueInput(body = {}, actor = {}) {
   const source = String(body.source || '');
   if (!['ai-evaluation', 'manual-test'].includes(source)) throw credentialError('Credential source is not allowed', 'INVALID_CREDENTIAL_SOURCE', 400);
 
-  const isTest = source === 'manual-test';
-  if (isTest && (body.isTest !== true || !credentialCode.startsWith('PXP-TEST-'))) {
-    throw credentialError('Test credentials must be explicitly labelled and use a PXP-TEST code', 'TEST_CREDENTIAL_LABEL_REQUIRED', 400);
+  // Server-side classification: a credential is TEST if the source is manual-test
+  // OR the credential code uses the PXP-TEST- prefix. Client-supplied flags are
+  // never trusted; the code prefix is the authoritative marker.
+  const isTest = source === 'manual-test' || String(credentialCode).toUpperCase().startsWith('PXP-TEST-');
+  if (source === 'manual-test' && !credentialCode.toUpperCase().startsWith('PXP-TEST-')) {
+    throw credentialError('Test credentials must use a PXP-TEST code', 'TEST_CREDENTIAL_LABEL_REQUIRED', 400);
   }
   if (!isTest) {
     const proof = body.proofRecord;
@@ -57,7 +60,7 @@ export function normalizeCredentialIssueInput(body = {}, actor = {}) {
     evidenceHash: rawEvidenceHash ? normalizeEvidenceHash(rawEvidenceHash) : null,
     proofRecord: body.proofRecord && typeof body.proofRecord === 'object' ? body.proofRecord : null,
     title: text(body.title, 160, 'title'),
-    skill: isTest ? text(body.skill, 120, 'skill') : null,
+    skill: source === 'manual-test' ? text(body.skill, 120, 'skill') : null,
     assessmentScore: score,
     source,
     isTest,
@@ -182,7 +185,7 @@ export function toPublicCredential(row) {
     assessmentScore: row.assessment_score,
     status,
     source: 'avalanche',
-    isTest: Boolean(row.is_test),
+    isTest: Boolean(row.is_test) || String(row.credential_code || '').toUpperCase().startsWith('PXP-TEST-'),
     evidenceHash: row.evidence_hash ? `sha256:${String(row.evidence_hash).replace(/^0x/, '')}` : null,
     transactionHash,
     issueTransactionHash: row.issue_tx_hash || null,
@@ -274,7 +277,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
 
     const dbProof = evaluation.proof_record;
     if (!dbProof || typeof dbProof !== 'object') throw credentialError('Learning evaluation has no proof record', 'LEARNING_EVALUATION_PROOF_MISSING', 409);
-    if ([evaluation, submission, session, dbProof, input.proofRecord, input].some(record => record && (record.isMock === true || record.isDemo === true || record.isTest === true || ['mock', 'demo', 'manual-test'].includes(record.source)))) throw credentialError('Mock evidence cannot be issued', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
+    if ([evaluation, submission, session, dbProof, input.proofRecord, input].some(record => record && (record.isMock === true || record.isDemo === true || ['mock', 'demo', 'manual-test'].includes(record.source)))) throw credentialError('Mock evidence cannot be issued', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
     if (dbProof.schemaVersion !== 'paradox-proof-of-learning-v1' || dbProof.evidenceSufficient !== true || dbProof.status !== 'pass') {
       throw credentialError('Learning evaluation proof is not eligible', 'LEARNING_EVALUATION_PROOF_INELIGIBLE', 409);
     }
@@ -299,7 +302,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     const input = normalizeCredentialIssueInput(body, actor);
     let verifiedEvidence;
     if (input.source === 'ai-evaluation') {
-      if (body.isDemo === true || body.isTest === true) throw credentialError('Demo evidence cannot be issued', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
+      if (body.isDemo === true || body.isMock === true) throw credentialError('Demo evidence cannot be issued', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
       const verified = await verifyAiEvidence(input, input.learnerId);
       verifiedEvidence = verified;
       input.evidenceHash = verified.evidenceHash;
@@ -564,7 +567,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
 
     let verifiedEvidence;
     if (input.source === 'ai-evaluation') {
-      if (body?.isDemo === true || body?.isTest === true) throw credentialError('Demo evidence cannot be issued', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
+      if (body?.isDemo === true || body?.isMock === true) throw credentialError('Demo evidence cannot be issued', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
       const verified = await verifyAiEvidence(input, input.learnerId);
       verifiedEvidence = verified;
       input.evidenceHash = verified.evidenceHash;

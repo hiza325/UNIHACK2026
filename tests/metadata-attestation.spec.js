@@ -393,4 +393,10 @@ test.describe('public verification metadata integrity', () => {
     expect(status).toBe(404);
     expect(body.status).toBe('NOT_FOUND');
   });
+
+  test('public verify exposes isTest from credential code prefix', async () => {
+    dbRow = rowWithAttestation({ credential_code: 'PXP-TEST-CPP-004', is_test: false });
+    const { body } = await runVerify(META.credentialCode, '10.1.0.9');
+    expect(body.credential.isTest).toBe(true);
+  });
 });
