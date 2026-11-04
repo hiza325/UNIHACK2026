@@ -1,0 +1,6 @@
+# Public verification artifacts are pinned by SHA-256. Their line endings are
+# part of the hashed bytes, so checkout must always produce LF regardless of
+# the contributor's core.autocrlf setting.
+zk/build/verification_key.json text eol=lf
+zk/build/manifest.json text eol=lf
+zk/verification-artifacts.lock.json text eol=lf

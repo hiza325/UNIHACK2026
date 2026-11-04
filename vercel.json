@@ -13,10 +13,36 @@
       "destination": "/api/auth/session?localAuth=1"
     },
     {
+      "source": "/api/zk/status",
+      "destination": "/api/learning-records?zkAction=status"
+    },
+    {
+      "source": "/api/zk/proofs",
+      "destination": "/api/learning-records?zkAction=listProofs"
+    },
+    {
+      "source": "/api/zk/proofs/:proofId",
+      "destination": "/api/learning-records?zkAction=getProof&proofId=:proofId"
+    },
+    {
+      "source": "/api/zk/generate",
+      "destination": "/api/learning-records?zkAction=generateProof"
+    },
+    {
+      "source": "/api/zk/verify",
+      "destination": "/api/learning-records?zkAction=verifyProof"
+    },
+    {
       "source": "/verify",
       "destination": "/verify.html"
     }
   ],
+  "installCommand": "npm ci && node scripts/zk-verification-artifacts.mjs --check",
+  "functions": {
+    "api/learning-records/index.js": {
+      "includeFiles": "zk/build/*.json"
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

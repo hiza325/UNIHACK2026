@@ -380,6 +380,13 @@ export const actionMethods = {
     this.querySelector('#chat-form')?.addEventListener('submit', e => { e.preventDefault(); this.sendMessage(); });
     this.querySelectorAll('[data-reply]').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.reply === 'upload') this.querySelector('#file-work')?.click(); else this.showToast(this.t('feedback')); }));
     this.querySelector('#practice-button')?.addEventListener('click', () => this.navigate('practice'));
+    if (this.view === 'zk') {
+      this.querySelector('[data-zk-status]')?.addEventListener('click', () => this.loadZkStatus());
+      this.querySelector('#zk-verify-form')?.addEventListener('submit', event => { event.preventDefault(); const proofId = this.querySelector('#zk-proof-id')?.value?.trim(); if (proofId) this.verifyZkProof(proofId); });
+      this.querySelector('#zk-generate-form')?.addEventListener('submit', event => { event.preventDefault(); const evaluationId = this.querySelector('#zk-evaluation-id')?.value?.trim(); if (evaluationId) this.generateZkProof(evaluationId, 80); });
+      this.querySelectorAll('[data-zk-verify]').forEach(button => button.addEventListener('click', () => this.verifyZkProof(button.dataset.zkVerify)));
+      this.querySelectorAll('[data-zk-generate]').forEach(button => button.addEventListener('click', () => this.generateZkProof(button.dataset.zkGenerate, 80)));
+    }
   },
   openResetModal() {
     const modal = this.querySelector('#reset-modal');

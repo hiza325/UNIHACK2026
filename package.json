@@ -16,6 +16,11 @@
     "contract:verify:fuji": "npm run contract:build && node scripts/verify-learning-credential-registry.mjs",
     "contract:deploy:fuji": "npm run contract:build && node scripts/deploy-learning-credential-registry.mjs",
     "contract:deployer:core": "npm run contract:build && node scripts/serve-core-browser-deployer.mjs",
+    "zk:rls:smoke": "node scripts/zk-rls-smoke.mjs",
+    "zk:staging:preflight": "node scripts/zk-staging-preflight.mjs",
+    "zk:artifacts:check": "node scripts/zk-verification-artifacts.mjs --check",
+    "zk:artifacts:lock": "node scripts/zk-verification-artifacts.mjs --write-lock",
+    "zk:artifacts:build": "npm --prefix zk run build && node scripts/zk-verification-artifacts.mjs --write-lock --force",
     "test": "playwright test",
     "test:all": "npm run contract:test && npm test",
     "test:ui": "playwright test --ui"
@@ -26,9 +31,11 @@
     "hardhat": "^3.21.1"
   },
   "dependencies": {
+    "circomlibjs": "0.1.7",
     "ethers": "^6.17.0",
     "jsqr": "^1.4.0",
     "nodemailer": "^10.2.1",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "snarkjs": "0.7.6"
   }
 }

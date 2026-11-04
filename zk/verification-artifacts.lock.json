@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "paradox-zk-verification-lock-v1",
+  "circuit": "score_threshold",
+  "circuitVersion": "1.0.0",
+  "classification": "DEMO",
+  "vkeySha256": "78c792557a9759dd41b758aa7f8d77e0c9a7b57866517f28753247d9800a97ca",
+  "manifestSha256": "6ce082234af198ece46882aea3598076710e67cbf8b1e9ef75ff3c7d00cae42f",
+  "generatedAt": "2026-11-04T04:59:51.095Z"
+}

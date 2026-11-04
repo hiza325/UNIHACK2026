@@ -13,6 +13,14 @@ export function createLearningRecordsService({ enabled = false, apiBaseUrl = '/a
     return data;
   }
 
+  async function zkRequest(path = '', options = {}) {
+    if (!enabled) throw serviceError('Learning record API is disabled', 'LEARNING_RECORDS_DISABLED', 503);
+    const response = await fetcher(`${baseUrl}/zk${path}`, { credentials: 'same-origin', ...options });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw serviceError(data.error || 'ZK request failed', data.code || 'ZK_REQUEST_FAILED', response.status);
+    return data;
+  }
+
   function post(body) {
     return request('', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   }
@@ -47,6 +55,31 @@ export function createLearningRecordsService({ enabled = false, apiBaseUrl = '/a
     async listEligibleEvaluations({ limit = 50, offset = 0 } = {}) {
       const data = await request(`?${new URLSearchParams({ view: 'evaluations', limit: String(limit), offset: String(offset) })}`);
       return data.evaluations;
+    },
+    async getZkStatus() {
+      return zkRequest('/status');
+    },
+    async listZkProofs({ limit = 50, offset = 0 } = {}) {
+      const data = await zkRequest(`/proofs?${new URLSearchParams({ limit: String(limit), offset: String(offset) })}`);
+      return data.proofs;
+    },
+    async getZkProof(proofId) {
+      const data = await zkRequest(`/proofs/${encodeURIComponent(proofId)}`);
+      return data.proof;
+    },
+    async verifyZkProof(proofId) {
+      return zkRequest('/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proofId }),
+      });
+    },
+    async generateZkProof(evaluationId, threshold = 80) {
+      return zkRequest('/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ evaluationId, threshold }),
+      });
     },
   };
 }

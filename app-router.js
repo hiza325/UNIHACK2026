@@ -34,6 +34,11 @@ export const routerMethods = {
     this.render();
     if (this.view === 'admin') { this.loadAdminAccounts(); if (typeof this.restoreCertificateIssuance === 'function') this.restoreCertificateIssuance(); }
     if (this.view === 'passport' && typeof this.loadPassportEligibleEvaluations === 'function') this.loadPassportEligibleEvaluations();
+    if (this.view === 'zk') {
+      if (typeof this.loadZkStatus === 'function') this.loadZkStatus();
+      if (typeof this.loadZkProofs === 'function') this.loadZkProofs();
+      if (typeof this.loadZkEligibility === 'function') this.loadZkEligibility();
+    }
     if (['dashboard', 'profile', 'passport'].includes(this.view)) this.loadLearningPassportSnapshot();
     if (['dashboard', 'history', 'analytics', 'profile'].includes(this.view)) this.loadLearningRecordHistory();
   },

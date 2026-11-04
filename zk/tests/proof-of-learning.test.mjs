@@ -146,6 +146,17 @@ test('build produces a Groth16 verification key and documents a non-production s
   assert.match(manifest.trustedSetup.mode, /single-contributor/);
 });
 
+test('manifest is deterministic and excludes volatile build timestamps', async () => {
+  const before = await readFile(paths.manifest);
+  assert.equal(JSON.parse(before.toString('utf8')).generatedAt, undefined);
+  await build();
+  const after = await readFile(paths.manifest);
+  assert.equal(
+    createHash('sha256').update(after).digest('hex'),
+    createHash('sha256').update(before).digest('hex'),
+  );
+});
+
 test('accepts a score above the public threshold without revealing the score', async () => {
   const result = await verify();
   assert.equal(result.valid, true);
