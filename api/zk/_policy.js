@@ -228,6 +228,7 @@ export function classifyProofSnapshot({ credential, keyConfig, issuerKeyId } = {
   const issuer = keyConfig?.activeTrustedIssuers?.get?.(issuerKeyId);
   const trustedIssuer = issuer?.environment === 'production';
   const productionSetup = keyConfig?.setupMode === 'production'
+    && keyConfig?.productionVerified === true
     && keyConfig?.manifest?.trustedSetup?.productionReady === true
     && String(keyConfig?.manifest?.trustedSetup?.mode || '') !== 'local-single-contributor';
   const official = !credentialIsTest

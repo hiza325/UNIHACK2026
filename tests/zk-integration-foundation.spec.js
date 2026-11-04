@@ -412,7 +412,7 @@ test('store maps conflicts and failures without leaking SQL details', async () =
     fetcher: async () => fakeResponse(200, []),
   });
   await expect(store.updateStatus(PROOF_ID, 'deleted'))
-    .rejects.toMatchObject({ code: 'ZK_INVALID_INPUT' });
+    .rejects.toMatchObject({ code: 'ZK_INVALID_TRANSITION' });
   await expect(store.findById('not-a-uuid'))
     .rejects.toMatchObject({ code: 'ZK_INVALID_INPUT' });
 });
@@ -421,8 +421,9 @@ test('store reads use an explicit allowlist and learner scoping', async () => {
   const urls = [];
   const store = createZkProofStore({
     env: TEST_DB_ENV,
-    fetcher: async (url) => {
+    fetcher: async (url, init = {}) => {
       urls.push(url);
+      if (init.method === 'PATCH') return fakeResponse(200, [proofRow({ status: 'revoked', revoked_at: '2026-11-05T00:00:00Z' })]);
       return fakeResponse(200, []);
     },
   });
@@ -436,7 +437,63 @@ test('store reads use an explicit allowlist and learner scoping', async () => {
   expect(urls[1]).toContain(`learner_id=eq.${LEARNER_ID}`);
   expect(urls[1]).toContain('limit=10');
   expect(urls[2]).toContain('status=eq.active');
-  expect(urls[3]).toContain('id=eq.');
+  expect(urls[3]).toContain('status=eq.active');
+});
+
+function transitionStore(initialStatus = 'active') {
+  const state = { status: initialStatus, revoked_at: null };
+  const calls = [];
+  const store = createZkProofStore({
+    env: TEST_DB_ENV,
+    now: () => new Date('2026-11-05T00:00:00Z'),
+    fetcher: async (url, init = {}) => {
+      calls.push({ url, init });
+      if (init.method !== 'PATCH') return fakeResponse(200, []);
+      if (!url.includes('status=eq.active') || state.status !== 'active') return fakeResponse(200, []);
+      const body = JSON.parse(init.body);
+      state.status = body.status;
+      state.revoked_at = body.revoked_at;
+      return fakeResponse(200, [proofRow({ ...state })]);
+    },
+  });
+  return { store, state, calls };
+}
+
+test('store enforces one-way active -> revoked/superseded transitions', async () => {
+  const first = transitionStore('active');
+  await expect(first.store.updateStatus(PROOF_ID, 'active'))
+    .rejects.toMatchObject({ code: 'ZK_INVALID_TRANSITION', status: 409 });
+  expect(first.calls).toHaveLength(0);
+
+  const revoked = await first.store.updateStatus(PROOF_ID, 'revoked');
+  expect(revoked.status).toBe('revoked');
+  expect(revoked.revoked_at).toBe('2026-11-05T00:00:00.000Z');
+  await expect(first.store.updateStatus(PROOF_ID, 'superseded'))
+    .rejects.toMatchObject({ code: 'ZK_PROOF_TRANSITION_CONFLICT', status: 409 });
+  await expect(first.store.updateStatus(PROOF_ID, 'revoked'))
+    .rejects.toMatchObject({ code: 'ZK_PROOF_TRANSITION_CONFLICT', status: 409 });
+  expect(first.state.status).toBe('revoked');
+
+  const second = transitionStore('active');
+  const superseded = await second.store.updateStatus(PROOF_ID, 'superseded');
+  expect(superseded.status).toBe('superseded');
+  expect(superseded.revoked_at).toBeNull();
+  await expect(second.store.updateStatus(PROOF_ID, 'active'))
+    .rejects.toMatchObject({ code: 'ZK_INVALID_TRANSITION', status: 409 });
+  await expect(second.store.updateStatus(PROOF_ID, 'revoked'))
+    .rejects.toMatchObject({ code: 'ZK_PROOF_TRANSITION_CONFLICT', status: 409 });
+  expect(second.state.status).toBe('superseded');
+});
+
+test('store checks remain active under concurrent transition attempts', async () => {
+  const { store, state } = transitionStore('active');
+  const results = await Promise.allSettled([
+    store.updateStatus(PROOF_ID, 'revoked'),
+    store.updateStatus(PROOF_ID, 'superseded'),
+  ]);
+  expect(results.filter(item => item.status === 'fulfilled')).toHaveLength(1);
+  expect(results.filter(item => item.status === 'rejected')).toHaveLength(1);
+  expect(['revoked', 'superseded']).toContain(state.status);
 });
 
 // ---------- Key configuration ----------
@@ -448,15 +505,17 @@ async function writeKeyFixture({ productionReady = true, mode = 'multi-party-cer
   const vkeyPath = join(dir, 'verification_key.json');
   await writeFile(vkeyPath, vkeyText);
   const manifestPath = join(dir, 'manifest.json');
-  await writeFile(manifestPath, JSON.stringify({
+  const manifestText = JSON.stringify({
     circuit: { name: 'score_threshold', version: '1.0.0' },
     trustedSetup: { productionReady, mode },
-  }));
+  });
+  await writeFile(manifestPath, manifestText);
   return {
     dir,
     vkeyPath,
     manifestPath,
     vkeyHash: createHash('sha256').update(vkeyText).digest('hex'),
+    manifestHash: createHash('sha256').update(manifestText).digest('hex'),
   };
 }
 
@@ -467,7 +526,9 @@ function keyEnv(fixture, { publicKeyPem, overrides = {} } = {}) {
     ZK_TRUSTED_SETUP_MODE: 'production',
     ZK_VKEY_PATH: fixture.vkeyPath,
     ZK_VKEY_SHA256: fixture.vkeyHash,
+    ZK_PRODUCTION_VKEY_SHA256: fixture.vkeyHash,
     ZK_TRUSTED_SETUP_MANIFEST: fixture.manifestPath,
+    ZK_MANIFEST_SHA256: fixture.manifestHash,
     ZK_TRUSTED_ISSUERS_JSON: JSON.stringify([{ keyId: 'kid-1', publicKeyPem, status: 'active' }]),
     ...overrides,
   };
@@ -480,8 +541,10 @@ test('valid production key configuration loads and fingerprints Ed25519 keys', a
   try {
     const config = await loadKeyConfig({ env: keyEnv(fixture, { publicKeyPem }), now: new Date('2026-11-05T00:00:00Z') });
     expect(config.setupMode).toBe('production');
+    expect(config.productionVerified).toBe(true);
     expect(config.circuitVersion).toBe('1.0.0');
     expect(config.vkeySha256).toBe(fixture.vkeyHash);
+    expect(config.manifestHash).toBe(fixture.manifestHash);
     expect(config.activeIssuerKeyIds).toEqual(['kid-1']);
     expect(config.verificationKey.nPublic).toBe(6);
     const key = resolveIssuerKey(config, 'kid-1');
@@ -548,6 +611,7 @@ test('key configuration fails closed on missing/mismatched vkey hash and dev set
       }),
     });
     expect(allowedDev.setupMode).toBe('development');
+    expect(allowedDev.productionVerified).toBe(false);
 
     await rm(devFixture.dir, { recursive: true, force: true });
   } finally {
@@ -613,6 +677,56 @@ test('trusted issuer config rejects private keys, expiry, missing config and wro
 });
 
 // ---------- Migration / RLS assumptions ----------
+
+test('production artifact pins fail closed for missing, wrong and tampered artifacts', async () => {
+  const fixture = await writeKeyFixture();
+  const { publicKey } = generateKeyPairSync('ed25519');
+  const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+  try {
+    const missingVkeyPin = keyEnv(fixture, { publicKeyPem });
+    delete missingVkeyPin.ZK_PRODUCTION_VKEY_SHA256;
+    await expect(loadKeyConfig({ env: missingVkeyPin })).rejects.toMatchObject({
+      code: 'ZK_PRODUCTION_VKEY_PIN_REQUIRED',
+    });
+
+    await expect(loadKeyConfig({
+      env: keyEnv(fixture, { publicKeyPem, overrides: { ZK_PRODUCTION_VKEY_SHA256: '00'.repeat(32) } }),
+    })).rejects.toMatchObject({ code: 'ZK_PRODUCTION_VKEY_PIN_MISMATCH' });
+
+    const missingManifestPin = keyEnv(fixture, { publicKeyPem });
+    delete missingManifestPin.ZK_MANIFEST_SHA256;
+    await expect(loadKeyConfig({ env: missingManifestPin })).rejects.toMatchObject({
+      code: 'ZK_MANIFEST_PIN_REQUIRED',
+    });
+
+    await expect(loadKeyConfig({
+      env: keyEnv(fixture, { publicKeyPem, overrides: { ZK_MANIFEST_SHA256: '00'.repeat(32) } }),
+    })).rejects.toMatchObject({ code: 'ZK_MANIFEST_PIN_MISMATCH' });
+
+    await expect(loadKeyConfig({
+      env: keyEnv(fixture, {
+        publicKeyPem,
+        overrides: { ZK_TRUSTED_SETUP_MANIFEST: join(fixture.dir, 'missing-manifest.json') },
+      }),
+    })).rejects.toMatchObject({ code: 'ZK_TRUSTED_SETUP_MANIFEST_REQUIRED' });
+
+    const missingVkey = keyEnv(fixture, {
+      publicKeyPem,
+      overrides: { ZK_VKEY_PATH: join(fixture.dir, 'missing-vkey.json') },
+    });
+    await expect(loadKeyConfig({ env: missingVkey })).rejects.toMatchObject({ code: 'ZK_VKEY_UNAVAILABLE' });
+
+    // Keep the old pin, but replace the artifact on disk.
+    await writeFile(fixture.vkeyPath, JSON.stringify({
+      protocol: 'groth16', curve: 'bn128', nPublic: 6, IC: ['0', '2', '3', '4', '5', '6', '7'],
+    }));
+    await expect(loadKeyConfig({ env: keyEnv(fixture, { publicKeyPem }) })).rejects.toMatchObject({
+      code: 'ZK_VKEY_HASH_MISMATCH',
+    });
+  } finally {
+    await rm(fixture.dir, { recursive: true, force: true });
+  }
+});
 
 test('migration is additive, RLS-locked and contains no score/nonce/witness columns', async () => {
   const path = fileURLToPath(new URL('../supabase/migrations/202611050001_zk_proof_of_learning.sql', import.meta.url));

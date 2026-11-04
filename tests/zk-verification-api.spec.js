@@ -107,6 +107,7 @@ function keyConfig(overrides = {}) {
     activeTrustedIssuers: new Map([['kid-1', key]]),
     activeIssuerKeyIds: ['kid-1'],
     setupMode: 'production',
+    productionVerified: true,
     ...overrides,
   };
 }

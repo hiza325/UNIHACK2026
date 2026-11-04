@@ -315,16 +315,33 @@ export function createZkProofStore({ env = process.env, fetcher = globalThis.fet
     },
 
     async updateStatus(id, status) {
-      if (!ZK_PROOF_STATUSES.includes(status)) {
-        throw storeError('ZK proof status is invalid', 'ZK_INVALID_INPUT', 400);
+      // Terminal transitions only. There is deliberately no path from
+      // revoked/superseded back to active, and no superseded <-> revoked.
+      if (status !== 'revoked' && status !== 'superseded') {
+        throw storeError('ZK proof transition is not allowed', 'ZK_INVALID_TRANSITION', 409);
       }
+      const proofId = requireUuid(id, 'Proof ID');
       const revokedAt = status === 'revoked' ? new Date(now()).toISOString() : null;
-      return request(ZK_PROOFS_TABLE, {
+      const row = await request(ZK_PROOFS_TABLE, {
         method: 'PATCH',
-        query: { id: `eq.${requireUuid(id, 'Proof ID')}`, select: ZK_PROOF_SELECT },
+        query: {
+          id: `eq.${proofId}`,
+          status: 'eq.active',
+          select: ZK_PROOF_SELECT,
+        },
         body: { status, revoked_at: revokedAt },
         single: true,
       });
+      if (!row) {
+        // Atomic conditional update matched no active row. This covers both
+        // concurrent revocation and attempts to restore terminal state.
+        throw storeError(
+          'ZK proof is not active or does not exist',
+          'ZK_PROOF_TRANSITION_CONFLICT',
+          409,
+        );
+      }
+      return row;
     },
   };
 }

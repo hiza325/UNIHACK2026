@@ -210,13 +210,24 @@ export async function loadVerificationKey({
   const manifestPath = resolvePath(
     env.ZK_TRUSTED_SETUP_MANIFEST || join(dirname(vkeyPath), 'manifest.json'),
   );
-  let manifest = null;
+  let manifestBuffer;
   try {
-    manifest = JSON.parse((await reader(manifestPath)).toString('utf8'));
-  } catch {
-    manifest = null;
+    manifestBuffer = await reader(manifestPath);
+  } catch (error) {
+    throw keyError('ZK trusted setup manifest is required', 'ZK_TRUSTED_SETUP_MANIFEST_REQUIRED', 503, error);
   }
+  let manifest;
+  try {
+    manifest = JSON.parse(Buffer.from(manifestBuffer).toString('utf8'));
+  } catch {
+    throw keyError('ZK trusted setup manifest is invalid', 'ZK_TRUSTED_SETUP_MANIFEST_INVALID', 503);
+  }
+  if (!manifest || typeof manifest !== 'object') {
+    throw keyError('ZK trusted setup manifest is invalid', 'ZK_TRUSTED_SETUP_MANIFEST_INVALID', 503);
+  }
+  const manifestHash = createHash('sha256').update(manifestBuffer).digest('hex');
 
+  let productionVerified = false;
   if (setupMode === 'development') {
     if (String(env.NODE_ENV || '').trim().toLowerCase() === 'production') {
       throw keyError('Development trusted setup is forbidden in production', 'ZK_DEVELOPMENT_SETUP_FORBIDDEN', 503);
@@ -225,13 +236,27 @@ export async function loadVerificationKey({
       throw keyError('Development trusted setup is not allowed', 'ZK_DEVELOPMENT_SETUP_NOT_ALLOWED', 503);
     }
   } else {
-    if (!manifest) {
-      throw keyError('Production trusted setup manifest is required', 'ZK_TRUSTED_SETUP_MANIFEST_REQUIRED', 503);
-    }
     if (manifest?.trustedSetup?.productionReady !== true
       || String(manifest?.trustedSetup?.mode || '') === 'local-single-contributor') {
       throw keyError('Development trusted setup cannot be used in production', 'ZK_DEVELOPMENT_SETUP_FORBIDDEN', 503);
     }
+
+    // Independent production pins: a manifest claim alone is not enough.
+    const productionVkeyPin = String(env.ZK_PRODUCTION_VKEY_SHA256 || '').trim().toLowerCase();
+    if (!HEX64.test(productionVkeyPin)) {
+      throw keyError('Production verification key pin is required', 'ZK_PRODUCTION_VKEY_PIN_REQUIRED', 503);
+    }
+    if (actualHash !== productionVkeyPin) {
+      throw keyError('Verification key does not match the production pin', 'ZK_PRODUCTION_VKEY_PIN_MISMATCH', 503);
+    }
+    const productionManifestPin = String(env.ZK_MANIFEST_SHA256 || '').trim().toLowerCase();
+    if (!HEX64.test(productionManifestPin)) {
+      throw keyError('Production manifest pin is required', 'ZK_MANIFEST_PIN_REQUIRED', 503);
+    }
+    if (manifestHash !== productionManifestPin) {
+      throw keyError('Trusted setup manifest does not match the production pin', 'ZK_MANIFEST_PIN_MISMATCH', 503);
+    }
+    productionVerified = true;
   }
 
   if (manifest?.circuit?.version && String(manifest.circuit.version) !== circuitVersion) {
@@ -243,9 +268,11 @@ export async function loadVerificationKey({
     vkeySha256: actualHash,
     vkeyPath,
     manifestPath,
+    manifestHash,
     manifest,
     circuitVersion,
     setupMode,
+    productionVerified,
   });
 }
 
@@ -269,7 +296,9 @@ export async function loadKeyConfig({
     vkeyPath: verification.vkeyPath,
     circuitVersion: verification.circuitVersion,
     setupMode: verification.setupMode,
+    productionVerified: verification.productionVerified,
     manifest: verification.manifest,
+    manifestHash: verification.manifestHash,
   });
 }
 
