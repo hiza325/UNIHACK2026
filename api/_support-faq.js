@@ -21,7 +21,8 @@ export const SUPPORT_FAQ_META = {
     "Part A contains the 50 FAQ entries; Part B contains the 100 user-support questions.",
     "The source document says its three original product FAQs are not repeated in this file; they are intentionally excluded here.",
     "IDs are prefixed with the part letter because Part B restarts its numbering at 1.",
-    "Every entry keeps the source paragraph number for traceability; no question, keyword, answer or category was merged or rewritten."
+    "Every entry keeps the source paragraph number for traceability; no question, keyword, answer or category was merged or rewritten.",
+    "B097 and B085 were updated on 2026-11-04 for the FAQ-only support architecture; update the source document before regenerating."
   ]
 };
 
@@ -1912,7 +1913,7 @@ export const SUPPORT_FAQ = [
       "API key",
       "máy chủ"
     ],
-    "answer": "API key của AI nằm trong biến môi trường máy chủ, không có trong mã trình duyệt.",
+    "answer": "API key của AI Learning và AI Debate nằm trong biến môi trường máy chủ, không có trong mã trình duyệt. Trợ lý hỗ trợ tra cứu FAQ nên không cần API key AI.",
     "source": {
       "paragraph": 427
     }
@@ -2073,11 +2074,11 @@ export const SUPPORT_FAQ = [
     "question": "97. Chatbot không trả lời thì kiểm tra gì?",
     "keywords": [
       "chatbot",
-      "GROQ_API_KEY",
-      "GEMINI_API_KEY",
+      "tra cứu",
+      "kết nối",
       "503"
     ],
-    "answer": "Chatbot cần máy chủ có GROQ_API_KEY (dự phòng GEMINI_API_KEY). Nếu thiếu cả hai, chatbot trả lời bằng nội dung tài liệu thay vì gọi AI.",
+    "answer": "Trợ lý tra cứu trực tiếp các mục hướng dẫn đã lưu trên máy chủ, không gọi dịch vụ AI. Nếu trợ lý không trả lời, bạn kiểm tra kết nối mạng rồi thử lại; nếu vẫn lỗi, hãy liên hệ đội hỗ trợ PARADOX AI.",
     "source": {
       "paragraph": 465
     }

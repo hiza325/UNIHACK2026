@@ -1,9 +1,8 @@
 /*
- * Website-support AI configuration.
+ * Website-support configuration.
  *
- * The bundled /api/support serverless function uses the shared AI gateway, and
- * provider keys live only in the server environment. Never put an API key in
- * this frontend file.
+ * The bundled /api/support serverless function performs a local FAQ lookup and
+ * does not call an AI provider. No provider key belongs in this frontend file.
  */
 const runtimeConfig = globalThis.PARADOX_SUPPORT_AI_CONFIG || {};
 

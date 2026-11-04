@@ -233,7 +233,7 @@ export const extraCopy = {
     supportTitle: 'Trợ lý sử dụng PARADOX', supportWelcome: 'Chào bạn! Mình có thể hướng dẫn cách dùng các tính năng trên PARADOX. Bạn đang cần hỗ trợ gì?',
     supportPlaceholder: 'Hỏi cách sử dụng website…', supportScope: 'Trợ lý này chỉ hướng dẫn sử dụng website, không giải bài học.',
     supportSuggestions: 'Câu hỏi gợi ý',
-    supportThinking: 'Đang tìm hướng dẫn…', supportNotConfigured: 'Mình chưa được kết nối tới AI hỗ trợ. Bạn quay lại sau một chút nhé.',
+    supportThinking: 'Đang tìm hướng dẫn…', supportNotConfigured: 'Trợ lý tra cứu đang tạm thời không phản hồi. Bạn quay lại sau một chút nhé.',
     supportError: 'Mình đang gặp chút trục trặc khi kết nối. Bạn thử lại sau ít phút nhé.',
     supportRateLimited: 'Bạn gửi hơi nhiều câu hỏi liên tiếp rồi. Chờ vài phút rồi nhắn lại mình nhé.',
     supportTimeout: 'Mình phản hồi hơi lâu một chút. Bạn thử gửi lại câu hỏi giúp mình nhé.'
@@ -470,7 +470,7 @@ export const extraCopy = {
     supportTitle: 'PARADOX website assistant', supportWelcome: 'Hi! I can help you use PARADOX features. What would you like help with?',
     supportPlaceholder: 'Ask how to use the website…', supportScope: 'This assistant only explains website usage; it does not solve coursework.',
     supportSuggestions: 'Suggested questions',
-    supportThinking: 'Finding guidance…', supportNotConfigured: 'I am not connected to the support AI yet. Please check back in a little while.',
+    supportThinking: 'Finding guidance…', supportNotConfigured: 'The support lookup service is temporarily unavailable. Please check back in a little while.',
     supportError: 'I ran into a small connection problem. Please try again in a moment.',
     supportRateLimited: 'You have sent quite a few questions in a row. Please give it a few minutes and message me again.',
     supportTimeout: 'I took a little too long to reply. Please send your question again.'
@@ -707,7 +707,7 @@ export const extraCopy = {
     supportTitle: 'PARADOXサイト案内', supportWelcome: 'こんにちは。PARADOXの機能と使い方をご案内します。何をお手伝いしましょうか？',
     supportPlaceholder: 'サイトの使い方を質問…', supportScope: 'このアシスタントはサイトの使い方のみを案内し、学習問題には回答しません。',
     supportSuggestions: 'おすすめの質問',
-    supportThinking: '案内を確認中…', supportNotConfigured: 'サポートAIにはまだ接続されていません。しばらくしてからもう一度お試しください。',
+    supportThinking: '案内を確認中…', supportNotConfigured: 'サポート検索は一時的に利用できません。しばらくしてからもう一度お試しください。',
     supportError: '接続で少し問題が起きました。少し時間をおいて、もう一度お試しください。',
     supportRateLimited: '質問が続いて送信されています。数分おいてから、もう一度メッセージをお願いします。',
     supportTimeout: '返信に少し時間がかかりすぎました。もう一度質問を送ってください。'
