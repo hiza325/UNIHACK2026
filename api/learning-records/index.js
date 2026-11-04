@@ -25,13 +25,38 @@ function sendRecordError(res, error) {
   return res.status(status).json({ error: message, ...(error?.code ? { code: error.code } : {}) });
 }
 
-export function createLearningRecordsHandler({ storeFactory = createLearningRecordStore, serviceFactory = createLearningRecordService, sessionResolver = currentUser } = {}) {
+export function createLearningRecordsHandler({
+  storeFactory = createLearningRecordStore,
+  serviceFactory = createLearningRecordService,
+  sessionResolver = currentUser,
+  zkRouter = null,
+} = {}) {
   return async function learningRecordsHandler(req, res) {
     noStore(res);
     if (!['GET', 'POST'].includes(req.method)) {
       res.setHeader('Allow', 'GET, POST');
       return res.status(405).json({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' });
     }
+
+    // Read-only ZK routes are hosted here to avoid a 13th Vercel function.
+    // `zkAction` selects only public status/get/verify actions; unknown actions
+    // are rejected before session/auth or learning-record service code runs.
+    // There is no create/mutate ZK action in Phase 2.2A.
+    const zkAction = queryValue(req, 'zkAction');
+    if (zkAction) {
+      try {
+        const router = zkRouter || (await import('../zk/_router.js')).default;
+        return await router({
+          action: String(zkAction),
+          req,
+          res,
+          proofId: queryValue(req, 'proofId'),
+        });
+      } catch (error) {
+        return sendRecordError(res, error);
+      }
+    }
+
     try {
       const session = await sessionResolver(req, res);
       const user = publicUser(session.user);

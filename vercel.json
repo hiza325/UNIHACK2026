@@ -13,6 +13,18 @@
       "destination": "/api/auth/session?localAuth=1"
     },
     {
+      "source": "/api/zk/status",
+      "destination": "/api/learning-records?zkAction=status"
+    },
+    {
+      "source": "/api/zk/proofs/:proofId",
+      "destination": "/api/learning-records?zkAction=getProof&proofId=:proofId"
+    },
+    {
+      "source": "/api/zk/verify",
+      "destination": "/api/learning-records?zkAction=verifyProof"
+    },
+    {
       "source": "/verify",
       "destination": "/verify.html"
     }

@@ -64,7 +64,15 @@ const API_HANDLERS = new Map([
   ['/api/learning-records', learningRecordsHandler],
 ]);
 
-async function runApiHandler(handler, req, res) {
+export function resolveZkRoute(pathname) {
+  if (pathname === '/api/zk/status') return { zkAction: 'status' };
+  if (pathname === '/api/zk/verify') return { zkAction: 'verifyProof' };
+  const match = String(pathname).match(/^\/api\/zk\/proofs\/([^/]+)$/);
+  if (match) return { zkAction: 'getProof', proofId: decodeURIComponent(match[1]) };
+  return null;
+}
+
+async function runApiHandler(handler, req, res, queryOverride = null) {
   let rawBody = '';
   if (!['GET', 'HEAD'].includes(req.method)) {
     for await (const chunk of req) {
@@ -80,13 +88,19 @@ async function runApiHandler(handler, req, res) {
     json(payload) { res.writeHead(this.statusCode, { 'Content-Type': 'application/json; charset=utf-8', ...headers }); res.end(JSON.stringify(payload)); return this; },
   };
   const url = new URL(req.url, `http://${req.headers.host}`);
-  await handler({ method: req.method, headers: req.headers, url: req.url, socket: req.socket, body: rawBody || undefined, query: Object.fromEntries(url.searchParams) }, response);
+  const query = { ...Object.fromEntries(url.searchParams), ...(queryOverride || {}) };
+  await handler({ method: req.method, headers: req.headers, url: req.url, socket: req.socket, body: rawBody || undefined, query }, response);
 }
 
 export function createStaticServer() {
   return createServer(async (req, res) => {
     try {
       const url = new URL(req.url, `http://${req.headers.host}`);
+      const zkRoute = resolveZkRoute(url.pathname);
+      if (zkRoute) {
+        await runApiHandler(learningRecordsHandler, req, res, zkRoute);
+        return;
+      }
       if (API_HANDLERS.has(url.pathname)) {
         await runApiHandler(API_HANDLERS.get(url.pathname), req, res);
         return;
