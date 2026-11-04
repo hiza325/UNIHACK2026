@@ -1,29 +1,22 @@
 import { expect, test } from '@playwright/test';
 import { createHash } from 'node:crypto';
-import { access, readFile } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
+import { access, readFile, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { artifactPaths, artifactsReady, BUILD_DIR } from '../zk/lib/artifacts.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-
-function resolveIncludeFile(path) {
-  return isAbsolute(path) ? path : join(ROOT, path);
-}
+const REQUIRED_ARTIFACTS = ['verification_key.json', 'manifest.json'];
 
 test('Vercel packages only the read-only verification key and manifest', async () => {
   const config = JSON.parse(await readFile(join(ROOT, 'vercel.json'), 'utf8'));
   const functionConfig = config.functions?.['api/learning-records/index.js'];
   expect(functionConfig).toBeTruthy();
-  const includeFiles = Array.isArray(functionConfig.includeFiles)
-    ? functionConfig.includeFiles
-    : [functionConfig.includeFiles];
-  expect(includeFiles).toEqual(expect.arrayContaining([
-    'zk/build/verification_key.json',
-    'zk/build/manifest.json',
-  ]));
-  expect(includeFiles.some(path => /\.zkey$|\.wasm$|\.ptau$|\.r1cs$|\.wtns$/i.test(path))).toBe(false);
+  // Vercel's schema requires includeFiles to be a string glob, not an array.
+  expect(typeof functionConfig.includeFiles).toBe('string');
+  expect(functionConfig.includeFiles).toBe('zk/build/*.json');
+  expect(functionConfig.includeFiles).not.toMatch(/\.zkey|\.wasm|\.ptau|\.r1cs|\.wtns/i);
 });
 
 test('local bundle contains the required artifacts and pinned verification key', async () => {
@@ -31,10 +24,18 @@ test('local bundle contains the required artifacts and pinned verification key',
   const paths = artifactPaths(BUILD_DIR);
   const config = JSON.parse(await readFile(join(ROOT, 'vercel.json'), 'utf8'));
   const includeFiles = config.functions['api/learning-records/index.js'].includeFiles;
-  for (const relative of includeFiles) {
-    const absolute = resolveIncludeFile(relative);
-    await access(absolute);
+  expect(includeFiles).toBe('zk/build/*.json');
+
+  for (const name of REQUIRED_ARTIFACTS) {
+    await access(join(BUILD_DIR, name));
   }
+
+  // The wildcard must only match the two public JSON artifacts. The build
+  // directory also contains proving material locally; it must not be bundled.
+  const jsonArtifacts = (await readdir(BUILD_DIR))
+    .filter(name => name.toLowerCase().endsWith('.json'))
+    .sort();
+  expect(jsonArtifacts).toEqual([...REQUIRED_ARTIFACTS].sort());
 
   const vkeyBuffer = await readFile(paths.vkey);
   const manifestBuffer = await readFile(paths.manifest);

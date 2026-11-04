@@ -31,10 +31,7 @@
   ],
   "functions": {
     "api/learning-records/index.js": {
-      "includeFiles": [
-        "zk/build/verification_key.json",
-        "zk/build/manifest.json"
-      ]
+      "includeFiles": "zk/build/*.json"
     }
   },
   "headers": [
