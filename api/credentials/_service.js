@@ -327,7 +327,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       || String(existing.credential_id_hash).toLowerCase() !== input.credentialIdHash.toLowerCase()
       || String(existing.evidence_hash).toLowerCase() !== input.evidenceHash.toLowerCase()
       || existing.source !== input.source
-      || Boolean(existing.is_test) !== input.isTest
+      || (Boolean(existing.is_test) || String(existing.credential_code || '').toUpperCase().startsWith('PXP-TEST-')) !== input.isTest
     )) {
       throw credentialError('Failed credential retry does not match the original record', 'CREDENTIAL_RETRY_MISMATCH', 409);
     }
@@ -594,7 +594,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       || String(existing.credential_id_hash).toLowerCase() !== input.credentialIdHash.toLowerCase()
       || String(existing.evidence_hash).toLowerCase() !== input.evidenceHash.toLowerCase()
       || existing.source !== input.source
-      || Boolean(existing.is_test) !== input.isTest
+      || (Boolean(existing.is_test) || String(existing.credential_code || '').toUpperCase().startsWith('PXP-TEST-')) !== input.isTest
     )) {
       throw credentialError('Failed credential retry does not match the original record', 'CREDENTIAL_RETRY_MISMATCH', 409);
     }
