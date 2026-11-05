@@ -10,6 +10,7 @@ import { supportMethods } from './app-support.js';
 import { learningPassportActionMethods } from './learning-passport-actions.js';
 import { createLearningPassportService } from './learning-passport-service.js';
 import { learningRecordActionMethods } from './learning-records-actions.js';
+import { learningSessionActionMethods } from './learning-sessions-actions.js';
 import { certificateIssuanceMethods } from './certificate-issuance-actions.js';
 import { createLearningRecordsService } from './learning-records-service.js';
 import { defineComponents } from './components.js';
@@ -45,6 +46,32 @@ class EduApp extends HTMLElement {
     this.auditText = '';
     this.auditResult = null;
     this.debateSession = { revisionCount: 0, hintLevel: 0, hints: [], attempts: [], conversation: [] };
+    this.learningSessionList = [];
+    this.learningSessionListLoading = false;
+    this.learningSessionHasMore = false;
+    this.learningSessionListError = '';
+    this.learningSessionSearch = '';
+    this.learningSessionSelectedId = '';
+    this.learningSessionInitialized = false;
+    this.learningSessionHydrated = false;
+    this.learningSessionDrawerOpen = false;
+    this.learningSessionMenuId = '';
+    this.learningSessionRenamingId = '';
+    this.learningSessionRenameDraft = '';
+    this.learningSessionDeleteId = '';
+    this.learningSessionSearchTimer = null;
+    this.learningSessionLoadingId = '';
+    this.sessionDirty = false;
+    this.sessionSavedSnapshot = null;
+    this.unsavedDialogOpen = false;
+    this.pendingUnsavedAction = null;
+    this.allowUnsavedNavigation = false;
+    this.analysisRequestToken = 0;
+    this.onBeforeUnload = event => {
+      if (!this.hasUnsavedLearningChanges()) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
     this.isAnalyzing = false;
     this.auditStorageReady = false;
     this.filePreviewUrls = {};
@@ -91,6 +118,7 @@ class EduApp extends HTMLElement {
     this.addEventListener('submit', this.onSubmit);
     window.addEventListener('keydown', this.onKeydown);
     window.addEventListener('hashchange', this.onHashChange);
+    window.addEventListener('beforeunload', this.onBeforeUnload);
     window.addEventListener('scroll', this.updateBackToTop, { passive: true });
     document.addEventListener('visibilitychange', this.onSessionVisibilityChange);
     window.addEventListener('focus', this.onSessionWindowFocus);
@@ -101,6 +129,7 @@ class EduApp extends HTMLElement {
       this.handleRoute();
       this.loadAuditState().then(() => {
         this.auditStorageReady = true;
+        if (this.user && this.view === 'audit') this.loadLearningSessions({ force: true, restore: true });
         if (this.user && ['audit', 'dashboard'].includes(this.view)) this.render();
       });
     });
@@ -112,6 +141,7 @@ class EduApp extends HTMLElement {
     this.removeEventListener('submit', this.onSubmit);
     window.removeEventListener('keydown', this.onKeydown);
     window.removeEventListener('hashchange', this.onHashChange);
+    window.removeEventListener('beforeunload', this.onBeforeUnload);
     window.removeEventListener('scroll', this.updateBackToTop);
     document.removeEventListener('visibilitychange', this.onSessionVisibilityChange);
     window.removeEventListener('focus', this.onSessionWindowFocus);
@@ -132,6 +162,6 @@ class EduApp extends HTMLElement {
   escape(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 }
 
-Object.assign(EduApp.prototype, dataMethods, viewMethods, actionMethods, routerMethods, themeMethods, eventMethods, notificationMethods, supportMethods, learningPassportActionMethods, learningRecordActionMethods, certificateIssuanceMethods);
+Object.assign(EduApp.prototype, dataMethods, viewMethods, actionMethods, routerMethods, themeMethods, eventMethods, notificationMethods, supportMethods, learningPassportActionMethods, learningRecordActionMethods, learningSessionActionMethods, certificateIssuanceMethods);
 
 defineComponents(EduApp);

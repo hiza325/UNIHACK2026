@@ -206,6 +206,12 @@ export const learningRecordActionMethods = {
         };
         this.auditMessages = [];
         this.step = 0;
+        if (typeof this.clearLearningFiles === 'function') this.clearLearningFiles();
+        this.learningSessionSelectedId = detail.id;
+        this.learningSessionHydrated = true;
+        this.sessionSavedSnapshot = this.captureLearningSnapshot();
+        this.sessionDirty = false;
+        localStorage.setItem(this.learningSessionStorageKey(), detail.id);
       } else {
         this.activeLocalSessionId = session.id;
         if (typeof session.problemText === 'string') this.auditProblemText = session.problemText;

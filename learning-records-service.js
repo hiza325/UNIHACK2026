@@ -30,10 +30,23 @@ export function createLearningRecordsService({ enabled = false, apiBaseUrl = '/a
       const data = await post({ action: 'abandonSession', sessionId });
       return data.session;
     },
-    async listSessions({ limit = 100, offset = 0, activeOnly = false } = {}) {
-      const query = new URLSearchParams({ limit: String(limit), offset: String(offset), ...(activeOnly ? { status: 'active' } : {}) });
+    async listSessions({ limit = 100, offset = 0, activeOnly = false, search = '' } = {}) {
+      const query = new URLSearchParams({
+        limit: String(limit),
+        offset: String(offset),
+        ...(activeOnly ? { status: 'active' } : {}),
+        ...(String(search || '').trim() ? { search: String(search).trim() } : {}),
+      });
       const data = await request(`?${query}`);
       return data.sessions;
+    },
+    async renameSession(sessionId, title) {
+      const data = await post({ action: 'renameSession', sessionId, title });
+      return data.session;
+    },
+    async archiveSession(sessionId) {
+      const data = await post({ action: 'archiveSession', sessionId });
+      return data.session;
     },
     async getOverview({ limit = 100, offset = 0 } = {}) {
       const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });

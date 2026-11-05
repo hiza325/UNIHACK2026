@@ -5,6 +5,25 @@ export const eventMethods = {
       window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
       return;
     }
+    if (event.target.closest?.('[data-unsaved-stay]')) { this.closeUnsavedDialog(); return; }
+    if (event.target.closest?.('[data-unsaved-leave]')) { this.confirmUnsavedLeave(); return; }
+    if (event.target.closest?.('[data-session-drawer]')) { this.toggleLearningSessionDrawer(); return; }
+    if (event.target.closest?.('[data-session-close]')) { this.toggleLearningSessionDrawer(false); return; }
+    if (event.target.closest?.('[data-session-new]')) { this.newLearningSession(); return; }
+    const sessionOpen = event.target.closest?.('[data-session-open]');
+    if (sessionOpen) { this.openLearningSession(sessionOpen.dataset.sessionOpen); return; }
+    const sessionMenu = event.target.closest?.('[data-session-menu]');
+    if (sessionMenu) { const id = sessionMenu.dataset.sessionMenu; this.learningSessionMenuId = this.learningSessionMenuId === id ? '' : id; this.render(); return; }
+    const sessionRename = event.target.closest?.('[data-session-rename]');
+    if (sessionRename) { this.beginLearningSessionRename(sessionRename.dataset.sessionRename); return; }
+    const sessionAskDelete = event.target.closest?.('[data-session-ask-delete]');
+    if (sessionAskDelete) { this.confirmLearningSessionDelete(sessionAskDelete.dataset.sessionAskDelete); return; }
+    const sessionConfirmDelete = event.target.closest?.('[data-session-confirm-delete]');
+    if (sessionConfirmDelete) { this.archiveLearningSession(sessionConfirmDelete.dataset.sessionConfirmDelete); return; }
+    if (event.target.closest?.('[data-session-cancel-delete]')) { this.cancelLearningSessionDelete(); return; }
+    if (event.target.closest?.('[data-session-cancel-rename]')) { this.cancelLearningSessionRename(); return; }
+    if (event.target.closest?.('[data-session-retry]')) { this.loadLearningSessions({ force: true, restore: false }); return; }
+    if (event.target.closest?.('[data-session-more]')) { this.loadMoreLearningSessions(); return; }
     if (event.target.closest?.('[data-support-toggle]')) { this.toggleSupport(); return; }
     if (event.target.closest?.('[data-support-close]')) { this.toggleSupport(false); return; }
     if (event.target.closest?.('[data-support-retry]')) { this.retrySupportMessage(); return; }
@@ -87,9 +106,10 @@ export const eventMethods = {
   },
   onInput(event) {
     if (event.target.id === 'passport-code') event.target.setCustomValidity('');
+    if (event.target.id === 'learning-session-search') { this.scheduleLearningSessionSearch(event.target.value); return; }
     if (event.target.id === 'history-search') { this.historyPage = 1; this.filterHistory(); }
-    if (event.target.id === 'work-text') { this.auditText = event.target.value; this.saveAuditState(); }
-    if (event.target.id === 'problem-text') { this.auditProblemText = event.target.value; this.saveAuditState(); }
+    if (event.target.id === 'work-text') { this.auditText = event.target.value; this.markLearningSessionDirty(); this.saveAuditState(); }
+    if (event.target.id === 'problem-text') { this.auditProblemText = event.target.value; this.markLearningSessionDirty(); this.saveAuditState(); }
     if (event.target.id === 'admin-search') { this.filterAdminUsers(event.target.value); return; }
     if (event.target.id === 'cert-evaluation-select') { this.selectCertificateEvaluation(event.target.value); return; }
     if (event.target.id === 'hint-level') {
@@ -99,6 +119,12 @@ export const eventMethods = {
     }
   },
   onSubmit(event) {
+    if (event.target.matches?.('[data-session-rename-form]')) {
+      event.preventDefault();
+      const title = new FormData(event.target).get('title');
+      this.saveLearningSessionRename(event.target.dataset.sessionRenameForm, title);
+      return;
+    }
     if (event.target.id === 'passport-verify-form') {
       event.preventDefault();
       this.searchPassportCredential(event.target);
@@ -123,6 +149,15 @@ export const eventMethods = {
   },
   onKeydown(event) {
     if (event.key !== 'Escape') return;
+    if (this.unsavedDialogOpen) { this.closeUnsavedDialog(); return; }
+    if (this.learningSessionMenuId || this.learningSessionRenamingId || this.learningSessionDeleteId) {
+      this.learningSessionMenuId = '';
+      this.learningSessionRenamingId = '';
+      this.learningSessionDeleteId = '';
+      this.render();
+      return;
+    }
+    if (this.learningSessionDrawerOpen) { this.toggleLearningSessionDrawer(false); return; }
     const modal = this.querySelector('#practice-modal');
     if (modal && !modal.hidden) { this.closePractice(); return; }
     const reset = this.querySelector('#reset-modal');
