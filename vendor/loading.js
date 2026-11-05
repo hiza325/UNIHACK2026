@@ -6,6 +6,14 @@
 (function (global) {
   'use strict';
 
+  // Inject loading.css if not already present
+  if (!document.querySelector('link[href="vendor/loading.css"]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'vendor/loading.css';
+    document.head.appendChild(link);
+  }
+
   const SPINNER_CLASS = 'loading-spinner';
   let fullscreenEl = null;
   let fullscreenCount = 0;

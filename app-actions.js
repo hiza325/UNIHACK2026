@@ -704,19 +704,36 @@ export const actionMethods = {
     this.saveAuditState();
     if (!messages) return;
     const initials = (this.user?.name || 'U').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
-    let rendered;
-    if (user) {
-      rendered = html;
-    } else if (render === 'html') {
-      rendered = html;
-    } else if (render === 'text') {
-      rendered = this.escape(html);
-    } else {
-      rendered = typeof renderAIMessage === 'function' ? renderAIMessage(html) : this.escape(html);
-    }
+    const renderNow = () => {
+      let rendered;
+      if (user) {
+        rendered = html;
+      } else if (render === 'html') {
+        rendered = html;
+      } else if (render === 'text') {
+        rendered = this.escape(html);
+      } else {
+        rendered = typeof renderAIMessage === 'function' ? renderAIMessage(html) : this.escape(html);
+      }
+      return rendered;
+    };
+    const rendered = renderNow();
     const item = document.createElement('audit-message'); item.className = `message ${user ? 'user' : ''}`;
     item.innerHTML = `<span class="message-icon">${user ? this.escape(initials) : '✳'}</span><div class="bubble">${rendered}<div class="message-time">${this.t('timeNow')}</div></div>`;
     messages.append(item); item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Lazy-load AI renderer if needed and re-render when ready
+    if (!user && render === 'auto' && typeof renderAIMessage !== 'function' && typeof ensureAIRenderer === 'function') {
+      const bubble = item.querySelector('.bubble');
+      ensureAIRenderer().then(() => {
+        if (typeof renderAIMessage === 'function' && bubble) {
+          const r = renderAIMessage(html);
+          // Replace bubble content (keep time)
+          const timeEl = bubble.querySelector('.message-time');
+          bubble.innerHTML = r + (timeEl ? timeEl.outerHTML : '');
+        }
+      }).catch(() => {});
+    }
   },
   advance(step) {
     const previousStep = this.step;
