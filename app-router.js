@@ -40,7 +40,17 @@ export const routerMethods = {
     this.render();
     if (this.view === 'admin') { this.loadAdminAccounts(); if (typeof this.restoreCertificateIssuance === 'function') this.restoreCertificateIssuance(); }
     if (this.view === 'passport' && typeof this.loadPassportEligibleEvaluations === 'function') this.loadPassportEligibleEvaluations();
-    if (this.view === 'audit') this.loadLearningSessions();
+    if (this.view === 'audit') {
+      // Lazy-load editorial.css for audit view
+      if (!document.querySelector('link[href="editorial.css"]')) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'editorial.css';
+        document.head.appendChild(link);
+      }
+      this.loadLearningSessions();
+      if (typeof ensureAIRenderer === 'function') ensureAIRenderer().then(() => { if (this.view === 'audit') this.render(); }).catch(() => {});
+    }
     if (['dashboard', 'profile', 'passport'].includes(this.view)) this.loadLearningPassportSnapshot();
     if (['dashboard', 'history', 'analytics', 'profile'].includes(this.view)) this.loadLearningRecordHistory();
   },
