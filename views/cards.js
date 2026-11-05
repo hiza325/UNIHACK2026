@@ -60,7 +60,25 @@ export const cardViews = {
     const greeting = `<audit-message class="message"><span class="message-icon">✳</span><div class="bubble">${greetingText}<div style="margin-top:7px">${this.t('greetingPrompt')}</div><div class="message-time">${this.t('timeNow')}</div></div></audit-message>`;
     const saved = this.auditMessages.map(item => {
       const initials = (this.user?.name || 'U').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
-      return `<audit-message class="message ${item.user ? 'user' : ''}"><span class="message-icon">${item.user ? this.escape(initials) : '✳'}</span><div class="bubble">${item.html}<div class="message-time">${this.t('timeNow')}</div></div></audit-message>`;
+      const renderMode = item.render || 'auto';
+      let rendered;
+      if (item.user) {
+        rendered = item.html;
+      } else if (renderMode === 'html') {
+        rendered = item.html;
+      } else if (renderMode === 'text') {
+        rendered = this.escape(item.html);
+      } else {
+        const hintMatch = String(item.html || '').match(/^<span class="hint-level-tag">[\s\S]*?<\/span>/);
+        if (hintMatch) {
+          const hintTag = hintMatch[0];
+          const content = String(item.html).slice(hintTag.length);
+          rendered = hintTag + (typeof renderAIMessage === 'function' ? renderAIMessage(content) : this.escape(content));
+        } else {
+          rendered = typeof renderAIMessage === 'function' ? renderAIMessage(item.html) : this.escape(item.html);
+        }
+      }
+      return `<audit-message class="message ${item.user ? 'user' : ''}"><span class="message-icon">${item.user ? this.escape(initials) : '✳'}</span><div class="bubble">${rendered}<div class="message-time">${this.t('timeNow')}</div></div></audit-message>`;
     }).join('');
     return greeting + saved + (this.isAnalyzing ? this.typingMarkup() : '');
   },
