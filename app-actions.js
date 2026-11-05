@@ -17,7 +17,16 @@ export const actionMethods = {
   },
   setAuthLoading(loading) {
     const submit = this.querySelector('.auth-submit');
-    if (submit) submit.disabled = loading;
+    if (submit) {
+      submit.disabled = loading;
+      if (loading) {
+        submit.dataset.originalHtml = submit.innerHTML;
+        submit.innerHTML = `<span class="loading-inline"><span class="loading-spinner" data-size="sm" role="status" aria-label="Loading"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span></span></span>`;
+      } else if (submit.dataset.originalHtml) {
+        submit.innerHTML = submit.dataset.originalHtml;
+        delete submit.dataset.originalHtml;
+      }
+    }
     this.querySelectorAll('#auth-form input, #auth-resend, #auth-forgot').forEach(element => { element.disabled = loading; });
   },
   rateLimitMessage(data) {
@@ -666,9 +675,13 @@ export const actionMethods = {
     });
     const submit = this.querySelector('#start-audit');
     if (submit) submit.innerHTML = `${this.t(active ? 'debateAnalyzing' : 'debateAnalyze')} <span class="button-arrow">↗</span>`;
-    const existing = this.querySelector('#typing-indicator');
-    if (active && !existing) this.querySelector('#messages')?.insertAdjacentHTML('beforeend', this.typingMarkup());
-    if (!active) existing?.remove();
+    const messages = this.querySelector('#messages');
+    if (active && messages && !(messages.querySelector && messages.querySelector('.loading-chat'))) {
+      if (typeof loadingUI !== 'undefined') loadingUI.showChat(messages, this.t('aiThinking') || 'AI dang suy nghi...');
+    }
+    if (!active && messages) {
+      if (typeof loadingUI !== 'undefined') loadingUI.hideChat(messages);
+    }
   },
   addReplies() {
     const messages = this.querySelector('#messages');

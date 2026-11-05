@@ -72,7 +72,7 @@ export const adminViews = {
         <button class="primary-button" type="button" data-cert-confirm ${ci.busy || !ci.prepared ? 'disabled' : ''}>Sign &amp; Send</button>
         <button class="ghost-button" type="button" data-cert-check ${ci.busy || !ci.txHash ? 'disabled' : ''}>Check again</button>
       </div>
-      <p><strong>Status:</strong> ${this.escape(ci.status)} ${ci.error ? `— ${this.escape(ci.error)}` : ''}</p>
+      <p><strong>Status:</strong> ${ci.busy ? `<span class="loading-inline"><span class="loading-spinner" data-size="sm" role="status" aria-label="Loading"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span></span></span> ` : ''}${this.escape(ci.status)} ${ci.error ? `— ${this.escape(ci.error)}` : ''}</p>
       ${preview}
       ${ci.txHash ? `<p><strong>Tx:</strong> <code>${this.escape(ci.txHash)}</code> ${explorer}</p>` : ''}
     </section>`;

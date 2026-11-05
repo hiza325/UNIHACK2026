@@ -1,0 +1,139 @@
+/* Unified loading system for PARADOX AI — EduDefend.OS */
+/* 12-bar circular spinner, CSS-animated, CSP-safe */
+
+.loading-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+  position: relative;
+}
+.loading-spinner[data-size="sm"] { font-size: 14px; }
+.loading-spinner[data-size="md"] { font-size: 18px; }
+.loading-spinner[data-size="lg"] { font-size: 28px; }
+.loading-spinner[data-size="xl"] { font-size: 36px; }
+
+.loading-spinner .bar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 32%;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: #59645c;
+  transform-origin: center 150%;
+  opacity: 0.12;
+}
+.loading-spinner .bar:nth-child(1)  { transform: rotate(0deg)   translateY(-50%); }
+.loading-spinner .bar:nth-child(2)  { transform: rotate(30deg)  translateY(-50%); }
+.loading-spinner .bar:nth-child(3)  { transform: rotate(60deg)  translateY(-50%); }
+.loading-spinner .bar:nth-child(4)  { transform: rotate(90deg)  translateY(-50%); }
+.loading-spinner .bar:nth-child(5)  { transform: rotate(120deg) translateY(-50%); }
+.loading-spinner .bar:nth-child(6)  { transform: rotate(150deg) translateY(-50%); }
+.loading-spinner .bar:nth-child(7)  { transform: rotate(180deg) translateY(-50%); }
+.loading-spinner .bar:nth-child(8)  { transform: rotate(210deg) translateY(-50%); }
+.loading-spinner .bar:nth-child(9)  { transform: rotate(240deg) translateY(-50%); }
+.loading-spinner .bar:nth-child(10) { transform: rotate(270deg) translateY(-50%); }
+.loading-spinner .bar:nth-child(11) { transform: rotate(300deg) translateY(-50%); }
+.loading-spinner .bar:nth-child(12) { transform: rotate(330deg) translateY(-50%); }
+
+@keyframes loading-bar-pulse {
+  0%, 100% { opacity: 0.12; }
+  8.333%   { opacity: 1; }
+  16.666%  { opacity: 0.12; }
+}
+
+.loading-spinner .bar:nth-child(1)  { animation: loading-bar-pulse 1s infinite; }
+.loading-spinner .bar:nth-child(2)  { animation: loading-bar-pulse 1s infinite; animation-delay: calc(1s * 1 / 12); }
+.loading-spinner .bar:nth-child(3)  { animation: loading-bar-pulse 1s infinite; animation-delay: calc(1s * 2 / 12); }
+.loading-spinner .bar:nth-child(4)  { animation: loading-bar-pulse 1s infinite; animation-delay: calc(1s * 3 / 12); }
+.loading-spinner .bar:nth-child(5)  { animation: loading-bar-pulse 1s infinite; animation-delay: calc(1s * 4 / 12); }
+.loading-spinner .bar:nth-child(6)  { animation: loading-bar-pulse 1s infinite; animation-delay: calc(1s * 5 / 12); }
+.loading-spinner .bar:nth-child(7)  { animation: loading-bar-pulse 1s infinite; animation-delay: calc(1s * 6 / 12); }
+.loading-spinner .bar:nth-child(8)  { animation: loading-bar-pulse 1s infinite; animation-delay: calc(1s * 7 / 12); }
+.loading-spinner .bar:nth-child(9)  { animation: loading-bar-pulse 1s infinite; animation-delay: calc(1s * 8 / 12); }
+.loading-spinner .bar:nth-child(10) { animation: loading-bar-pulse 1s infinite; animation-delay: calc(1s * 9 / 12); }
+.loading-spinner .bar:nth-child(11) { animation: loading-bar-pulse 1s infinite; animation-delay: calc(1s * 10 / 12); }
+.loading-spinner .bar:nth-child(12) { animation: loading-bar-pulse 1s infinite; animation-delay: calc(1s * 11 / 12); }
+
+body.dark .loading-spinner .bar { background: #829d68; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner .bar { animation: none; opacity: 1; }
+  .loading-spinner[data-animated] .bar { animation: none; }
+}
+
+/* Inline loading */
+.loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.loading-inline .loading-text {
+  font-size: 10px;
+  color: #59645c;
+}
+body.dark .loading-inline .loading-text { color: #829d68; }
+
+/* Section loading */
+.loading-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 16px;
+  color: #59645c;
+  font-size: 10px;
+}
+.loading-section .loading-text { font-size: 10px; }
+body.dark .loading-section { color: #829d68; }
+
+/* Fullscreen loading */
+.loading-fullscreen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(246, 247, 243, 0.75);
+  backdrop-filter: blur(2px);
+  z-index: 9999;
+  pointer-events: all;
+}
+body.dark .loading-fullscreen {
+  background: rgba(20, 25, 21, 0.75);
+}
+.loading-fullscreen .loading-text {
+  font-size: 11px;
+  color: #465248;
+}
+body.dark .loading-fullscreen .loading-text { color: #c5d2c7; }
+
+/* Hidden state */
+.loading-spinner[hidden],
+.loading-inline[hidden],
+.loading-section[hidden],
+.loading-fullscreen[hidden] {
+  display: none !important;
+}
+
+/* Chat-specific loading (inside chat area, not fullscreen) */
+.loading-chat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 11px 35px;
+  color: #59645c;
+  font-size: 9px;
+}
+.loading-chat .loading-text { font-size: 9px; }
+body.dark .loading-chat { color: #829d68; }
