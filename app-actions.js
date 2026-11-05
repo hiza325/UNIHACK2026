@@ -535,7 +535,7 @@ export const actionMethods = {
     const activeSession = this.ensureDebateSession();
     this.saveAuditState();
     this.advance(1);
-    this.appendMessage(this.escape(mode === 'resubmit' ? this.t('debateResubmitted') : this.t('submitted')), mode === 'resubmit');
+    this.appendMessage(this.escape(mode === 'resubmit' ? this.t('debateResubmitted') : this.t('submitted')), mode === 'resubmit', 'text');
     this.setAnalyzing(true);
     const saveSnapshot = this.captureLearningSnapshot();
     const requestToken = ++this.analysisRequestToken;
@@ -570,12 +570,12 @@ export const actionMethods = {
       activeSession.conversation = activeSession.conversation.slice(-40);
       if (result.nextQuestion) { activeSession.questions.push(result.nextQuestion); activeSession.questions = activeSession.questions.slice(-10); }
       this.advance(result.status === 'correct' ? 5 : result.status === 'incorrect' ? 2 : 1);
-      this.appendMessage(this.escape(result.summary));
+      this.appendMessage(result.summary);
       this.updateDebateResult();
       this.addReplies();
     } catch (error) {
       const message = this.debateErrorText(error);
-      this.appendMessage(`<span class="message-error">${this.escape(message)}</span>`);
+      this.appendMessage(`<span class="message-error">${this.escape(message)}</span>`, false, 'html');
       this.showToast(message);
     } finally {
       this.setAnalyzing(false);
@@ -610,12 +610,12 @@ export const actionMethods = {
       session.conversation.push({ role: 'assistant', text: reply });
       session.conversation = session.conversation.slice(-40);
       if (result.nextQuestion) { session.questions.push(result.nextQuestion); session.questions = session.questions.slice(-10); }
-      this.appendMessage(this.escape(reply));
+      this.appendMessage(reply);
       this.updateDebateResult();
       this.addReplies();
     } catch (error) {
       const message = this.debateErrorText(error);
-      this.appendMessage(`<span class="message-error">${this.escape(message)}</span>`);
+      this.appendMessage(`<span class="message-error">${this.escape(message)}</span>`, false, 'html');
       this.showToast(message);
     } finally {
       this.setAnalyzing(false);
@@ -647,11 +647,11 @@ export const actionMethods = {
       session.conversation.push({ role: 'assistant', text: reply });
       session.conversation = session.conversation.slice(-40);
       this.auditResult = { ...result, comparison: this.auditResult.comparison || result.comparison };
-      this.appendMessage(`<span class="hint-level-tag">${this.escape(this.t('debateHintLevel').replace('{level}', String(nextLevel)))}</span>${this.escape(reply)}`);
+      this.appendMessage(`<span class="hint-level-tag">${this.escape(this.t('debateHintLevel').replace('{level}', String(nextLevel)))}</span>${reply}`);
       this.updateDebateResult();
     } catch (error) {
       const message = this.debateErrorText(error);
-      this.appendMessage(`<span class="message-error">${this.escape(message)}</span>`);
+      this.appendMessage(`<span class="message-error">${this.escape(message)}</span>`, false, 'html');
       this.showToast(message);
     } finally {
       this.setAnalyzing(false);
@@ -684,15 +684,25 @@ export const actionMethods = {
     wrap.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', async () => { const action = btn.dataset.action; wrap.remove(); if (action === 'hint') { this.requestDebateHint(); return; } await this.sendMessage(questions[action]); if (action === 'rescue') this.advance(5); }));
     messages.append(wrap);
   },
-  appendMessage(html, user = false) {
+  appendMessage(html, user = false, render = 'auto') {
     const messages = this.querySelector('#messages');
-    this.auditMessages.push({ html, user, at: new Date().toISOString() });
+    this.auditMessages.push({ html, user, render, at: new Date().toISOString() });
     this.auditMessages = this.auditMessages.slice(-60);
     this.saveAuditState();
     if (!messages) return;
     const initials = (this.user?.name || 'U').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+    let rendered;
+    if (user) {
+      rendered = html;
+    } else if (render === 'html') {
+      rendered = html;
+    } else if (render === 'text') {
+      rendered = this.escape(html);
+    } else {
+      rendered = typeof renderAIMessage === 'function' ? renderAIMessage(html) : this.escape(html);
+    }
     const item = document.createElement('audit-message'); item.className = `message ${user ? 'user' : ''}`;
-    item.innerHTML = `<span class="message-icon">${user ? this.escape(initials) : '✳'}</span><div class="bubble">${html}<div class="message-time">${this.t('timeNow')}</div></div>`;
+    item.innerHTML = `<span class="message-icon">${user ? this.escape(initials) : '✳'}</span><div class="bubble">${rendered}<div class="message-time">${this.t('timeNow')}</div></div>`;
     messages.append(item); item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   },
   advance(step) {
