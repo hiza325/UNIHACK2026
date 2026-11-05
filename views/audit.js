@@ -79,6 +79,7 @@ export const auditViews = {
       <label class="ls-search"><span class="sr-only">${this.t('sessionSearch')}</span><input id="learning-session-search" type="search" autocomplete="off" placeholder="${this.t('sessionSearch')}" value="${this.escape(this.learningSessionSearch)}"></label>
       <div class="ls-list" aria-live="polite">
         ${unavailable ? `<p class="ls-note">${this.t('sessionUnavailable')}</p>` : ''}
+        ${this.learningSessionListLoading ? `<div class="loading-section"><span class="loading-spinner" data-size="md" role="status" aria-label="Loading"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span></span><span class="loading-text">${this.t('sessionLoading') || 'Dang tai...'}</span></div>` : ''}
         ${this.learningSessionListError ? `<p class="ls-note error">${this.t('sessionLoadError')} <button type="button" class="ls-retry" data-session-retry>↻</button></p>` : ''}
         ${empty && !this.learningSessionListError ? `<p class="ls-note">${this.learningSessionSearch ? this.t('sessionNoResults') : this.t('sessionEmpty')}</p>` : ''}
         ${list}

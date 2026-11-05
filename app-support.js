@@ -113,7 +113,7 @@ export const supportMethods = {
     if (button) button.hidden = window.scrollY < 360;
   },
   supportTypingMarkup() {
-    return `<div class="support-message assistant support-typing" role="status"><span>${this.t('supportThinking')}</span></div>`;
+    return `<div class="support-message assistant support-typing" role="status"><span class="loading-inline"><span class="loading-spinner" data-size="sm" role="status" aria-label="Loading"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span></span><span class="loading-text">${this.t('supportThinking')}</span></span></div>`;
   },
   supportErrorText(error) {
     if (error?.code === 'NOT_CONFIGURED') return this.t('supportNotConfigured');
