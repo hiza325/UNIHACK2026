@@ -6,6 +6,7 @@
 (function (global) {
   'use strict';
 
+
   // Inject loading.css if not already present
   if (!document.querySelector('link[href="vendor/loading.css"]')) {
     const link = document.createElement('link');

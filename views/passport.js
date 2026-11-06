@@ -44,6 +44,9 @@ export const passportViews = {
   viewPassport() {
     const t = key => this.t(key);
     const state = this.learningPassportDataState();
+    if (!document.querySelector('link[href="competency-passport.css"]')) {
+      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'competency-passport.css'; document.head.appendChild(l);
+    }
     const head = this.viewHead(t('pagePassport'), 'passportSub') + '<competency-passport></competency-passport>';
     // Fetch competency certificate eligibility
     this.competencyCertStatus = null;
