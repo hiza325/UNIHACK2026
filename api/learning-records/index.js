@@ -1,6 +1,8 @@
 import { currentUser, noStore, parseBody, publicUser } from '../auth/_supabase.js';
 import { createLearningRecordService } from './_service.js';
 import { createLearningRecordStore } from './_store.js';
+import { createCompetencyStore } from './_competency-store.js';
+import { createCompetencyService } from './_competency-service.js';
 
 const SAFE_SERVER_CODES = new Set([
   'LEARNING_RECORD_DATABASE_NOT_CONFIGURED',
@@ -25,7 +27,7 @@ function sendRecordError(res, error) {
   return res.status(status).json({ error: message, ...(error?.code ? { code: error.code } : {}) });
 }
 
-export function createLearningRecordsHandler({ storeFactory = createLearningRecordStore, serviceFactory = createLearningRecordService, sessionResolver = currentUser } = {}) {
+export function createLearningRecordsHandler({ storeFactory = createLearningRecordStore, serviceFactory = createLearningRecordService, sessionResolver = currentUser, competencyStoreFactory = createCompetencyStore } = {}) {
   return async function learningRecordsHandler(req, res) {
     noStore(res);
     if (!['GET', 'POST'].includes(req.method)) {
@@ -35,6 +37,15 @@ export function createLearningRecordsHandler({ storeFactory = createLearningReco
     try {
       const session = await sessionResolver(req, res);
       const user = publicUser(session.user);
+      if (queryValue(req, 'view') === 'competency') {
+        const competency = createCompetencyService(competencyStoreFactory());
+        return res.status(200).json(req.method === 'GET' ? await competency.snapshot(user) : await competency.act(parseBody(req), user));
+      }
+      if (queryValue(req, 'view') === 'competencyCertificate') {
+        const competency = createCompetencyService(competencyStoreFactory());
+        const snapshot = await competency.snapshot(user);
+        return res.status(200).json({ certificateEligibility: snapshot.certificateEligibility });
+      }
       const service = serviceFactory({ store: storeFactory() });
       if (req.method === 'GET') {
         const id = queryValue(req, 'id');

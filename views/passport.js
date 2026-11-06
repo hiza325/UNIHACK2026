@@ -1,5 +1,6 @@
 /* Phase 5 Learning Passport views. Mock data is visibly labelled until integrations are configured. */
 import { svgIcon } from '../icons.js';
+import '../competency-passport.js';
 import { AVALANCHE_FUJI_CONFIG, AVALANCHE_FUJI_CONTRACT_URL } from '../avalanche-config.js';
 import { CERTIFICATE_CODE_HTML_PATTERN, getCredentialDisplayStatus, getAvalancheExplorerUrl, getCredentialVerificationState, hasActualAvalancheVerification } from '../learning-passport-service.js';
 
@@ -43,7 +44,15 @@ export const passportViews = {
   viewPassport() {
     const t = key => this.t(key);
     const state = this.learningPassportDataState();
-    const head = this.viewHead(t('pagePassport'), 'passportSub');
+    const head = this.viewHead(t('pagePassport'), 'passportSub') + '<competency-passport></competency-passport>';
+    // Fetch competency certificate eligibility
+    this.competencyCertStatus = null;
+    (async () => {
+      try {
+        const res = await fetch('/api/learning-records?view=competencyCertificate', { credentials: 'same-origin' });
+        if (res.ok) { const data = await res.json(); this.competencyCertStatus = data.certificateEligibility; if (this.view === 'passport') this.render(); }
+      } catch {}
+    })();
     if (state === 'loading') return `<div class="page passport-page" data-passport-state="loading">${head}${this.dataStatePanel('loading', { title: t('passportLoading'), message: t('passportLoadingDesc') })}</div>`;
     if (state === 'error') return `<div class="page passport-page" data-passport-state="error">${head}${this.dataStatePanel('error', { title: t('passportLoadErrorTitle'), message: t('passportLoadError'), retry: 'data-retry-passport' })}</div>`;
     const passport = this.getLearningPassportSnapshot();
@@ -60,6 +69,7 @@ export const passportViews = {
       <section class="card passport-hero"><div class="avatar passport-avatar">${this.escape(initials)}</div><div class="passport-identity"><span>${t('passportLabel')}</span><h2>${this.escape(passport.learner.displayName)}</h2><p>${this.escape(passport.learner.email)}</p><small>${this.escape(passport.learner.level)} · ${this.escape(passport.learner.cohort)}</small></div><div class="passport-id"><span>${t('passportId')}</span><strong>${this.escape(passport.passportId)}</strong><small>${passport.schemaVersion}</small></div></section>
       <div class="stat-grid four passport-stats">${this.statCard(t('passportSkillsAchieved'), achieved, `/${passport.skills.length}`)}${this.statCard(t('passportOverallScore'), passport.summary.overallScore, '/100')}${this.statCard(t('passportProgress'), passport.summary.progress, '%')}${this.statCard(t('passportCredentials'), passport.credentials.length, '')}</div>
       <div class="passport-grid"><section class="card passport-skills-card"><div class="panel-head"><div><h2 class="panel-title">${t('passportSkills')}</h2><p class="panel-sub">${t('passportSkillsSub')}</p></div></div><div class="passport-skill-list">${skills}</div></section><section class="card passport-assessments-card"><div class="panel-head"><div><h2 class="panel-title">${t('passportAssessments')}</h2><p class="panel-sub">${t('passportAssessmentsSub')}</p></div></div><div class="passport-assessment-list">${assessments}</div></section></div>
+      <section class="card competency-certificate-card"><div class="panel-head"><div><h2 class="panel-title">Competency Certificate</h2><p class="panel-sub">Issuance is tied to a passed competency assessment.</p></div></div><p data-competency-cert-status>${this.competencyCertStatus ? (this.competencyCertStatus.eligible ? 'Eligible: ' + this.competencyCertStatus.reason : 'Not eligible: ' + this.competencyCertStatus.reason) : 'Loading competency status…'}</p></section>
       ${this.passportEligibleEvaluationsMarkup()}
       <section class="card credentials-card"><div class="panel-head"><div><h2 class="panel-title">${t('passportCertificateList')}</h2><p class="panel-sub">${t('passportCertificateSub')}</p></div><button class="ghost-button" type="button" data-open-passport-verify>${svgIcon('search')} ${t('passportVerify')}</button></div><div class="credential-list">${credentials}</div></section>
       <div class="practice-backdrop passport-detail-backdrop" id="passport-detail-modal" hidden></div>
