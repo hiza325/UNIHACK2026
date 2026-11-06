@@ -28,8 +28,8 @@ export const landingViews = {
       const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'liquid-chrome.css'; document.head.appendChild(l);
     }
     this.insertAdjacentHTML('beforeend', supportWidget);
-    import('../liquid-chrome.js').then(m => m.mountLiquidChrome(this.querySelector('.liquid-host'))).catch(() => {});
-    import('../neural-core.js').then(m => m.mountNeuralCore(this.querySelector('.study-scene'))).catch(() => {});
+    setTimeout(() => { import('../liquid-chrome.js').then(m => m.mountLiquidChrome(this.querySelector('.liquid-host'))).catch(() => {}); }, 2000);
+    setTimeout(() => { import('../neural-core.js').then(m => m.mountNeuralCore(this.querySelector('.study-scene'))).catch(() => {}); }, 2000);
     this.updateAuthText(text);
     const menuButton = this.querySelector('#mobile-menu-toggle');
     menuButton.addEventListener('click', () => {
