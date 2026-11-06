@@ -1,5 +1,6 @@
 import { Contract, FallbackProvider, Interface, JsonRpcProvider, Network, Wallet, getAddress, id, isAddress } from 'ethers';
 import { AVALANCHE_FUJI_CONFIG } from '../../avalanche-config.js';
+import { createHash } from 'node:crypto';
 
 export const AVALANCHE_FUJI_CHAIN_ID = BigInt(AVALANCHE_FUJI_CONFIG.chainId);
 export const AVALANCHE_FUJI_NETWORK = AVALANCHE_FUJI_CONFIG.network;
@@ -87,6 +88,23 @@ export function encodeIssueCredential(credentialId, evidenceHash) {
   if (!BYTES32.test(String(credentialId || ''))) throw serviceError('Credential ID hash is invalid', 'INVALID_CREDENTIAL_ID', 400);
   if (!BYTES32.test(String(evidenceHash || ''))) throw serviceError('Evidence hash is invalid', 'INVALID_EVIDENCE_HASH', 400);
   return registryInterface.encodeFunctionData('issueCredential', [credentialId, evidenceHash]);
+}
+
+export function computeCompetencyEvidenceHash(manifest) {
+  if (!manifest || typeof manifest !== 'object') throw serviceError('Evidence manifest is required', 'INVALID_EVIDENCE_MANIFEST', 400);
+  const canonical = JSON.stringify({
+    v: 1,
+    assessmentId: String(manifest.assessmentId || ''),
+    rubricVersion: String(manifest.rubricVersion || ''),
+    bankVersion: String(manifest.bankVersion || ''),
+    finalScore: Number(manifest.finalScore),
+    competencyTotal: Number(manifest.competencyTotal),
+    independent: Boolean(manifest.independent),
+    objectiveScore: Number(manifest.objectiveScore),
+    reviewedAt: String(manifest.reviewedAt || ''),
+  });
+  const hash = createHash('sha256').update(canonical).digest('hex');
+  return '0x' + hash;
 }
 
 export function normalizeEvidenceHash(value) {
