@@ -1,0 +1,1 @@
+drop index if exists public.learning_credentials_competency_assessment_unique;

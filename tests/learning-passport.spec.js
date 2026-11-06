@@ -321,11 +321,18 @@ test('Learning Passport lists eligible evaluations for the signed-in learner onl
   }));
   let requestUrl = '';
   await page.route(url => url.pathname === '/api/learning-records', async route => {
-    requestUrl = route.request().url();
-    await route.fulfill({
-      status: 200, contentType: 'application/json',
-      body: JSON.stringify({ evaluations: [{ id: 'eval-1', sessionId: 'session-1', score: 92, status: 'pass', rubricVersion: 'paradox-rubric-v1', credential: { eligible: true } }] }),
-    });
+    const reqUrl = route.request().url();
+    if (reqUrl.includes('view=competencyCertificate')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ certificateEligibility: { eligible: false, reason: 'No passed competency assessment' } }) });
+    } else if (reqUrl.includes('view=evaluations') || reqUrl.includes('view=competency')) {
+      if (reqUrl.includes('view=evaluations')) requestUrl = reqUrl;
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ evaluations: [{ id: 'eval-1', sessionId: 'session-1', score: 92, status: 'pass', rubricVersion: 'paradox-rubric-v1', credential: { eligible: true } }] }),
+      });
+    } else {
+      await route.continue();
+    }
   });
 
   await page.goto('/#/passport');

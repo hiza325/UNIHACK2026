@@ -1,4 +1,4 @@
-import { AVALANCHE_FUJI_CHAIN_ID, AVALANCHE_FUJI_NETWORK, createAvalancheGateway, credentialIdFromCode, encodeIssueCredential, normalizeEvidenceHash } from './_avalanche.js';
+import { AVALANCHE_FUJI_CHAIN_ID, AVALANCHE_FUJI_NETWORK, createAvalancheGateway, credentialIdFromCode, encodeIssueCredential, normalizeEvidenceHash, computeCompetencyEvidenceHash } from './_avalanche.js';
 import { computeMetadataAttestation, metadataFieldsFromRow, verifyMetadataAttestation } from './_metadata-attestation.js';
 import { AVALANCHE_FUJI_CONFIG, isEvmAddress, isEvmTransactionHash } from '../../avalanche-config.js';
 
@@ -320,7 +320,16 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     const result = assessment.result;
     if (!result || !Number.isFinite(result.total) || result.total < 60) throw credentialError('Competency total score is below 60', 'COMPETENCY_TOTAL_TOO_LOW', 409);
 
-    const evidenceHash = normalizeEvidenceHash(assessment.id);
+    const evidenceHash = computeCompetencyEvidenceHash({
+      assessmentId: assessment.id,
+      rubricVersion: assessment.rubric_version,
+      bankVersion: assessment.bank_version,
+      finalScore: assessment.final_score,
+      competencyTotal: assessment.result?.total,
+      independent: assessment.independent,
+      objectiveScore: assessment.objective_score,
+      reviewedAt: assessment.reviewed_at,
+    });
     return {
       subject: 'Competency Passport',
       evidenceHash,
@@ -385,7 +394,7 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
 
     let credential = existing;
     let snapshot = {};
-    if (input.source === 'ai-evaluation') {
+    if (input.source === 'ai-evaluation' || input.source === 'competency-assessment') {
       if (existing) {
         if (existing.snapshot_version !== 1 || !existing.recipient_name_snapshot || !existing.subject_snapshot || !existing.snapshot_captured_at) {
           throw credentialError('Legacy credential has no immutable snapshot; issuance retry is blocked', 'CREDENTIAL_SNAPSHOT_MISSING', 409);
@@ -397,14 +406,12 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
           input.skill = 'Competency Passport';
         } else {
           if (!verifiedEvidence.subject) throw credentialError('Evaluation rubric has no approved certificate subject', 'CREDENTIAL_SUBJECT_UNSUPPORTED', 409);
+          input.skill = verifiedEvidence.subject;
         }
         if (!store.findLearnerName) throw credentialError('Learner profile reader is unavailable', 'LEARNER_PROFILE_UNAVAILABLE', 503);
         const recipientName = await store.findLearnerName(input.learnerId);
         if (!recipientName) throw credentialError('Learner profile has no recipient name', 'LEARNER_NAME_MISSING', 409);
         const name = text(recipientName, 200, 'recipient name').normalize('NFC');
-        if (input.source !== 'competency-assessment') {
-          input.skill = verifiedEvidence.subject;
-        }
         snapshot = { recipient_name_snapshot: name, subject_snapshot: input.skill, snapshot_version: 1,
           snapshot_captured_at: new Date().toISOString(), evaluation_id: input.evaluationId };
       }
@@ -505,6 +512,8 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
             assessment_score: input.assessmentScore,
             source: input.source,
             is_test: input.isTest,
+            evaluation_id: input.source === 'competency-assessment' ? input.evaluationId : (input.evaluationId || null),
+            metadata: input.metadata || null,
             blockchain_status: 'submitting',
             network: AVALANCHE_FUJI_NETWORK,
             chain_id: Number(AVALANCHE_FUJI_CHAIN_ID),

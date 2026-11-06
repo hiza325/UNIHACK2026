@@ -9,8 +9,8 @@ body .landing {
   color:var(--ai-text); padding-inline:clamp(20px,6vw,100px); overflow:clip;
 }
 body .landing .landing-nav { max-width:1320px; margin:auto; height:94px; border-color:var(--ai-line); }
-body .landing .landing-brand b { color:var(--ai-text); letter-spacing:.16em; }
-body .landing .landing-brand small { color:var(--ai-muted); letter-spacing:.12em; }
+body .landing .landing-brand b { color:#1e293b; letter-spacing:.16em; }
+body .landing .landing-brand small { color:#475569; letter-spacing:.12em; }
 body .landing .landing-nav nav a,body .landing .landing-nav nav button { color:var(--ai-text); }
 body .landing .landing-nav nav button { background:#182238; border:1px solid var(--ai-line); border-radius:12px; }
 body .landing .landing-nav #landing-login,body .landing .landing-nav #landing-lang { color:#f8fafc; }

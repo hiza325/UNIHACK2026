@@ -23,8 +23,8 @@ function mapStoreError(response, data) {
 // issuance keeps working and the credential is simply reported as UNVERIFIED.
 function stripOptionalMetadataColumns(body) {
   if (!body || typeof body !== 'object') return null;
-  if (body.metadata_attestation === undefined && body.metadata_attested_at === undefined) return null;
-  const { metadata_attestation, metadata_attested_at, ...rest } = body;
+  if (body.metadata_attestation === undefined && body.metadata_attested_at === undefined && body.metadata === undefined) return null;
+  const { metadata_attestation, metadata_attested_at, metadata, ...rest } = body;
   return rest;
 }
 
@@ -33,7 +33,7 @@ function isMissingMetadataColumnError(response, data) {
   const code = String(data?.code || '');
   const message = String(data?.message || data?.details || '');
   if (code === 'PGRST204' || code === '42703') return true;
-  return /metadata_attestation|metadata_attested_at/i.test(message) && /column|schema cache/i.test(message);
+  return (/metadata_attestation|metadata_attested_at|metadata/i.test(message)) && /column|schema cache/i.test(message);
 }
 
 export function createCredentialStore({ env = process.env, fetcher = globalThis.fetch } = {}) {
