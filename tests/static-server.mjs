@@ -102,6 +102,11 @@ export function createStaticServer() {
         return;
       }
       const filePath = normalize(join(root, pathname));
+      // Server modules (including assessment answer keys) are never static assets.
+      if (filePath.startsWith(normalize(join(root, 'api')))) {
+        res.writeHead(404).end('Not found');
+        return;
+      }
       if (!filePath.startsWith(normalize(root))) {
         res.writeHead(403).end('Forbidden');
         return;

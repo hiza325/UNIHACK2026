@@ -1,0 +1,16 @@
+competency-passport { display:block; margin-block:24px; }
+body:has(> main > competency-passport) { background:#080b14; color:#f8fafc; margin:0; padding:clamp(16px,4vw,48px); font-family:'Be Vietnam Pro',sans-serif; }
+body:has(> main > competency-passport) > main { max-width:1200px; margin:auto; }
+.competency-panel { background:#101827; color:#f8fafc; padding:clamp(18px,3vw,32px); border:1px solid #52617a; border-radius:20px; font:14px/1.7 'Be Vietnam Pro',sans-serif; }
+.competency-panel h2,.competency-panel h3 { color:#f8fafc; }
+.competency-panel p,.competency-panel li { color:#cbd5e1; }
+.competency-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:16px; }
+.competency-grid article { padding:16px; border:1px solid #475569; border-radius:12px; }
+.competency-panel button { padding:12px 16px; margin:8px 8px 0 0; background:#e2e8f0; color:#101827; border:0; border-radius:8px; cursor:pointer; }
+.competency-panel button:disabled { opacity:.5; cursor:not-allowed; }
+.competency-panel :focus-visible { outline:3px solid #38bdf8; outline-offset:3px; }
+.competency-panel progress,.competency-panel textarea { width:100%; }
+.competency-panel textarea { min-height:120px; background:#080b14; color:#f8fafc; padding:12px; }
+.competency-panel fieldset { margin-block:20px; border:1px solid #64748b; padding:16px; }
+.competency-panel label { display:block; padding:8px; }
+.competency-panel input { margin-right:12px; }

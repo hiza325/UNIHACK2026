@@ -27,7 +27,7 @@ export function normalizeCredentialIssueInput(body = {}, actor = {}) {
   if (!UUID.test(learnerId)) throw credentialError('A valid learner ID is required', 'INVALID_LEARNER_ID', 400);
   const evaluationId = String(body.evaluationId || '').trim();
   const source = String(body.source || '');
-  if (!['ai-evaluation', 'manual-test'].includes(source)) throw credentialError('Credential source is not allowed', 'INVALID_CREDENTIAL_SOURCE', 400);
+  if (!['ai-evaluation', 'manual-test', 'competency-assessment'].includes(source)) throw credentialError('Credential source is not allowed', 'INVALID_CREDENTIAL_SOURCE', 400);
 
   // Server-side classification: a credential is TEST if the source is manual-test
   // OR the credential code uses the PXP-TEST- prefix. Client-supplied flags are
@@ -298,6 +298,43 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
     };
   }
 
+  async function verifyCompetencyEvidence(input, learnerId) {
+    if (!learningRecordStore) throw credentialError('Learning record store is not configured', 'LEARNING_RECORD_STORE_NOT_CONFIGURED', 503);
+    const assessmentId = String(input.evaluationId || '').trim();
+    if (!UUID.test(assessmentId)) throw credentialError('A valid competency assessment ID is required', 'INVALID_COMPETENCY_ASSESSMENT_ID', 400);
+    // Fetch competency snapshot to verify the assessment
+    const url = process.env.SUPABASE_URL ? process.env.SUPABASE_URL.replace(/\/$/, '') : '';
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    if (!url || !key) throw credentialError('Competency store is not configured', 'COMPETENCY_STORE_NOT_CONFIGURED', 503);
+    const res = await fetch(`${url}/rest/v1/competency_attempts?id=eq.${assessmentId}&learner_id=eq.${learnerId}&status=eq.passed&select=*`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) throw credentialError('Competency store is unavailable', 'COMPETENCY_STORE_UNAVAILABLE', 503);
+    const rows = await res.json();
+    const assessment = Array.isArray(rows) ? rows[0] : null;
+    if (!assessment) throw credentialError('Competency assessment was not found or not passed', 'COMPETENCY_ASSESSMENT_NOT_PASSED', 409);
+    if (assessment.rubric_version !== 'competency-v1') throw credentialError('Unsupported rubric version', 'COMPETENCY_RUBRIC_UNSUPPORTED', 409);
+    if (assessment.bank_version !== 'final-v1') throw credentialError('Unsupported bank version', 'COMPETENCY_BANK_UNSUPPORTED', 409);
+    if (!assessment.independent) throw credentialError('Independent explanation is required', 'COMPETENCY_INDEPENDENT_REQUIRED', 409);
+    if (!Number.isFinite(assessment.final_score) || assessment.final_score < 60) throw credentialError('Competency score is below 60', 'COMPETENCY_SCORE_TOO_LOW', 409);
+    const result = assessment.result;
+    if (!result || !Number.isFinite(result.total) || result.total < 60) throw credentialError('Competency total score is below 60', 'COMPETENCY_TOTAL_TOO_LOW', 409);
+
+    const evidenceHash = normalizeEvidenceHash(assessment.id);
+    return {
+      subject: 'Competency Passport',
+      evidenceHash,
+      assessmentScore: Math.max(0, Math.min(100, Math.round(assessment.final_score))),
+      metadata: {
+        competencyAssessmentId: assessment.id,
+        competencyType: 'critical-thinking',
+        competencyLevel: assessment.final_score >= 90 ? 'Mastery' : assessment.final_score >= 75 ? 'Proficient' : 'Foundation',
+        rubricVersion: assessment.rubric_version,
+        evidenceHash,
+      },
+    };
+  }
+
   async function issue(body, actor) {
     const input = normalizeCredentialIssueInput(body, actor);
     let verifiedEvidence;
@@ -307,6 +344,13 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       verifiedEvidence = verified;
       input.evidenceHash = verified.evidenceHash;
       input.assessmentScore = verified.assessmentScore;
+    } else if (input.source === 'competency-assessment') {
+      if (body.isDemo === true || body.isMock === true) throw credentialError('Demo evidence cannot be issued', 'MOCK_CREDENTIAL_FORBIDDEN', 400);
+      const verified = await verifyCompetencyEvidence(input, input.learnerId);
+      verifiedEvidence = verified;
+      input.evidenceHash = verified.evidenceHash;
+      input.assessmentScore = verified.assessmentScore;
+      input.metadata = verified.metadata;
     }
     const existing = await store.findByCode(input.credentialCode);
     const retryRequested = body.retryFailed === true;
@@ -317,6 +361,13 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       const existingByEval = typeof store.findByEvaluationId === 'function' ? await store.findByEvaluationId(input.evaluationId).catch(() => null) : null;
       if (existingByEval && existingByEval.blockchain_status === 'confirmed' && (!existing || existing.id !== existingByEval.id)) {
         throw credentialError('Credential already issued for this evaluation', 'DUPLICATE_EVALUATION_ISSUANCE', 409);
+      }
+    }
+    // Prevent issuing the same competency assessment twice.
+    if (input.source === 'competency-assessment' && input.evaluationId) {
+      const existingByEval = typeof store.findByEvaluationId === 'function' ? await store.findByEvaluationId(input.evaluationId).catch(() => null) : null;
+      if (existingByEval && existingByEval.blockchain_status === 'confirmed' && (!existing || existing.id !== existingByEval.id)) {
+        throw credentialError('Credential already issued for this competency assessment', 'DUPLICATE_COMPETENCY_ISSUANCE', 409);
       }
     }
     if (existing && !canRetryFailedRecord) {
@@ -342,12 +393,18 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
         if (existing.evaluation_id !== input.evaluationId) throw credentialError('Retry evaluation differs from snapshot', 'CREDENTIAL_RETRY_MISMATCH', 409);
         input.skill = existing.subject_snapshot;
       } else {
-        if (!verifiedEvidence.subject) throw credentialError('Evaluation rubric has no approved certificate subject', 'CREDENTIAL_SUBJECT_UNSUPPORTED', 409);
+        if (input.source === 'competency-assessment') {
+          input.skill = 'Competency Passport';
+        } else {
+          if (!verifiedEvidence.subject) throw credentialError('Evaluation rubric has no approved certificate subject', 'CREDENTIAL_SUBJECT_UNSUPPORTED', 409);
+        }
         if (!store.findLearnerName) throw credentialError('Learner profile reader is unavailable', 'LEARNER_PROFILE_UNAVAILABLE', 503);
         const recipientName = await store.findLearnerName(input.learnerId);
         if (!recipientName) throw credentialError('Learner profile has no recipient name', 'LEARNER_NAME_MISSING', 409);
         const name = text(recipientName, 200, 'recipient name').normalize('NFC');
-        input.skill = verifiedEvidence.subject;
+        if (input.source !== 'competency-assessment') {
+          input.skill = verifiedEvidence.subject;
+        }
         snapshot = { recipient_name_snapshot: name, subject_snapshot: input.skill, snapshot_version: 1,
           snapshot_captured_at: new Date().toISOString(), evaluation_id: input.evaluationId };
       }
@@ -583,6 +640,13 @@ export function createCredentialService({ store, avalancheFactory = createAvalan
       const existingByEval = typeof store.findByEvaluationId === 'function' ? await store.findByEvaluationId(input.evaluationId).catch(() => null) : null;
       if (existingByEval && existingByEval.blockchain_status === 'confirmed' && (!existing || existing.id !== existingByEval.id)) {
         throw credentialError('Credential already issued for this evaluation', 'DUPLICATE_EVALUATION_ISSUANCE', 409);
+      }
+    }
+    // Prevent issuing the same competency assessment twice.
+    if (input.source === 'competency-assessment' && input.evaluationId) {
+      const existingByEval = typeof store.findByEvaluationId === 'function' ? await store.findByEvaluationId(input.evaluationId).catch(() => null) : null;
+      if (existingByEval && existingByEval.blockchain_status === 'confirmed' && (!existing || existing.id !== existingByEval.id)) {
+        throw credentialError('Credential already issued for this competency assessment', 'DUPLICATE_COMPETENCY_ISSUANCE', 409);
       }
     }
 
