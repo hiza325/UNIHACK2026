@@ -43,6 +43,7 @@ export const eventMethods = {
       return;
     }
     if (event.target.closest?.('[data-retry-learning-records]')) { this.loadLearningRecordHistory({ force: true }); return; }
+    if (event.target.closest?.('[data-retry-practice-load]')) { this.retryPracticeLoad(); return; }
     if (event.target.closest?.('[data-retry-passport]')) { this.loadLearningPassportSnapshot({ force: true }); return; }
     if (event.target.closest?.('[data-retry-verification]')) { this.lookupPassportCredential(this.passportVerificationQuery); return; }
     const more = event.target.closest?.('[data-mobile-more]');
@@ -58,13 +59,13 @@ export const eventMethods = {
     const period = event.target.closest?.('[data-chart-period]');
     if (period) { this.chartPeriod = Number(period.dataset.chartPeriod); this.render(); return; }
     const challenge = event.target.closest?.('[data-challenge]');
-    if (challenge) { this.openPractice(Number(challenge.dataset.challenge)); return; }
+    if (challenge) { this.openPractice(challenge.dataset.challenge); return; }
     const option = event.target.closest?.('[data-option]');
     if (option) { this.answerPractice(Number(option.dataset.option)); return; }
     if (event.target.closest?.('[data-retry-practice]')) { this.retryPractice(); return; }
     if (event.target.closest?.('[data-close-practice]') || event.target.id === 'practice-modal') { this.closePractice(); return; }
     const langBtn = event.target.closest?.('[data-set-lang]');
-    if (langBtn) { this.lang = langBtn.dataset.setLang; localStorage.setItem('paradox-lang', this.lang); this.render(); return; }
+    if (langBtn) { this.lang = langBtn.dataset.setLang; localStorage.setItem('paradox-lang', this.lang); if (this.practiceService?.enabled && this.view === 'practice') this.loadPracticeData({ force: true }); this.render(); return; }
     const themeBtn = event.target.closest?.('[data-set-theme]');
     if (themeBtn) { this.applyTheme(themeBtn.dataset.setTheme === 'dark'); return; }
     if (event.target.closest?.('[data-upgrade]')) { this.showToast(this.t('profUpgradeToast')); return; }
@@ -83,6 +84,7 @@ export const eventMethods = {
     if (event.target.closest?.('[data-cert-check]')) { this.checkCertificateIssuance(); return; }
     if (event.target.closest?.('[data-cert-reset]')) { this.resetCertificateIssuance(); return; }
     if (event.target.closest?.('[data-cert-load-evaluations]')) { this.loadEligibleEvaluations(); return; }
+    if (event.target.closest?.('[data-cert-test]')) { this.openCertificateTestMode(); return; }
     const accountStatus = event.target.closest?.('[data-account-status]');
     if (accountStatus && this.user?.role === 'admin') {
       const reason = this.querySelector(`[data-ban-reason-for="${CSS.escape(accountStatus.dataset.accountId)}"]`)?.value || '';
@@ -118,7 +120,7 @@ export const eventMethods = {
       if (label) label.textContent = [this.t('setHintLow'), this.t('setHintMed'), this.t('setHintHigh')][value - 1];
     }
   },
-  onSubmit(event) {
+  async onSubmit(event) {
     if (event.target.matches?.('[data-session-rename-form]')) {
       event.preventDefault();
       const title = new FormData(event.target).get('title');
@@ -142,13 +144,40 @@ export const eventMethods = {
     event.preventDefault();
     const name = String(new FormData(event.target).get('name') || '').trim();
     if (!name) return;
-    this.user.name = name;
-    localStorage.setItem('paradox-session', JSON.stringify(this.user));
-    this.render();
-    this.showToast(this.t('profSaved'));
+    const form = event.target;
+    const button = form.querySelector('button[type="submit"]');
+    if (button.disabled) return;
+    const status = form.querySelector('[data-profile-status]');
+    button.disabled = true;
+    form.setAttribute('aria-busy', 'true');
+    if (status) status.textContent = this.t('dataLoadingTitle');
+    const owner = this.user;
+    try {
+      const localServer = localStorage.getItem('paradox-local-server') === '1';
+      if (this.authProvider === 'remote' || localServer) {
+        const response = await fetch(`/api/auth/${this.authProvider === 'remote' ? 'session' : 'local'}`, {
+          method: 'PATCH', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.user) throw new Error(result.error || this.t('dataErrorMessage'));
+        if (this.user !== owner) return;
+        this.user = result.user;
+      } else {
+        this.user = { ...this.user, name };
+      }
+      localStorage.setItem('paradox-session', JSON.stringify(this.user));
+      this.render();
+      this.showToast(this.t('profSaved'));
+    } catch (error) {
+      if (status) status.textContent = error.message || this.t('dataErrorMessage');
+    } finally {
+      button.disabled = false;
+      form.removeAttribute('aria-busy');
+    }
   },
   onKeydown(event) {
     if (event.key !== 'Escape') return;
+    if (this.avatarEditor) { if (!this.avatarEditor.busy) this.closeAvatarEditor(); return; }
     if (this.unsavedDialogOpen) { this.closeUnsavedDialog(); return; }
     if (this.learningSessionMenuId || this.learningSessionRenamingId || this.learningSessionDeleteId) {
       this.learningSessionMenuId = '';

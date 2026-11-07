@@ -295,10 +295,12 @@ export const actionMethods = {
   async completeAuthentication(account) {
     this.configureLearningPassportService();
     this.configureLearningRecordsService();
+    this.configurePracticeService();
     this.user = account;
     this.initializeUserData(account.email);
     localStorage.setItem('paradox-session', JSON.stringify(this.user));
     await this.loadUserData();
+    await this.loadAvatar();
     const target = this.pendingView || 'dashboard';
     this.pendingView = null;
     this.pendingSignup = null;
@@ -374,6 +376,7 @@ export const actionMethods = {
       const langs = ['vi', 'en', 'jp'];
       this.lang = langs[(langs.indexOf(this.lang) + 1) % langs.length];
       localStorage.setItem('paradox-lang', this.lang);
+      if (this.practiceService?.enabled && this.view === 'practice') this.loadPracticeData({ force: true });
       this.render();
     });
     this.querySelectorAll('[data-file]').forEach(input => input.addEventListener('change', e => this.setFile(e.target.dataset.file, e.target.files)));
@@ -423,11 +426,38 @@ export const actionMethods = {
     this.saveAuditState();
     this.render();
   },
-  openPractice(index) {
-    const ch = demo[this.lang].challenges[index];
+  openPractice(key) {
+    const serviceEnabled = this.practiceService?.enabled && this.practiceState === 'ready';
+    let ch = null;
+    let mode = 'demo';
+    if (serviceEnabled) {
+      const challenge = (this.practiceChallenges || []).find(item => item.slug === String(key));
+      if (challenge) {
+        ch = {
+          subject: challenge.subject,
+          title: challenge.title,
+          question: challenge.question,
+          options: challenge.options,
+          level: challenge.level,
+          mins: challenge.minutes,
+          source: challenge.source,
+        };
+        mode = 'server';
+        this.practiceCurrent = { mode, key: challenge.slug, challenge };
+        this.practiceAttemptId = this.newPracticeAttemptId();
+      }
+    } else {
+      const index = Number(key);
+      ch = demo[this.lang].challenges[index];
+      if (ch) {
+        mode = 'demo';
+        this.practiceCurrent = { mode, key: index, challenge: ch, index };
+      }
+    }
     const modal = this.querySelector('#practice-modal');
     if (!ch || !modal) return;
-    this.practiceIndex = index;
+    this.practiceIndex = mode === 'demo' ? Number(key) : null;
+    this.practiceOpenerKey = String(key);
     const t = k => this.t(k);
     modal.innerHTML = `<section class="practice-panel" role="dialog" aria-modal="true" aria-labelledby="practice-title">
       <button class="practice-close" data-close-practice aria-label="${t('pracClose')}"><span aria-hidden="true">×</span></button>
@@ -444,6 +474,11 @@ export const actionMethods = {
   },
   answerPractice(index) {
     const modal = this.querySelector('#practice-modal');
+    const current = this.practiceCurrent;
+    if (modal && current?.mode === 'server') {
+      this.submitPracticeAttempt(index);
+      return;
+    }
     const ch = demo[this.lang].challenges[this.practiceIndex];
     if (!modal || !ch) return;
     const buttons = [...modal.querySelectorAll('[data-option]')];
@@ -473,6 +508,15 @@ export const actionMethods = {
   },
   retryPractice() {
     const modal = this.querySelector('#practice-modal');
+    const current = this.practiceCurrent;
+    if (modal && current?.mode === 'server') {
+      this.practiceAttemptId = this.newPracticeAttemptId();
+      modal.querySelectorAll('[data-option]').forEach(button => { button.disabled = false; button.classList.remove('correct', 'wrong'); });
+      const result = modal.querySelector('#practice-result');
+      if (result) { result.hidden = true; result.className = 'practice-result'; result.innerHTML = ''; }
+      modal.querySelector('[data-option]')?.focus();
+      return;
+    }
     if (!modal) return;
     modal.querySelectorAll('[data-option]').forEach(button => { button.disabled = false; button.classList.remove('correct', 'wrong'); });
     const result = modal.querySelector('#practice-result');
@@ -481,11 +525,18 @@ export const actionMethods = {
   },
   closePractice() {
     const modal = this.querySelector('#practice-modal');
-    const index = this.practiceIndex;
+    const openerKey = this.practiceOpenerKey;
     if (modal) { modal.hidden = true; modal.innerHTML = ''; }
     document.body.style.overflow = '';
-    if (index !== null) this.querySelector(`[data-challenge="${index}"]`)?.focus();
+    if (openerKey !== null && openerKey !== undefined) {
+      [...this.querySelectorAll('.challenge-card button[data-challenge]')]
+        .find(button => button.dataset.challenge === openerKey)
+        ?.focus();
+    }
     this.practiceIndex = null;
+    this.practiceOpenerKey = null;
+    this.practiceCurrent = null;
+    this.practiceSubmitting = false;
   },
   async auditInputText(type, value) {
     const text = String(value || '').trim();

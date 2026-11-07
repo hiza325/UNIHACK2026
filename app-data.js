@@ -78,6 +78,10 @@ export const dataMethods = {
     });
   },
   resetInMemoryUserData() {
+    this.closeAvatarEditor();
+    this.avatarUrl = null;
+    this.avatarCleanupPending = false;
+    this.avatarLoadError = '';
     Object.values(this.filePreviewUrls || {}).forEach(url => URL.revokeObjectURL(url));
     this.step = 0;
     this.files = { problem: [], work: [] };
@@ -89,6 +93,16 @@ export const dataMethods = {
     this.debateSession = { revisionCount: 0, hintLevel: 0, hints: [], attempts: [], conversation: [] };
     this.practiceSolved = [];
     this.practiceActivity = [];
+    this.practiceChallenges = [];
+    this.practiceProgress = null;
+    this.practiceState = this.practiceService?.enabled ? 'loading' : 'demo';
+    this.practiceError = '';
+    this.practiceLoadAttempted = false;
+    this.practiceLoading = false;
+    this.practiceCurrent = null;
+    this.practiceAttemptId = '';
+    this.practiceSubmitting = false;
+    this.practiceOpenerKey = null;
     this.passportSelectedCredentialCode = '';
     this.passportVerificationQuery = '';
     this.passportVerificationResult = null;

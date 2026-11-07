@@ -1,0 +1,64 @@
+/* Profile: warm silver glass, with all data and actions supplied by the app. */
+body .profile-shell { --profile-accent: #825c3f; --profile-border: #96806a66; }
+body.dark .profile-shell { --profile-accent: #ffdfbe; --profile-border: #d2b89f66; --dash-bg: #0b0b0d; --dash-card: linear-gradient(125deg, #c9b29e22, #ffffff06 48%, #cfb69d19); }
+body .profile-shell::before { background-size: 100% 950px; opacity: .8; }
+body .profile-shell .page { max-width: 1500px; padding-top: 28px; }
+body .profile-shell .view-head { padding-block: 0; margin-bottom: 24px; }
+body .profile-shell::before { background: radial-gradient(ellipse at 85% -15%, #d8bda533, transparent 43%); }
+body .profile-shell::after { content: ''; position: absolute; top: -340px; right: -6%; width: 65%; height: 470px; border-radius: 50%; border-bottom: 1px solid #e2c7ad88; box-shadow: 0 14px 35px #c9aa8c22; transform: rotate(16deg); z-index: -1; pointer-events: none; }
+body .profile-shell { overflow: clip; }
+body .profile-shell .view-head h1 { font-size: clamp(30px, 3.1vw, 48px); letter-spacing: -.045em; }
+body.dark .profile-shell .view-head h1 { background: linear-gradient(100deg, #fafafa 15%, #ffdab9); background-clip: text; -webkit-text-fill-color: transparent; }
+body .profile-shell .eyebrow { color: var(--dash-muted); display: flex; align-items: center; gap: 12px; font: 500 13px 'Be Vietnam Pro', sans-serif; letter-spacing: .13em; }
+body .profile-shell .eyebrow .ui-icon { color: var(--profile-accent); width: 24px; height: 24px; }
+body .profile-shell .date-chip { border-radius: 30px; padding: 10px 18px; background: #8881; }
+body .profile-shell .nav-item.active { border-color: var(--profile-accent); background: linear-gradient(135deg, #b1977c55, #a68a6b0a 65%, #d4af8a77); box-shadow: inset 0 0 10px #e7c4a255, 0 0 12px #e7c4a222; }
+body .profile-shell .plan-card { border-radius: 24px; padding: 24px 20px; background: var(--dash-card); border-color: var(--profile-border); }
+body .profile-shell .plan-top { color: var(--profile-accent); }
+body .profile-shell .avatar { background: linear-gradient(135deg, #f0e8ff, #cab5f6); color: #573491; box-shadow: 0 0 24px #dec7ff20; }
+body .profile-shell .profile-page > .card { margin-bottom: 20px; }
+body .profile-shell .card { border-color: var(--profile-border); position: relative; overflow: hidden; }
+body .profile-shell .profile-hero { padding: 30px 40px; min-height: 165px; display: flex; align-items: center; gap: 30px; isolation: isolate; }
+body .profile-shell .profile-hero::after { content: ''; position: absolute; z-index: -1; width: 65%; height: 180px; left: 30%; top: 85%; border-top: 1px solid #eac3a2; border-radius: 50%; transform: rotate(-19deg); box-shadow: 0 -12px 35px #e9b78c33; background: linear-gradient(#eac3a211, transparent); }
+body .profile-shell .profile-avatar-lg { width: 88px; height: 88px; flex-shrink: 0; font-size: 28px; }
+body .profile-shell .profile-hero-copy { min-width: 0; z-index: 1; }
+body .profile-shell .profile-hero h2 { font: 650 clamp(22px, 2.2vw, 32px)/1.4 'Be Vietnam Pro', sans-serif; margin: 0 0 4px; overflow-wrap: anywhere; }
+body .profile-shell .profile-hero p { color: var(--dash-muted); font-size: 16px; overflow-wrap: anywhere; margin: 0 0 12px; }
+body .profile-shell .profile-since { display: flex; align-items: center; gap: 10px; color: var(--dash-muted); font: 400 12px 'Be Vietnam Pro', sans-serif; }
+body .profile-shell .profile-since .ui-icon { color: var(--profile-accent); }
+body .profile-shell .profile-plan { margin-left: auto; z-index: 1; align-items: center; gap: 12px; display: flex; flex-direction: column; flex-shrink: 0; }
+body .profile-shell .plan-tag { display: flex; gap: 8px; align-items: center; background: #ffdfbe; color: #26201c; border-radius: 30px; padding: 7px 16px; font: 500 12px 'Be Vietnam Pro', sans-serif; }
+body .profile-shell .profile-plan strong { border: 1px solid var(--profile-accent); padding: 10px 20px; border-radius: 30px; font-size: 12px; font-weight: 500; }
+body .profile-shell .profile-id-art { position: absolute; right: 30%; top: 40px; width: 115px; height: 140px; transform: rotate(-14deg); border: 1px solid #f3caaa99; border-radius: 20px; background: linear-gradient(130deg, #b99b8555, #7a675422); box-shadow: inset 1px 1px 3px #ffe1c477; display: grid; place-content: center; gap: 10px; color: #d8b699; pointer-events: none; }
+body .profile-shell .profile-id-art .ui-icon { width: 44px; height: 44px; margin: auto; }
+body .profile-shell .profile-id-art i { width: 66px; height: 4px; background: currentColor; border-radius: 4px; opacity: .6; }
+body .profile-shell .profile-achievement-empty { padding: 22px 36px; min-height: 125px; display: flex; gap: 26px; align-items: center; }
+body .profile-shell .profile-achievement-empty h2 { font: 600 clamp(20px, 2vw, 28px)/1.4 'Be Vietnam Pro', sans-serif; margin: 0 0 7px; }
+body .profile-shell .profile-achievement-empty p { color: var(--dash-muted); margin: 0; line-height: 1.6; }
+body .profile-shell .profile-trophy { display: grid; place-items: center; width: 76px; height: 76px; flex-shrink: 0; border: 1px solid var(--profile-border); border-radius: 23px; background: linear-gradient(140deg, #ddbb9644, #8881); box-shadow: inset 1px 1px 4px #e9c7a544; color: var(--profile-accent); }
+body .profile-shell .profile-trophy .ui-icon { width: 38px; height: 38px; }
+body .profile-shell .profile-medal { margin-left: auto; width: 220px; height: 110px; object-fit: contain; flex-shrink: 0; color: var(--profile-accent); filter: drop-shadow(0 0 12px #e4c4a555); }
+body .profile-shell .profile-medal .ui-icon { width: 85px; height: 85px; stroke-width: 1; }
+body .profile-shell .form-card { padding: 24px 40px; background: var(--dash-card); }
+body .profile-shell .form-card .panel-title { font: 600 23px 'Be Vietnam Pro', sans-serif; }
+body .profile-shell .form-card .panel-title .ui-icon { color: var(--profile-accent); }
+body .profile-shell .profile-form { gap: 14px; padding: 0 8px; }
+body .profile-shell .profile-form label { color: var(--dash-muted); font-size: 13px; display: grid; gap: 7px; }
+body .profile-shell .profile-input { display: flex; align-items: center; gap: 14px; border: 1px solid #8889; border-radius: 10px; padding: 0 16px; background: #8881; }
+body .profile-shell .profile-input:focus-within { outline: 2px solid var(--profile-accent); outline-offset: 2px; }
+body .profile-shell .profile-input .ui-icon { width: 20px; flex-shrink: 0; }
+body .profile-shell .profile-input input { border: 0; background: transparent; border-radius: 0; color: var(--dash-text); box-shadow: none; outline: none; min-width: 0; width: 100%; padding: 12px 0; }
+body .profile-shell .profile-input input:disabled { color: var(--dash-muted); opacity: 1; }
+body.dark .profile-shell .profile-form .profile-input input { background: transparent; color: var(--dash-text); font-size: 14px; height: 42px; }
+body.dark .profile-shell .profile-form .profile-input input:disabled { background: transparent; color: var(--dash-muted); }
+body .profile-shell .profile-form .profile-input input { font-size: 14px; height: 42px; }
+body .profile-shell .profile-form .primary-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: fit-content; margin-top: 10px; padding: 12px 28px; background: linear-gradient(#ffe8cd, #f4c9a5); border-color: #ffe2c5; box-shadow: 0 0 18px #edc5a025; }
+body .profile-shell .profile-form .primary-button:disabled { opacity: .6; cursor: wait; }
+body .profile-shell [data-profile-status] { margin: 0; color: var(--dash-text); }
+body .profile-shell [data-profile-status]:empty { display: none; }
+body .profile-shell .achievement-tile { background: #8881; border-color: var(--profile-border); color: var(--dash-text); }
+body .profile-shell .achievement-progress > span { background: var(--profile-accent); }
+body .profile-shell :is(.profile-badges, .issued-credentials-card) .panel-head { padding-top: 24px; }
+body .profile-shell :is(.profile-badges, .issued-credentials-card) .panel-title { font-size: 20px; }
+@media (max-width: 1200px) { body .profile-shell .profile-id-art { opacity: .3; right: 28%; } body .profile-shell .profile-medal { padding: 0 10px; } }
+@media (max-width: 700px) { body .profile-shell .profile-hero { padding: 24px; flex-wrap: wrap; gap: 18px; } body .profile-shell .profile-hero-copy { flex: 1; } body .profile-shell .profile-plan { margin: 0; flex-direction: row; flex-wrap: wrap; } body .profile-shell .profile-avatar-lg { width: 64px; height: 64px; font-size: 22px; } body .profile-shell .profile-id-art { display: none; } body .profile-shell .profile-medal { display: none; } body .profile-shell .profile-achievement-empty { padding: 22px; gap: 16px; } body .profile-shell .profile-trophy { width: 50px; height: 60px; border-radius: 16px; } body .profile-shell .form-card { padding: 24px; } body .profile-shell .date-chip { white-space: normal; line-height: 1.6; } }

@@ -16,6 +16,7 @@ import adminUsersHandler from '../api/admin/users.js';
 import debateHandler from '../api/debate.js';
 import credentialsHandler from '../api/credentials/index.js';
 import learningRecordsHandler from '../api/learning-records/index.js';
+import practiceHandler from '../api/practice/_handler.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const port = Number(process.env.PORT || 8173);
@@ -62,14 +63,17 @@ const API_HANDLERS = new Map([
   ['/api/support', supportHandler],
   ['/api/credentials', credentialsHandler],
   ['/api/learning-records', learningRecordsHandler],
+  ['/api/practice', practiceHandler],
 ]);
 
 async function runApiHandler(handler, req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const avatarRequest = ['/api/auth/local', '/api/auth/session'].includes(url.pathname) && url.searchParams.has('avatar');
   let rawBody = '';
   if (!['GET', 'HEAD'].includes(req.method)) {
     for await (const chunk of req) {
       rawBody += chunk;
-      if (rawBody.length > 65536) throw Object.assign(new Error('Request too large'), { status: 413 });
+      if (rawBody.length > (avatarRequest ? 7 * 1024 * 1024 : 65536)) throw Object.assign(new Error('Request too large'), { status: 413 });
     }
   }
   const headers = {};
@@ -78,8 +82,8 @@ async function runApiHandler(handler, req, res) {
     setHeader(name, value) { headers[name] = value; return this; },
     status(code) { this.statusCode = code; return this; },
     json(payload) { res.writeHead(this.statusCode, { 'Content-Type': 'application/json; charset=utf-8', ...headers }); res.end(JSON.stringify(payload)); return this; },
+    send(payload) { res.writeHead(this.statusCode, headers); res.end(payload); return this; },
   };
-  const url = new URL(req.url, `http://${req.headers.host}`);
   await handler({ method: req.method, headers: req.headers, url: req.url, socket: req.socket, body: rawBody || undefined, query: Object.fromEntries(url.searchParams) }, response);
 }
 
@@ -92,6 +96,7 @@ export function createStaticServer() {
         return;
       }
       let pathname = decodeURIComponent(url.pathname);
+      if (pathname.split(/[\\/]/).some(part => part.startsWith('.'))) { res.writeHead(404).end('Not found'); return; }
       if (pathname.endsWith('/')) pathname += 'index.html';
       if (pathname.startsWith('/node_modules/')) {
         const nmPath = normalize(join(root, pathname));

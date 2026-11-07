@@ -17,6 +17,11 @@ export function createAdminUsersHandler({ auditFactory = createAdminAuditLog } =
     if (!['GET', 'PATCH'].includes(req.method)) { res.setHeader('Allow', 'GET, PATCH'); return res.status(405).json({ error: 'Method not allowed' }); }
     try {
       const session = await requireAdmin(req, res);
+      if (req.query?.testCertificate === '1' || req.query?.testCertificate === 1 || req.query?.testCertificate === 'true') {
+        const vercelEnv = process.env.VERCEL_ENV;
+        const allowed = !vercelEnv || vercelEnv === 'preview' || vercelEnv === 'development';
+        return res.status(200).json({ allowed, environment: vercelEnv || 'local' });
+      }
       if (req.method === 'PATCH') {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
         if (!body.id || !['active', 'suspended'].includes(body.status)) return res.status(400).json({ error: 'Invalid account update' });

@@ -1,4 +1,6 @@
 /* Account administration. Supabase is used in deployed multi-user mode. */
+import { svgIcon } from '../icons.js';
+import { mountCertificatePreview } from '../certificate-renderer.js';
 export const adminViews = {
   viewAdmin() {
     if (this.user?.role !== 'admin') return '';
@@ -11,7 +13,7 @@ export const adminViews = {
       const reasonOptions = ['account_sharing', 'account_information_dispute', 'policy_violation', 'abusive_behavior', 'other'].map(reason => `<option value="${reason}">${this.escape(this.suspensionReasonLabel(reason))}</option>`).join('');
       const suspensionDetails = suspended ? `<div class="admin-suspension-details"><strong>${this.t('appealReason')}:</strong> ${this.escape(this.suspensionReasonLabel(account.suspensionReason))}${account.suspensionAppeal?.message ? `<br><strong>${this.t('adminAppeal')}:</strong> ${this.escape(account.suspensionAppeal.message)} <small>(${this.escape(account.suspensionAppeal.status || 'pending')})</small>` : `<br><small>${this.t('adminNoAppeal')}</small>`}</div>` : '';
       return `<div class="admin-user-row" data-admin-user data-search="${this.escape(`${account.name} ${account.email}`.toLowerCase())}">
-        <div class="admin-user"><span class="avatar">${this.escape((account.name || account.email)[0].toUpperCase())}</span><span><strong>${this.escape(account.name)}</strong><small>${this.escape(account.email)}</small>${suspensionDetails}</span></div>
+        <div class="admin-user">${ownAccount ? this.avatarMarkup() : `<span class="avatar">${this.escape((account.name || account.email)[0].toUpperCase())}</span>`}<span><strong>${this.escape(account.name)}</strong><small>${this.escape(account.email)}</small>${suspensionDetails}</span></div>
         <span class="admin-role">${account.role === 'admin' ? this.t('adminRoleAdmin') : this.t('adminRoleUser')}</span>
         <span class="status ${suspended ? 'needs' : 'mastered'}">${suspended ? this.t('adminSuspended') : this.t('adminActive')}</span>
         <span class="admin-created">${this.escape(new Date(account.createdAt).toLocaleDateString(this.lang === 'jp' ? 'ja-JP' : this.lang))}</span>
@@ -20,7 +22,8 @@ export const adminViews = {
     }).join('');
     return `<div class="page admin-page">
       ${this.viewHead(this.t('adminTitle'), 'adminSubtitle')}
-      <div class="stat-grid three">${this.statCard(this.t('adminTotal'), accounts.length)}${this.statCard(this.t('adminActiveUsers'), active)}${this.statCard(this.t('adminAdmins'), admins)}</div>
+      <div class="stat-grid admin-stats">${this.statCard(this.t('adminTotal'), accounts.length)}${this.statCard(this.t('adminActiveUsers'), active)}${this.statCard(this.t('adminAdmins'), admins)}${this.statCard(this.t('adminSuspended'), accounts.length - active)}</div>
+      <div class="admin-workspace">
       <section class="card admin-users-card">
         <div class="panel-head"><div><h2 class="panel-title">${this.t('adminUsers')}</h2><p class="panel-sub">${this.t('adminLocalNotice')}</p></div><label class="search-field"><span aria-hidden="true">⌕</span><input id="admin-search" type="search" placeholder="${this.t('adminSearch')}" aria-label="${this.t('adminSearch')}"></label></div>
         <div class="admin-user-head"><span>${this.t('adminAccount')}</span><span>${this.t('adminRole')}</span><span>${this.t('adminStatus')}</span><span>${this.t('adminCreated')}</span><span></span></div>
@@ -28,6 +31,11 @@ export const adminViews = {
         <p class="empty-note" id="admin-search-empty" hidden>${this.t('adminNoResults')}</p>
       </section>
       ${this.viewCertificateIssuance()}
+      <section class="card admin-cert-test-card" ${this.certificateTestAllowed ? '' : 'hidden'}>
+        <div class="panel-head"><div><h2 class="panel-title">${svgIcon('award')} Certificate Test Mode</h2><p class="panel-sub">Preview and export a demo certificate. This mode does not create a real credential, database record, or blockchain transaction.</p></div><button class="ghost-button" type="button" data-cert-test>Test Certificate</button></div>
+        <div id="certificate-test-preview" hidden></div>
+      </section>
+      </div>
     </div>`;
   },
   viewCertificateIssuance() {
@@ -49,7 +57,7 @@ export const adminViews = {
     ` : '';
     const explorer = ci.txHash ? `<a href="https://explorer-test.avax.network/c-chain/tx/${this.escape(ci.txHash)}" target="_blank" rel="noopener noreferrer">View on Avalanche Explorer</a>` : '';
     return `<section class="card admin-cert-card">
-      <div class="panel-head"><div><h2 class="panel-title">Certificate Issuance (Avalanche Fuji)</h2><p class="panel-sub">Prepare on backend, sign with Core Wallet, confirm on-chain.</p></div></div>
+      <div class="panel-head"><div><h2 class="panel-title">${svgIcon('award')} Certificate Issuance (Avalanche Fuji)</h2><p class="panel-sub">Prepare on backend, sign with Core Wallet, confirm on-chain.</p></div></div>
       <div class="row">
         <button class="ghost-button" type="button" data-cert-connect-wallet ${ci.busy ? 'disabled' : ''}>Connect Core Wallet</button>
         <button class="ghost-button" type="button" data-cert-reset ${ci.busy ? 'disabled' : ''}>Reset</button>
@@ -111,5 +119,39 @@ export const adminViews = {
       this.render();
       this.showToast(this.t('adminStatusSaved'));
     } catch (error) { this.showToast(error.message); }
+  },
+  async loadCertificateTestPermission() {
+    if (this.user?.role !== 'admin') { this.certificateTestAllowed = false; return; }
+    try {
+      const response = await fetch('/api/admin/users?testCertificate=1', { credentials: 'same-origin' });
+      const data = await response.json().catch(() => ({}));
+      const allowed = response.ok && data.allowed === true;
+      if (this.certificateTestAllowed !== allowed) {
+        this.certificateTestAllowed = allowed;
+        if (this.view === 'admin') this.render();
+      }
+    } catch {
+      if (this.certificateTestAllowed) {
+        this.certificateTestAllowed = false;
+        if (this.view === 'admin') this.render();
+      }
+    }
+  },
+  async openCertificateTestMode() {
+    const container = this.querySelector('#certificate-test-preview');
+    if (!container) return;
+    const profile = { name: 'Demo Student' };
+    const credential = {
+      source: 'demo',
+      status: 'preview',
+      isDemo: true,
+      code: 'DEMO-TEST-001',
+      skill: 'Mathematics',
+      issuedAt: new Date().toISOString().slice(0, 10),
+      metadataIntegrity: 'UNVERIFIED',
+    };
+    container.hidden = false;
+    container.replaceChildren();
+    await mountCertificatePreview(container, profile, credential);
   },
 };

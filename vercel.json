@@ -1,4 +1,5 @@
 {
+  "outputDirectory": "build",
   "rewrites": [
     {
       "source": "/api/ai/status",
@@ -11,6 +12,10 @@
     {
       "source": "/api/auth/local",
       "destination": "/api/auth/session?localAuth=1"
+    },
+    {
+      "source": "/api/practice",
+      "destination": "/api/learning-records?practice=1"
     },
     {
       "source": "/verify",

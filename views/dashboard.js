@@ -3,6 +3,22 @@ import { svgIcon } from '../icons.js';
 import { issuedCredentials } from '../learning-data.js';
 
 export const dashboardViews = {
+  dashboardWorkspaceMarkup(metrics, empty = false) {
+    const t = key => this.t(key);
+    const labels = this.lang === 'en'
+      ? ['Start learning', 'Choose your next step.', 'Upload work', 'Quick practice', 'Review knowledge', 'Learning Passport']
+      : this.lang === 'jp'
+        ? ['学習を始めよう', '次のステップを選びましょう。', '解答を提出', '練習する', '学習を振り返る', 'Learning Passport']
+        : ['Bắt đầu học ngay', 'Chọn bước tiếp theo cho hành trình của bạn.', 'Tải bài làm', 'Luyện tập nhanh', 'Ôn kiến thức', 'Learning Passport'];
+    const actions = [['audit', 'book'], ['practice', 'spark'], ['history', 'clock'], ['passport', 'award']];
+    const achievements = empty ? [] : this.learningAchievements();
+    return `<div class="dashboard-workspace">
+      <section class="card dashboard-progress"><div class="panel-head"><h3 class="panel-title">${svgIcon('chart')} ${t('progress')}</h3><span class="activity-week">${t('thisWeek')}</span></div>${empty ? `<p class="empty-note">${t('dashEmptyDesc')}</p>` : ''}${this.weeklyChartMarkup()}</section>
+      <section class="card recent-card"><div class="panel-head"><h3 class="panel-title">${svgIcon('clock')} ${t('dashRecent')}</h3><button class="panel-link" data-route="history">${t('viewAll')} →</button></div><div class="recent-list">${metrics.sessions.slice(0, 3).map(session => this.sessionRow(session, true)).join('') || `<div class="dashboard-placeholder">${svgIcon('book')}<p>${t('dashNoRecent')}</p></div>`}</div></section>
+      <section class="card dashboard-launch"><div class="panel-head"><div><h3 class="panel-title">${labels[0]}</h3><p class="panel-sub">${labels[1]}</p></div>${svgIcon('arrow')}</div><div class="dashboard-shortcuts">${actions.map(([route, icon], index) => `<button type="button" data-route="${route}">${svgIcon(icon)}<span>${labels[index + 2]}</span></button>`).join('')}</div></section>
+      <section class="card dashboard-awards"><div class="panel-head"><h3 class="panel-title">${svgIcon('award')} ${t('dashAchievements')}</h3><button class="panel-link" data-route="profile">${t('viewAll')} →</button></div>${achievements.length ? `<div class="dashboard-badges">${achievements.map(item => this.achievementCardMarkup(item)).join('')}</div>` : `<div class="dashboard-placeholder">${svgIcon('award')}<h3>${t('achievementEmptyTitle')}</h3><p>${t('achievementEmptyDesc')}</p></div>`}</section>
+    </div>`;
+  },
   dashboardDataState() {
     const learningState = this.learningDataState();
     const passportState = this.learningPassportDataState();
@@ -37,7 +53,7 @@ export const dashboardViews = {
     if (state === 'loading') return `<div class="page dashboard-page" data-dashboard-state="loading">${head}${this.dataStatePanel('loading', { title: t('dashLoadingTitle'), message: t('dashLoadingDesc') })}</div>`;
     if (state === 'error') return `<div class="page dashboard-page" data-dashboard-state="error">${head}${this.dataStatePanel('error', { title: t('dashErrorTitle'), message: t('dashErrorDesc'), retry: 'data-retry-learning-data' })}</div>`;
     if (state === 'empty') {
-      return `<div class="page dashboard-page" data-dashboard-state="empty">${head}${this.dataStatePanel('empty', { title: t('dashEmptyTitle'), message: t('dashEmptyDesc') })}${this.dashboardContinueMarkup({ sessions: [] })}</div>`;
+      return `<div class="page dashboard-page" data-dashboard-state="empty">${head}<div class="dashboard-summary">${this.statCard(t('dashSessions'), 0)}${this.metricCard(t('accuracy'), null, '%', t('dataMetricUnavailable'), 'spark')}${this.metricCard(t('streak'), 0, this.lang === 'en' ? 'days' : this.lang === 'jp' ? '日' : 'ngày', t('streakDesc'), 'clock')}${this.statCard(t('dashAchievements'), 0)}</div>${this.dashboardWorkspaceMarkup({ sessions: [] }, true)}${this.dashboardContinueMarkup({ sessions: [] })}</div>`;
     }
 
     const metrics = this.learningMetrics();
@@ -46,7 +62,6 @@ export const dashboardViews = {
     const passportState = this.learningPassportDataState();
     const passport = passportState === 'real' ? this.getLearningPassportSnapshot() : null;
     const credentialCount = passportState === 'real' || passportState === 'empty' ? issuedCredentials(passport).length : null;
-    const recent = metrics.sessions.slice(0, 3).map(session => this.sessionRow(session, true)).join('');
     return `<div class="page dashboard-page" data-dashboard-state="${state}">
       ${head}
       <div class="data-view-heading">${this.dataSourceBadge(state)}<span>${state === 'demo' ? t('dataDemoNotice') : t('dataRealNotice')}</span></div>
@@ -57,13 +72,9 @@ export const dashboardViews = {
         ${this.statCard(t('dashCredentialsIssued'), credentialCount)}
         ${this.statCard(t('dashCompletionProgress'), metrics.completionRate, '%')}
       </div>
-      <div class="content-grid">
-        <div class="left-stack">
-          ${this.dashboardContinueMarkup(metrics)}
-          <section class="card recent-card"><div class="panel-head"><div><h3 class="panel-title">${t('dashRecent')}</h3><p class="panel-sub">${t('dashRecentSub')}</p></div><button class="panel-link" data-route="history">${t('viewAll')}</button></div><div class="recent-list">${recent || `<p class="empty-note">${t('dashNoRecent')}</p>`}</div></section>
-        </div>
-        <div class="right-stack">${this.learningMetricCards(metrics)}${this.activityCard()}${this.sourceCard()}</div>
-      </div>
+      ${this.dashboardContinueMarkup(metrics)}
+      ${this.dashboardWorkspaceMarkup(metrics)}
+      ${this.learningMetricCards(metrics)}
     </div>`;
   },
 };

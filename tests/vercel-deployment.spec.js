@@ -13,6 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import sessionHandler from '../api/auth/session.js';
+import learningRecordsHandler from '../api/learning-records/index.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HOBBY_FUNCTION_LIMIT = 12;
@@ -56,6 +57,33 @@ test('vercel.json routes every public path that has no function of its own', asy
   const routes = new Map((config.rewrites || []).map(rule => [rule.source, rule.destination]));
   expect(routes.get('/api/ai/status')).toBe('/api/debate?aiStatus=1');
   expect(routes.get('/api/auth/local')).toBe('/api/auth/session?localAuth=1');
+  expect(routes.get('/api/practice')).toBe('/api/learning-records?practice=1');
+});
+
+test('the practice rewrite target delegates to the practice handler', async () => {
+  process.env.VERCEL = '';
+  process.env.NODE_ENV = 'test';
+  process.env.LOCAL_AUTH_ENABLED = '';
+  const res = {
+    statusCode: 200,
+    headers: {},
+    payload: null,
+    setHeader(name, value) { this.headers[name] = value; return this; },
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  };
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_ANON_KEY;
+  process.env.SUPABASE_URL = '';
+  process.env.SUPABASE_ANON_KEY = '';
+  try {
+    await learningRecordsHandler({ method: 'GET', url: '/api/practice', headers: { host: 'localhost' }, query: { practice: '1' } }, res);
+  } finally {
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_ANON_KEY; else process.env.SUPABASE_ANON_KEY = previousKey;
+  }
+  expect(res.statusCode).toBe(503);
+  expect(res.payload.code).toBe('AUTH_NOT_CONFIGURED');
 });
 
 test('the session endpoint serves /api/auth/local through the local-auth handler', async () => {

@@ -1,5 +1,10 @@
 /* Shared line-icon set for the app shell and sitemap. */
 const paths = {
+  camera: '<path d="M8 5 9.5 3h5L16 5h4a2 2 0 0 1 2 2v12H2V7a2 2 0 0 1 2-2Z"/><circle cx="12" cy="12" r="4"/>',
+  trophy: '<path d="M7 3h10v7a5 5 0 0 1-10 0Z"/><path d="M7 5H3v3a4 4 0 0 0 4 4M17 5h4v3a4 4 0 0 1-4 4M12 15v5M8 21h8"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 11h18M7 15h2M13 15h2M7 18h2"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/>',
+  edit: '<path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z"/>',
   grid: '<rect x="3" y="3" width="7" height="7" rx="1.4"/><rect x="14" y="3" width="7" height="7" rx="1.4"/><rect x="3" y="14" width="7" height="7" rx="1.4"/><rect x="14" y="14" width="7" height="7" rx="1.4"/>',
   shield: '<path d="M12 3 4.5 6v5.6c0 4.3 3.1 7.6 7.5 9.4 4.4-1.8 7.5-5.1 7.5-9.4V6L12 3Z"/><path d="m9 12 2 2 4-4"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
@@ -17,7 +22,8 @@ const paths = {
   download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/>',
   trash: '<path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v5M14 11v5"/>',
   spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 18.4l-2.8-2.8"/>',
-  award: '<circle cx="12" cy="9" r="6"/><path d="m8.5 14-1 7 4.5-2.5 4.5 2.5-1-7"/><path d="m9.5 9 1.6 1.6 3.4-3.4"/>'
+  award: '<circle cx="12" cy="9" r="6"/><path d="m8.5 14-1 7 4.5-2.5 4.5 2.5-1-7"/><path d="m9.5 9 1.6 1.6 3.4-3.4"/>',
+  flask: '<path d="M9 3h6"/><path d="M10 3v5.3L5.7 16a3 3 0 0 0 2.6 4.5h7.4a3 3 0 0 0 2.6-4.5L14 8.3V3"/><path d="M7.4 14h9.2"/>'
 };
 
 export function svgIcon(name) {

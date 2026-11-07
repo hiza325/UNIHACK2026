@@ -18,7 +18,8 @@
     "contract:deployer:core": "npm run contract:build && node scripts/serve-core-browser-deployer.mjs",
     "test": "playwright test",
     "test:all": "npm run contract:test && npm test",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "build": "node scripts/build-frontend.cjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
@@ -29,6 +30,7 @@
     "ethers": "^6.17.0",
     "jsqr": "^1.4.0",
     "nodemailer": "^10.2.1",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "sharp": "^0.35.5"
   }
 }
