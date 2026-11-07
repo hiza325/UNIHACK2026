@@ -35,6 +35,7 @@ const rootFiles = [
   'passport-silver.css',
   'about-silver.css',
   'settings-silver.css',
+  'admin-silver.css',
   'avatar.css',
   'competency-passport.css',
   'editorial.css',

@@ -53,6 +53,17 @@ body .dashboard-shell .bar { background: linear-gradient(#8b8b90, #333338); bord
 body .dashboard-shell .bar.hot { background: linear-gradient(#ece4d8, #777375); }
 body .dashboard-shell .session-row { border-color: var(--dash-line); }
 body .dashboard-shell .dashboard-badges { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+body .dashboard-shell .dashboard-badges .achievement-tile { min-width:0; padding:20px 16px; border:1px solid #a18b6255; border-radius:16px; background:linear-gradient(135deg,#cbb78918,#ffffff06); color:var(--dash-text); box-shadow:inset 0 1px 1px #ffffff12; }
+body.dark .dashboard-shell .dashboard-badges .achievement-tile { background:linear-gradient(135deg,#d7b98414,#111111 60%,#c7ac790a); border-color:#d7b98440; }
+body .dashboard-shell .dashboard-badges .badge-icon { background:#b59a6920; color:#795a2b; border:1px solid #b59a6955; border-radius:14px; }
+body.dark .dashboard-shell .dashboard-badges .badge-icon { color:#f3d79b; }
+body .dashboard-shell .dashboard-badges .achievement-tile strong { color:var(--dash-text); }
+body .dashboard-shell .dashboard-badges :is(.achievement-status,small) { color:var(--dash-muted); }
+body .dashboard-shell .dashboard-badges .earned { border-color:#b59a6980; }
+body .dashboard-shell .dashboard-badges .earned .achievement-status { color:#795a2b; }
+body.dark .dashboard-shell .dashboard-badges .earned .achievement-status { color:#f3d79b; }
+body .dashboard-shell .dashboard-badges .achievement-progress { height:5px; overflow:hidden; border-radius:8px; background:#88888830; }
+body .dashboard-shell .dashboard-badges .achievement-progress > span { background:linear-gradient(90deg,#a88b58,#f3d79b); border-radius:inherit; }
 body .dashboard-shell .continue-empty { margin-top: 20px; }
 @media (max-width: 1150px) { body .dashboard-shell .dashboard-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } body .dashboard-shell .dashboard-workspace { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { body .dashboard-shell .dashboard-summary { gap: 10px; } body .dashboard-shell .dashboard-summary > * { padding: 16px; } body .dashboard-shell .dashboard-workspace > .card { padding: 18px; } body .dashboard-shell .dashboard-shortcuts { grid-template-columns: repeat(2, minmax(0, 1fr)); } body .dashboard-shell .sidebar { background: var(--dash-bg); } body .dashboard-shell .dashboard-badges { grid-template-columns: 1fr; } }

@@ -1,4 +1,5 @@
 /* Account administration. Supabase is used in deployed multi-user mode. */
+import { svgIcon } from '../icons.js';
 export const adminViews = {
   viewAdmin() {
     if (this.user?.role !== 'admin') return '';
@@ -20,7 +21,8 @@ export const adminViews = {
     }).join('');
     return `<div class="page admin-page">
       ${this.viewHead(this.t('adminTitle'), 'adminSubtitle')}
-      <div class="stat-grid three">${this.statCard(this.t('adminTotal'), accounts.length)}${this.statCard(this.t('adminActiveUsers'), active)}${this.statCard(this.t('adminAdmins'), admins)}</div>
+      <div class="stat-grid admin-stats">${this.statCard(this.t('adminTotal'), accounts.length)}${this.statCard(this.t('adminActiveUsers'), active)}${this.statCard(this.t('adminAdmins'), admins)}${this.statCard(this.t('adminSuspended'), accounts.length - active)}</div>
+      <div class="admin-workspace">
       <section class="card admin-users-card">
         <div class="panel-head"><div><h2 class="panel-title">${this.t('adminUsers')}</h2><p class="panel-sub">${this.t('adminLocalNotice')}</p></div><label class="search-field"><span aria-hidden="true">⌕</span><input id="admin-search" type="search" placeholder="${this.t('adminSearch')}" aria-label="${this.t('adminSearch')}"></label></div>
         <div class="admin-user-head"><span>${this.t('adminAccount')}</span><span>${this.t('adminRole')}</span><span>${this.t('adminStatus')}</span><span>${this.t('adminCreated')}</span><span></span></div>
@@ -28,6 +30,7 @@ export const adminViews = {
         <p class="empty-note" id="admin-search-empty" hidden>${this.t('adminNoResults')}</p>
       </section>
       ${this.viewCertificateIssuance()}
+      </div>
     </div>`;
   },
   viewCertificateIssuance() {
@@ -49,7 +52,7 @@ export const adminViews = {
     ` : '';
     const explorer = ci.txHash ? `<a href="https://explorer-test.avax.network/c-chain/tx/${this.escape(ci.txHash)}" target="_blank" rel="noopener noreferrer">View on Avalanche Explorer</a>` : '';
     return `<section class="card admin-cert-card">
-      <div class="panel-head"><div><h2 class="panel-title">Certificate Issuance (Avalanche Fuji)</h2><p class="panel-sub">Prepare on backend, sign with Core Wallet, confirm on-chain.</p></div></div>
+      <div class="panel-head"><div><h2 class="panel-title">${svgIcon('award')} Certificate Issuance (Avalanche Fuji)</h2><p class="panel-sub">Prepare on backend, sign with Core Wallet, confirm on-chain.</p></div></div>
       <div class="row">
         <button class="ghost-button" type="button" data-cert-connect-wallet ${ci.busy ? 'disabled' : ''}>Connect Core Wallet</button>
         <button class="ghost-button" type="button" data-cert-reset ${ci.busy ? 'disabled' : ''}>Reset</button>
