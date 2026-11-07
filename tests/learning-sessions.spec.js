@@ -63,7 +63,7 @@ async function setupSessions(page, { viewport, failCreate = false } = {}) {
   state.failCreate = failCreate;
   await seedSession(page);
   if (viewport) await page.setViewportSize(viewport);
-  await page.route('**/api/auth/session', route => route.fulfill({
+  await page.route('**/api/auth/session*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ user: USER }),

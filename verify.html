@@ -15,7 +15,7 @@
     .VALID { color: #16a34a; }
     .REVOKED { color: #dc2626; }
     .NOT_FOUND { color: #6b7280; }
-    .UNAVAILABLE { color: #d97706; }
+    .UNAVAILABLE, .PENDING, .DEMO { color: #d97706; }
     .INVALID_INPUT { color: #dc2626; }
     .INVALID { color: #dc2626; }
     dl { display: grid; grid-template-columns: 160px 1fr; gap: 6px 12px; margin: 12px 0; }
@@ -35,10 +35,10 @@
   <h1>PARADOX AI — Certificate Verification</h1>
   <p class="muted">Verify a PARADOX AI credential on Avalanche Fuji (chainId 43113). No login required.</p>
   <form id="form">
-    <input id="code" name="code" placeholder="PXP-..." required />
+    <input id="code" name="code" placeholder="PXP-..." aria-label="Certificate ID" maxlength="80" required />
     <button type="submit">Verify</button>
   </form>
-  <div id="result"></div>
+  <div id="result" aria-live="polite"></div>
   <script>
     const form = document.getElementById('form');
     const input = document.getElementById('code');
@@ -46,14 +46,37 @@
     const params = new URLSearchParams(location.search);
     if (params.get('code')) input.value = params.get('code');
 
+    let requestId = 0;
     async function verify(code) {
+      const currentRequest = ++requestId;
+      code = String(code).trim().toUpperCase();
+      if (!/^[A-Z0-9-]{8,80}$/.test(code)) {
+        result.innerHTML = '<div class="card"><div class="status INVALID_INPUT">INVALID_INPUT</div><p>Invalid certificate code or QR link.</p></div>';
+        return;
+      }
       result.innerHTML = '<div class="card">Verifying…</div>';
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
       try {
-        const r = await fetch('/api/verify?code=' + encodeURIComponent(code));
+        const r = await fetch('/api/verify?code=' + encodeURIComponent(code), { signal: controller.signal });
         const data = await r.json();
-        const status = data.status || 'UNAVAILABLE';
+        if (currentRequest !== requestId) return;
+        const allowed = ['VALID', 'PENDING', 'REVOKED', 'NOT_FOUND', 'UNAVAILABLE', 'INVALID_INPUT', 'INVALID', 'DEMO'];
+        let status = allowed.includes(data.status) ? data.status : 'UNAVAILABLE';
+        if (status === 'VALID' && (!r.ok || data.chainId !== 43113 || data.contractAddress?.toLowerCase() !== '0xa0c69ee573cda8d1d08b46f81abfa0a15a45cf2b' || data.onChain?.exists !== true || data.onChain?.valid !== true || data.onChain?.revoked !== false)) status = 'UNAVAILABLE';
+        if (code.startsWith('DEMO-') || ['demo', 'mock'].includes(data.credential?.source)) status = 'DEMO';
+        const messages = { VALID: 'Verified on Avalanche Fuji Testnet.', PENDING: 'Issuance pending — not yet verified.', REVOKED: 'Certificate has been revoked.', NOT_FOUND: 'Certificate not found on Avalanche Fuji.', UNAVAILABLE: 'Verification Error — please retry.', INVALID_INPUT: 'Invalid certificate code or QR link.', INVALID: 'Certificate is not valid.', DEMO: 'Demo only — not verified on Avalanche.' };
         let html = '<div class="card"><div class="status ' + status + '">' + status + '</div>';
-        html += '<p>' + escapeHtml(data.message || '') + '</p>';
+        html += '<p>' + messages[status] + '</p>';
+        const transactionStates = { VERIFIED: 'Verified Transaction', PENDING: 'Pending confirmation', INVALID: 'Invalid transaction', UNAVAILABLE: 'Transaction verification unavailable — RPC error, missing transaction or incomplete evidence. Retry later.', NOT_PROVIDED: 'No transaction hash provided', DEMO: 'Demo — no verified transaction' };
+        const transactionState = status === 'DEMO' ? 'DEMO' : (Object.hasOwn(transactionStates, data.transactionVerification) ? data.transactionVerification : 'UNAVAILABLE');
+        html += '<dl><dt>Certificate validity</dt><dd>' + status + '</dd><dt>Transaction verification</dt><dd id="transaction-verification">' + transactionStates[transactionState] + '</dd></dl>';
+        if (transactionState === 'UNAVAILABLE' && Array.isArray(data.warnings)) {
+          if (data.warnings.includes('TRANSACTION_NOT_FOUND')) html += '<p>Transaction hash not found by RPC. This is not proof of a pending transaction.</p>';
+          else if (data.warnings.includes('TRANSACTION_RPC_UNAVAILABLE')) html += '<p>Transaction RPC unavailable. Retry later.</p>';
+        }
+        html += '<dl><dt>Certificate ID</dt><dd>' + escapeHtml(code) + '</dd></dl>';
+        if (data.credential?.isTest) html += '<p class="test-badge">TEST credential — not an official certificate.</p>';
         const rawIntegrity = data.metadata && data.metadata.integrity ? data.metadata.integrity : 'UNVERIFIED';
         const integrity = ['VERIFIED', 'UNVERIFIED', 'MISMATCH'].includes(rawIntegrity) ? rawIntegrity : 'UNVERIFIED';
         const evidenceIntegrity = data.evidence && data.evidence.integrity ? data.evidence.integrity : 'UNKNOWN';
@@ -61,7 +84,6 @@
         if (integrity === 'MISMATCH') {
           html += '<div class="warn">Certificate metadata (name, title, date) does not match the signed attestation stored at issuance. Do not trust metadata shown for this code.</div>';
         } else if (data.credential && (data.credential.title || data.credential.skill)) {
-          if (data.credential.isTest) html += '<p class="test-badge">TEST / DEMO credential — not an official certificate.</p>';
           html += '<dl>';
           if (data.credential.title) html += '<dt>Title</dt><dd>' + escapeHtml(data.credential.title) + '</dd>';
           if (data.credential.skill) html += '<dt>Skill</dt><dd>' + escapeHtml(data.credential.skill) + '</dd>';
@@ -73,20 +95,24 @@
         }
         if (data.onChain) {
           html += '<dl>';
-          html += '<dt>Chain ID</dt><dd>' + data.chainId + '</dd>';
-          if (data.onChain.issuedAt) html += '<dt>Issued at</dt><dd>' + new Date(data.onChain.issuedAt * 1000).toISOString() + '</dd>';
+          html += '<dt>Chain ID</dt><dd>' + escapeHtml(data.chainId) + '</dd>';
+          const issuedAt = new Date(Number(data.onChain.issuedAt) * 1000);
+          if (data.onChain.issuedAt && Number.isFinite(issuedAt.getTime())) html += '<dt>Issued at</dt><dd>' + issuedAt.toISOString() + '</dd>';
           if (data.onChain.issuer) html += '<dt>Issuer</dt><dd>' + escapeHtml(data.onChain.issuer) + '</dd>';
           if (data.onChain.evidenceHash) html += '<dt>Evidence hash</dt><dd>' + escapeHtml(data.onChain.evidenceHash) + '</dd>';
           html += '</dl>';
         }
-        if (data.explorerUrl) {
-          html += '<p><a href="' + escapeAttr(data.explorerUrl) + '" target="_blank" rel="noopener">View on Avalanche Explorer</a></p>';
+        if (status !== 'DEMO' && /^0x[0-9a-fA-F]{64}$/.test(data.transactionHash || '')) {
+          html += '<p>Issue transaction (database reference): ' + escapeHtml(data.transactionHash) + '</p>';
+          html += '<p><a href="https://explorer-test.avax.network/c-chain/tx/' + data.transactionHash + '" target="_blank" rel="noopener noreferrer">View on Avalanche Explorer</a></p>';
         }
         if (data.contractAddress) html += '<p class="muted">Contract: ' + escapeHtml(data.contractAddress) + '</p>';
         html += '</div>';
         result.innerHTML = html;
       } catch (e) {
-        result.innerHTML = '<div class="card"><div class="status UNAVAILABLE">UNAVAILABLE</div><p>' + escapeHtml(String(e)) + '</p></div>';
+        if (currentRequest === requestId) result.innerHTML = '<div class="card"><div class="status UNAVAILABLE">UNAVAILABLE</div><p>Verification Error — please retry.</p></div>';
+      } finally {
+        clearTimeout(timer);
       }
     }
 

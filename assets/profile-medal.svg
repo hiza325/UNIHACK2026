@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="130" viewBox="0 0 260 130" fill="none">
+<defs><linearGradient id="metal" x1="80" y1="10" x2="170" y2="120" gradientUnits="userSpaceOnUse"><stop stop-color="#fff1db"/><stop offset=".45" stop-color="#b49072"/><stop offset="1" stop-color="#efcfaa"/></linearGradient><radialGradient id="glass"><stop stop-color="#8a7566"/><stop offset="1" stop-color="#302c2a"/></radialGradient><filter id="glow"><feGaussianBlur stdDeviation="3"/></filter></defs>
+<circle cx="130" cy="53" r="43" stroke="#f5d5b4" stroke-width="4" opacity=".35" filter="url(#glow)"/>
+<path d="m105 80-12 39 25-10 12 15 8-40m10-4 16 39-23-10-10 15-10-40" fill="url(#metal)" stroke="#dabda0"/>
+<circle cx="130" cy="53" r="41" fill="url(#glass)" stroke="url(#metal)" stroke-width="3"/>
+<circle cx="130" cy="53" r="35" stroke="#e5c5a5" stroke-opacity=".2"/>
+<path d="m130 31 7 14 16 3-12 12 3 16-14-8-15 8 3-16-12-12 17-3Z" fill="url(#metal)"/>
+<g fill="url(#metal)" opacity=".6"><path d="M68 110C42 98 29 78 33 48c13 16 9 21 4 27 15 0 18 8 14 13 18 0 22 9 17 22Z"/><path d="M62 99c-17-7-19-21-15-27 14 6 20 17 15 27M48 79c-17-9-19-20-14-29 12 8 18 18 14 29M34 59c-12-9-11-20-5-27 8 11 10 19 5 27"/><path d="M192 110c26-12 39-32 35-62-13 16-9 21-4 27-15 0-18 8-14 13-18 0-22 9-17 22Z"/><path d="M198 99c17-7 19-21 15-27-14 6-20 17-15 27M212 79c17-9 19-20 14-29-12 8-18 18-14 29M226 59c12-9 11-20 5-27-8 11-10 19-5 27"/></g>
+<g fill="#ffe5c6"><circle cx="15" cy="86" r="1.5"/><circle cx="242" cy="98" r="1.5"/><path d="m79 24 2 6 6 2-6 2-2 6-2-6-6-2 6-2Z"/></g></svg>

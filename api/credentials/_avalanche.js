@@ -7,6 +7,7 @@ export const AVALANCHE_FUJI_NETWORK = AVALANCHE_FUJI_CONFIG.network;
 export const AVALANCHE_FUJI_EXPLORER_TX = `${AVALANCHE_FUJI_CONFIG.explorerBaseUrl}/tx/`;
 
 export const LEARNING_CREDENTIAL_REGISTRY_ABI = Object.freeze([
+  'event CredentialIssued(bytes32 indexed credentialId, bytes32 indexed evidenceHash, address indexed issuer, uint64 issuedAt)',
   'function authorizedIssuers(address) view returns (bool)',
   'function credentialExists(bytes32 credentialId) view returns (bool)',
   'function credentialIdForEvidence(bytes32 evidenceHash) view returns (bytes32)',

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1100" viewBox="0 0 1800 1100" fill="none">
+  <defs>
+    <linearGradient id="silver" x1="0" y1="0" x2="1800" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity=".8"/>
+      <stop offset=".32" stop-color="#bfc0c4" stop-opacity=".08"/>
+      <stop offset=".7" stop-color="#dddde0" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#fff" stop-opacity=".9"/>
+    </linearGradient>
+    <filter id="haze" x="-50%" y="-100%" width="200%" height="300%"><feGaussianBlur stdDeviation="23"/></filter>
+    <filter id="glow" x="-50%" y="-100%" width="200%" height="300%"><feGaussianBlur stdDeviation="5"/></filter>
+    <path id="waves" d="M1260 -60C1510 -30 1680 54 1840 240M-90 400C45 582 203 553 420 632M1380 1040C1540 904 1694 925 1870 721"/>
+  </defs>
+  <use href="#waves" stroke="url(#silver)" stroke-width="42" opacity=".3" filter="url(#haze)"/>
+  <use href="#waves" stroke="url(#silver)" stroke-width="9" opacity=".35" filter="url(#glow)"/>
+  <use href="#waves" stroke="url(#silver)" stroke-width="1.4"/>
+</svg>

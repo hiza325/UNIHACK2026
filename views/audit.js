@@ -119,7 +119,7 @@ export const auditViews = {
           ${this.learningSessionMobileBarMarkup()}
           ${this.learningSessionCurrentHeaderMarkup()}
       <div class="content-grid"><div class="left-stack">
-        <section class="card audit-card"><div class="card-heading"><div><h2 class="card-title">${t('sessionTitle')}</h2><p class="card-caption">${t('sessionCaption')}</p></div><span class="session-id">SESSION #${new Date().getFullYear()}-014</span></div>
+        <section class="card audit-card"><div class="card-heading"><div><h2 class="card-title">${t('sessionTitle')}</h2><p class="card-caption">${t('sessionCaption')}</p></div><span class="session-id">${this.learningRecordSessionId ? `SESSION #${this.escape(this.learningRecordSessionId)}` : t('sessionDraftTitle')}</span></div>
           <audit-stepper class="stepper" role="list" aria-label="${t('sessionTitle')}">${this.auditStepsMarkup()}</audit-stepper>
           <div class="upload-zone" id="drop-zone"><span class="upload-label">${t('problem')} + ${t('yourWork')}</span><div class="upload-fields">
             ${this.fileControl('problem', t('addProblem'), t('fileTypes'))}${this.fileControl('work', t('addWork'), t('fileTypes'))}

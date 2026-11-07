@@ -12,7 +12,10 @@ import { createLearningPassportService } from './learning-passport-service.js';
 import { learningRecordActionMethods } from './learning-records-actions.js';
 import { learningSessionActionMethods } from './learning-sessions-actions.js';
 import { certificateIssuanceMethods } from './certificate-issuance-actions.js';
+import { practiceActionMethods } from './practice-actions.js';
+import { avatarMethods } from './avatar-actions.js';
 import { createLearningRecordsService } from './learning-records-service.js';
+import { createPracticeService } from './practice-service.js';
 import { defineComponents } from './components.js';
 
 
@@ -29,6 +32,7 @@ class EduApp extends HTMLElement {
     this.authDemoCode = '';
     this.authProvider = 'local';
     this.adminAccounts = null;
+    this.certificateTestAllowed = false;
     this.passportEligibleEvaluations = [];
     this.passportEligibleLoading = false;
     this.passportEligibleError = '';
@@ -88,6 +92,7 @@ class EduApp extends HTMLElement {
     this.passportLoadAttempted = false;
     this.passportError = '';
     this.learningRecordsService = createLearningRecordsService({ enabled: false, apiBaseUrl: '/api' });
+    this.practiceService = createPracticeService({ enabled: false, apiBaseUrl: '/api' });
     this.learningRecordSessionId = '';
     this.learningRecordSubmissionId = '';
     this.learningRecordPendingRevision = null;
@@ -98,6 +103,16 @@ class EduApp extends HTMLElement {
     this.learningRecordsLoading = false;
     this.learningRecordsLoadAttempted = false;
     this.learningRecordSyncError = '';
+    this.practiceChallenges = [];
+    this.practiceProgress = null;
+    this.practiceState = 'demo';
+    this.practiceError = '';
+    this.practiceLoadAttempted = false;
+    this.practiceLoading = false;
+    this.practiceCurrent = null;
+    this.practiceAttemptId = '';
+    this.practiceSubmitting = false;
+    this.practiceOpenerKey = null;
     this.learningRecordsRefreshQueued = false;
     this.passportSelectedCredentialCode = '';
     this.passportVerificationQuery = '';
@@ -123,9 +138,11 @@ class EduApp extends HTMLElement {
     document.addEventListener('visibilitychange', this.onSessionVisibilityChange);
     window.addEventListener('focus', this.onSessionWindowFocus);
     this.authSessionTimer = window.setInterval(() => this.checkRemoteSession(), 15000);
-    this.restoreAuthentication().finally(() => {
+    this.restoreAuthentication().finally(async () => {
       this.configureLearningPassportService();
       this.configureLearningRecordsService();
+      this.configurePracticeService();
+      await this.loadAvatar();
       this.handleRoute();
       this.loadAuditState().then(() => {
         this.auditStorageReady = true;
@@ -135,6 +152,7 @@ class EduApp extends HTMLElement {
     });
   }
   disconnectedCallback() {
+    this.closeAvatarEditor();
     this.removeEventListener('click', this.onClick);
     this.removeEventListener('change', this.onChange);
     this.removeEventListener('input', this.onInput);
@@ -162,6 +180,6 @@ class EduApp extends HTMLElement {
   escape(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 }
 
-Object.assign(EduApp.prototype, dataMethods, viewMethods, actionMethods, routerMethods, themeMethods, eventMethods, notificationMethods, supportMethods, learningPassportActionMethods, learningRecordActionMethods, learningSessionActionMethods, certificateIssuanceMethods);
+Object.assign(EduApp.prototype, dataMethods, viewMethods, actionMethods, routerMethods, themeMethods, eventMethods, notificationMethods, supportMethods, learningPassportActionMethods, learningRecordActionMethods, learningSessionActionMethods, certificateIssuanceMethods, practiceActionMethods, avatarMethods);
 
 defineComponents(EduApp);

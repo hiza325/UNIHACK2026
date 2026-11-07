@@ -5,6 +5,19 @@ import { AVALANCHE_FUJI_CONFIG, AVALANCHE_FUJI_CONTRACT_URL } from '../avalanche
 import { CERTIFICATE_CODE_HTML_PATTERN, getCredentialDisplayStatus, getAvalancheExplorerUrl, getCredentialVerificationState, hasActualAvalancheVerification } from '../learning-passport-service.js';
 
 export const passportViews = {
+  certificateCenterMarkup() {
+    const passport = this.getLearningPassportSnapshot();
+    const real = passport?.source?.isReal === true;
+    const records = real ? passport.credentials || [] : [];
+    const ready = !this.passportEligibleLoading && !this.passportEligibleError;
+    const count = ready && real ? (this.passportEligibleEvaluations || []).length : '—';
+    const labels = this.lang === 'vi' ? ['Trung tâm chứng nhận', 'Chứng nhận của tôi', 'Đủ điều kiện', 'Chờ xác nhận', 'Đã phát hành', 'Quản lý phát hành', 'Xem / Tải PDF · PNG'] : this.lang === 'jp' ? ['証明書センター', '自分の証明書', '発行条件達成', '確認待ち', '発行済み', '発行管理', '表示 / PDF · PNG'] : ['Certificate Center', 'My Certificates', 'Eligible', 'Pending confirmation', 'Issued', 'Manage issuance', 'View / Download PDF · PNG'];
+    return `<section class="card certificate-center" aria-label="Certificate Center">
+      <div class="panel-head"><div><span class="eyebrow">PARADOX AI · Avalanche Fuji</span><h2>${labels[0]}</h2><p class="panel-sub">${this.lang === 'vi' ? 'Đủ điều kiện — Chờ đơn vị phát hành. Chỉ Admin và ví issuer được ủy quyền có thể cấp chứng nhận.' : 'Eligible — Awaiting Issuance. Only an admin and authorized issuer can issue certificates.'}</p></div>${this.user?.role === 'admin' ? `<a class="primary-button" href="#/admin">${labels[5]} ↗</a>` : ''}</div>
+      <div class="stat-grid four">${this.statCard(labels[1], real ? records.length : '—')}${this.statCard(labels[2], count)}${this.statCard(labels[3], real ? records.filter(c => ['pending', 'submitting'].includes(c.transactionStatus)).length : '—')}${this.statCard(labels[4], real ? records.filter(c => ['confirmed', 'revoked', 'revoke_pending'].includes(c.transactionStatus)).length : '—')}</div>
+      ${this.passportLoading ? '<div class="certificate-skeleton" role="status">Loading certificates…</div>' : this.passportError ? '<p role="alert">Certificate history unavailable. Retry loading Passport.</p>' : !real ? '<p>Demo / unavailable data — not an issuance record.</p>' : !records.length ? '<p>No issued certificates yet.</p>' : `<p>${labels[6]} — ${this.lang === 'vi' ? 'Chọn chứng nhận trong danh sách bên dưới để xem, xuất và xác minh.' : 'Select a certificate below to preview, export and verify.'}</p>`}
+    </section>`;
+  },
   // Explorer links expose raw on-chain infrastructure; only administrators see
   // them. Unknown or missing roles (including guests) fall back to hidden.
   canViewAvalancheExplorer() {
@@ -47,20 +60,27 @@ export const passportViews = {
     if (!document.querySelector('link[href="competency-passport.css"]')) {
       const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'competency-passport.css'; document.head.appendChild(l);
     }
-    const head = this.viewHead(t('pagePassport'), 'passportSub') + '<competency-passport></competency-passport>';
-    // Fetch competency certificate eligibility
-    this.competencyCertStatus = null;
+    const head = this.viewHead(t('pagePassport'), 'passportSub') + this.certificateCenterMarkup() + '<competency-passport></competency-passport>';
+    // Update only the status node: re-rendering here would refetch indefinitely.
+    const owner = this.user;
     (async () => {
+      let message;
       try {
         const res = await fetch('/api/learning-records?view=competencyCertificate', { credentials: 'same-origin' });
-        if (res.ok) { const data = await res.json(); this.competencyCertStatus = data.certificateEligibility; if (this.view === 'passport') this.render(); }
-      } catch {}
+        if (!res.ok) throw new Error('unavailable');
+        const data = await res.json();
+        if (!data.certificateEligibility) throw new Error('unavailable');
+        message = `${data.certificateEligibility.eligible ? 'Eligible' : 'Not eligible'}: ${data.certificateEligibility.reason || '—'}`;
+      } catch { message = t('passportLoadError'); }
+      if (this.user === owner && this.view === 'passport') {
+        const status = this.querySelector('[data-competency-cert-status]');
+        if (status) status.textContent = message;
+      }
     })();
     if (state === 'loading') return `<div class="page passport-page" data-passport-state="loading">${head}${this.dataStatePanel('loading', { title: t('passportLoading'), message: t('passportLoadingDesc') })}</div>`;
     if (state === 'error') return `<div class="page passport-page" data-passport-state="error">${head}${this.dataStatePanel('error', { title: t('passportLoadErrorTitle'), message: t('passportLoadError'), retry: 'data-retry-passport' })}</div>`;
     const passport = this.getLearningPassportSnapshot();
     if (state === 'empty' || !passport) return `<div class="page passport-page" data-passport-state="empty">${head}${passport ? this.passportDataNotice(passport) : ''}${this.dataStatePanel('empty', { title: t('passportEmptyTitle'), message: t('passportEmptyDesc') })}${this.passportEligibleEvaluationsMarkup()}</div>`;
-    const initials = passport.learner.displayName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
     const achieved = passport.skills.filter(skill => skill.achieved).length;
     const skills = passport.skills.map(skill => `<article class="passport-skill ${skill.achieved ? 'achieved' : ''}"><div class="passport-skill-head"><span class="passport-skill-icon">${svgIcon(skill.achieved ? 'check' : 'clock')}</span><div><h3>${this.escape(skill.name)}</h3><p>${this.escape(skill.description)}</p></div><strong>${Number.isFinite(skill.score) ? `${skill.score}<small>/100</small>` : '—'}</strong></div>${Number.isFinite(skill.progress) ? `<div class="skill-track" role="progressbar" aria-label="${this.escape(skill.name)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${skill.progress}"><span style="width:${skill.progress}%"></span></div>` : ''}<footer><span>${skill.achieved ? t('passportAchieved') : t('passportInProgress')}</span><span>${t('passportEvidence').replace('{count}', String(skill.evidenceCount))}</span></footer></article>`).join('') || `<p class="passport-empty-list">${t('passportNoVerifiedSkills')}</p>`;
     const assessments = passport.assessments.map(item => `<article class="passport-assessment"><div><span>${this.escape(item.skill)}</span><h3>${this.escape(item.name)}</h3><time datetime="${this.escape(item.completedAt)}">${this.passportDate(item.completedAt)}</time></div><strong>${Number.isFinite(item.score) ? `${item.score}<small>/100</small>` : '—'}</strong>${item.source === 'mock' ? `<span class="mock-inline">${t('passportMockBadge')}</span>` : ''}</article>`).join('') || `<p class="passport-empty-list">${t('passportNoVerifiedAssessments')}</p>`;
@@ -69,7 +89,7 @@ export const passportViews = {
       ${head}
       ${this.passportDataNotice(passport)}
       ${this.passportAsyncNotice()}
-      <section class="card passport-hero"><div class="avatar passport-avatar">${this.escape(initials)}</div><div class="passport-identity"><span>${t('passportLabel')}</span><h2>${this.escape(passport.learner.displayName)}</h2><p>${this.escape(passport.learner.email)}</p><small>${this.escape(passport.learner.level)} · ${this.escape(passport.learner.cohort)}</small></div><div class="passport-id"><span>${t('passportId')}</span><strong>${this.escape(passport.passportId)}</strong><small>${passport.schemaVersion}</small></div></section>
+      <section class="card passport-hero">${this.avatarMarkup('passport-avatar')}<div class="passport-identity"><span>${t('passportLabel')}</span><h2>${this.escape(passport.learner.displayName)}</h2><p>${this.escape(passport.learner.email)}</p><small>${this.escape(passport.learner.level)} · ${this.escape(passport.learner.cohort)}</small></div><div class="passport-id"><span>${t('passportId')}</span><strong>${this.escape(passport.passportId)}</strong><small>${passport.schemaVersion}</small></div></section>
       <div class="stat-grid four passport-stats">${this.statCard(t('passportSkillsAchieved'), achieved, `/${passport.skills.length}`)}${this.statCard(t('passportOverallScore'), passport.summary.overallScore, '/100')}${this.statCard(t('passportProgress'), passport.summary.progress, '%')}${this.statCard(t('passportCredentials'), passport.credentials.length, '')}</div>
       <div class="passport-grid"><section class="card passport-skills-card"><div class="panel-head"><div><h2 class="panel-title">${t('passportSkills')}</h2><p class="panel-sub">${t('passportSkillsSub')}</p></div></div><div class="passport-skill-list">${skills}</div></section><section class="card passport-assessments-card"><div class="panel-head"><div><h2 class="panel-title">${t('passportAssessments')}</h2><p class="panel-sub">${t('passportAssessmentsSub')}</p></div></div><div class="passport-assessment-list">${assessments}</div></section></div>
       <section class="card competency-certificate-card"><div class="panel-head"><div><h2 class="panel-title">Competency Certificate</h2><p class="panel-sub">Issuance is tied to a passed competency assessment.</p></div></div><p data-competency-cert-status>${this.competencyCertStatus ? (this.competencyCertStatus.eligible ? 'Eligible: ' + this.competencyCertStatus.reason : 'Not eligible: ' + this.competencyCertStatus.reason) : 'Loading competency status…'}</p></section>
@@ -113,6 +133,7 @@ export const passportViews = {
     const actualVerification = hasActualAvalancheVerification(credential);
     const stateCopy = {
       valid: ['passportVerifiedOnAvalanche', 'passportVerifiedOnChain'],
+      pending: ['passportStatusPending', 'passportNotLive'],
       unissued: ['passportUnissuedTitle', 'passportUnissuedDesc'],
       revoked: ['passportRevokedTitle', 'passportRevokedDesc'],
       demo: ['passportDemoVerifyTitle', 'passportDemoVerifyDesc'],

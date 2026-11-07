@@ -5,11 +5,10 @@ import { svgIcon } from '../icons.js';
 export const profileViews = {
   profileIdentityMarkup() {
     const t = key => this.t(key);
-    const initials = (this.user.name || 'U').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
     const memberSince = this.user.createdAt
       ? t('profSinceDate').replace('{date}', this.formatDisplayDate(this.user.createdAt, { month: 'long', year: 'numeric' }))
       : t('profSinceUnknown');
-    return `<section class="card profile-hero"><div class="avatar profile-avatar-lg">${this.escape(initials)}</div><div class="profile-hero-copy"><h2>${this.escape(this.user.name || this.user.email)}</h2><p>${this.escape(this.user.email)}</p><span class="profile-since">${this.escape(memberSince)}</span></div><div class="profile-plan"><span class="plan-tag">${t('dataUnavailable')}</span><strong>${t('planDataUnavailable')}</strong></div></section>`;
+    return `<section class="card profile-hero"><div class="profile-avatar-control"><div class="profile-avatar-wrap">${this.avatarMarkup('profile-avatar-lg')}<button class="avatar-camera" type="button" data-avatar-change aria-label="${this.avatarText('change')}" title="${this.avatarText('change')}">${svgIcon('camera')}</button></div><input type="file" data-avatar-file accept="image/jpeg,image/png,image/webp" hidden><button type="button" class="avatar-remove" data-avatar-remove ${this.avatarUrl ? '' : 'hidden'}>${this.avatarText('remove')}</button></div><div class="profile-hero-copy"><h2>${this.escape(this.user.name || this.user.email)}</h2><p>${this.escape(this.user.email)}</p><span class="profile-since">${svgIcon('calendar')}${this.escape(memberSince)}</span><span class="avatar-status" data-avatar-status role="status" aria-live="polite">${this.escape(this.avatarLoadError || '')}</span>${this.avatarLoadError ? `<button class="avatar-remove" type="button" data-avatar-reload>${this.avatarText('retry')}</button>` : ''}</div><div class="profile-id-art" aria-hidden="true">${svgIcon('user')}<i></i><i></i></div><div class="profile-plan"><span class="plan-tag">${svgIcon('user')} ${this.authProvider === 'remote' || localStorage.getItem('paradox-local-server') === '1' ? t('dataStateReal') : t('dataStateDemo')}</span><strong>${t('planDataUnavailable')}</strong></div></section>`;
   },
   achievementCardMarkup(achievement) {
     const t = key => this.t(key);
@@ -29,12 +28,12 @@ export const profileViews = {
   viewProfile() {
     const t = key => this.t(key);
     const state = this.dashboardDataState();
-    const head = this.viewHead(t('pageProfile'), 'profSub');
+    const head = this.viewHead(t('pageProfile'), 'profSub').replace(`<span class="live-dot"></span> ${t('workspace')}`, `${svgIcon('user')} ${t('pageProfile')}`);
     const identity = this.profileIdentityMarkup();
-    const form = `<section class="card form-card"><div class="panel-head"><h3 class="panel-title">${t('profInfo')}</h3></div><form id="profile-form" class="profile-form"><label>${t('profName')}<input name="name" value="${this.escape(this.user.name || '')}" required></label><label>${t('profEmail')}<input value="${this.escape(this.user.email)}" disabled></label><button class="primary-button" type="submit">${t('profSave')} ↗</button></form></section>`;
+    const form = `<section class="card form-card"><div class="panel-head"><h2 class="panel-title">${svgIcon('edit')} ${t('profInfo')}</h2></div><form id="profile-form" class="profile-form"><label>${t('profName')}<span class="profile-input">${svgIcon('user')}<input name="name" autocomplete="name" maxlength="80" value="${this.escape(this.user.name || '')}" required></span></label><label>${t('profEmail')}<span class="profile-input">${svgIcon('mail')}<input type="email" value="${this.escape(this.user.email)}" disabled></span></label><button class="primary-button" type="submit">${t('profSave')} ${svgIcon('check')}</button><p data-profile-status role="status" aria-live="polite"></p></form></section>`;
     if (state === 'loading') return `<div class="page profile-page" data-achievement-page-state="loading">${head}${identity}${this.dataStatePanel('loading', { title: t('achievementLoadingTitle'), message: t('achievementLoadingDesc') })}${form}</div>`;
     if (state === 'error') return `<div class="page profile-page" data-achievement-page-state="error">${head}${identity}${this.dataStatePanel('error', { title: t('achievementErrorTitle'), message: t('achievementErrorDesc'), retry: 'data-retry-learning-data' })}${form}</div>`;
-    if (state === 'empty') return `<div class="page profile-page" data-achievement-page-state="empty">${head}${identity}${this.dataStatePanel('empty', { title: t('achievementEmptyTitle'), message: t('achievementEmptyDesc') })}${form}</div>`;
+    if (state === 'empty') return `<div class="page profile-page" data-achievement-page-state="empty">${head}${identity}<section class="card profile-achievement-empty data-state-panel empty" data-data-state="empty" role="status"><span class="profile-trophy">${svgIcon('trophy')}</span><div><h2>${t('achievementEmptyTitle')}</h2><p>${t('achievementEmptyDesc')}</p></div><img class="profile-medal" src="assets/profile-medal.svg" alt="" aria-hidden="true"></section>${form}</div>`;
 
     const metrics = this.learningMetrics();
     const achievements = this.learningAchievements();

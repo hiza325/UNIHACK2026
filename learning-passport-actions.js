@@ -47,6 +47,15 @@ export const learningPassportActionMethods = {
     preview.setAttribute('data-certificate-preview', '');
     preview.setAttribute('aria-live', 'polite');
     modal.querySelector('.passport-detail-actions').before(preview);
+    if (credential.source === 'avalanche' && isCertificateCode(credential.code)) {
+      const verifyLink = document.createElement('a');
+      verifyLink.className = 'ghost-button';
+      verifyLink.href = '/verify?code=' + encodeURIComponent(credential.code);
+      verifyLink.target = '_blank';
+      verifyLink.rel = 'noopener noreferrer';
+      verifyLink.textContent = 'Certificate validity · Transaction verification · Metadata integrity ↗';
+      modal.querySelector('.passport-detail-actions').append(verifyLink);
+    }
     void mountCertificatePreview(preview, this.user, credential);
     modal.hidden = false;
     document.body.style.overflow = 'hidden';

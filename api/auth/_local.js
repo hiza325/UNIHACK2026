@@ -1,5 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { noStore } from './_supabase.js';
+import { noStore, parseBody } from './_supabase.js';
+import { localProfile, profileName, saveLocalProfile } from './_profile.js';
+import { avatarHandler } from './_avatar.js';
 
 /*
  * Server-side "enter locally" sign-in for development machines only.
@@ -65,10 +67,10 @@ function verifyToken(token, config, timestampMs = Date.now()) {
   }
 }
 
-function publicLocalUser(data) {
+function publicLocalUser(data, env = process.env) {
   return {
     id: `local-${data.jti}`,
-    name: data.name || 'Local user',
+    name: localProfile(data.email, env)?.name || data.name || 'Local user',
     email: data.email,
     role: 'user',
     status: 'active',
@@ -107,10 +109,15 @@ export function createLocalAuthHandler({ env = process.env, now = Date.now } = {
   return function handler(req, res) {
     noStore(res);
     const config = localAuthConfig(env);
+    if (req.query?.avatar) {
+      const session = config && verifyToken(requestCookie(req), config, now());
+      if (!session) return res.status(401).json({ code: 'SESSION_INVALID', error: 'Session is invalid or has expired' });
+      return avatarHandler(req, res, { source: 'local', id: session.email }, env);
+    }
     if (req.method === 'GET') {
       if (!config) return res.status(200).json({ available: false });
       const session = verifyToken(requestCookie(req), config, now());
-      return res.status(200).json({ available: true, ...(session ? { user: publicLocalUser(session) } : {}) });
+      return res.status(200).json({ available: true, ...(session ? { user: publicLocalUser(session, env) } : {}) });
     }
     if (!config) {
       res.setHeader('Allow', 'GET');
@@ -119,15 +126,33 @@ export function createLocalAuthHandler({ env = process.env, now = Date.now } = {
     if (req.method === 'POST') {
       const { session, token } = issueToken(config, now());
       res.setHeader('Set-Cookie', cookie(LOCAL_COOKIE, token, SESSION_TTL_SECONDS));
-      return res.status(200).json({ user: publicLocalUser(session) });
+      return res.status(200).json({ user: publicLocalUser(session, env) });
+    }
+    if (req.method === 'PATCH') {
+      const session = verifyToken(requestCookie(req), config, now());
+      if (!session) return res.status(401).json({ error: 'Session is invalid or has expired', code: 'SESSION_INVALID' });
+      try {
+        saveLocalProfile(session.email, profileName(parseBody(req)), env);
+        return res.status(200).json({ user: publicLocalUser(session, env) });
+      } catch (error) {
+        return res.status(error.status || 500).json({ error: error.status === 400 ? error.message : 'Profile could not be saved' });
+      }
     }
     if (req.method === 'DELETE') {
       res.setHeader('Set-Cookie', cookie(LOCAL_COOKIE, '', 0));
       return res.status(200).json({ loggedOut: true });
     }
-    res.setHeader('Allow', 'GET, POST, DELETE');
+    res.setHeader('Allow', 'GET, POST, PATCH, DELETE');
     return res.status(405).json({ error: 'Method not allowed' });
   };
+}
+
+export function localSessionForRequest(req, env = process.env, now = Date.now) {
+  const config = localAuthConfig(env);
+  if (!config) return null;
+  const session = verifyToken(requestCookie(req), config, now());
+  if (!session) return null;
+  return { user: publicLocalUser(session, env), learnerId: `local:${session.email}` };
 }
 
 export default createLocalAuthHandler();

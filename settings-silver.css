@@ -1,0 +1,39 @@
+/* Settings presentation; controls retain their existing state and action handlers. */
+body .settings-shell { --settings-accent:#785728; --settings-border:#9b835966; --settings-control:#faf8f4; }
+body.dark .settings-shell { --settings-accent:#efdaa9; --settings-border:#c6aa7866; --settings-control:#24211e; --dash-bg:#090909; --dash-text:#f3f0eb; --dash-muted:#c1bbb2; --dash-card:linear-gradient(120deg,#bfa6801c,#ffffff05 60%,#bea06e10); }
+body .settings-shell::before { background:radial-gradient(ellipse at 95% 10%,#bea27522,transparent 45%),url('assets/silver-waves.svg') center top/100% 1100px no-repeat; }
+body .settings-shell .page { max-width:1400px; margin-inline:auto; padding-top:26px; }
+body .settings-shell .view-head { padding:0; margin-bottom:26px; }
+body .settings-shell .settings-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:22px; align-items:stretch; }
+body .settings-shell .setting-group { min-width:0; padding:4px 24px 10px; border:1px solid var(--settings-border); border-radius:22px; box-shadow:inset 0 1px 1px #ffffff10,0 12px 30px #00000012; }
+body .settings-shell .panel-head { padding:19px 0 17px; }
+body .settings-shell .panel-title { display:flex; align-items:center; gap:12px; font-size:18px; }
+body .settings-shell .panel-title .ui-icon { width:25px; height:25px; color:var(--settings-accent); }
+body .settings-shell .setting-row { min-height:77px; padding:17px 0; border-color:var(--dash-line); gap:18px; }
+body .settings-shell .setting-row h3 { color:var(--dash-text); font-size:13px; font-weight:500; line-height:1.5; }
+body .settings-shell .setting-row p { color:var(--dash-muted); font-size:11px; line-height:1.65; }
+body .settings-shell .segmented { padding:3px; border:1px solid var(--settings-border); border-radius:24px; background:var(--settings-control); flex-shrink:0; }
+body .settings-shell .segmented button { min-height:34px; padding:6px 16px; border-radius:20px; font-size:12px; color:var(--dash-muted); }
+body .settings-shell .segmented button.active { background:linear-gradient(#f6e6c5,#d7bc8f); color:#30271c; box-shadow:0 2px 8px #0002; }
+body .settings-shell .setting-row select { max-width:100%; min-height:40px; padding:0 16px; border-radius:22px; border-color:var(--settings-border); background:var(--settings-control); color:var(--dash-text); font-size:12px; }
+body .settings-shell .hint-control input { accent-color:var(--settings-accent); }
+body .settings-shell .hint-control span { color:var(--dash-muted); font:11px 'Be Vietnam Pro',sans-serif; }
+body .settings-shell .ghost-button { min-height:38px; padding:8px 15px; border:1px solid var(--settings-border); border-radius:24px; background:var(--settings-control); color:var(--dash-text); font-size:11px; }
+body .settings-shell .ghost-button:hover { border-color:var(--settings-accent); }
+body .settings-shell .switch { width:44px; height:26px; }
+body .settings-shell .switch span { background:#77736d; box-shadow:inset 0 1px 3px #0003; }
+body .settings-shell .switch span::after { width:20px; height:20px; background:#fffaf0; }
+body .settings-shell .switch input:checked + span { background:linear-gradient(#eddaad,#bca174); }
+body .settings-shell .switch input:checked + span::after { transform:translateX(18px); }
+body .settings-shell :is(button,select,input):focus-visible { outline:2px solid var(--settings-accent); outline-offset:3px; }
+body .settings-shell .switch input:focus-visible + span { outline-color:var(--settings-accent); }
+body .settings-shell .settings-about { grid-column:1/-1; }
+body .settings-shell .settings-about .setting-row { min-height:58px; }
+body .settings-shell .nav-item.active { border-color:var(--settings-accent); background:linear-gradient(135deg,#b69c6355,#ffffff06,#d2b87544); box-shadow:inset 0 1px 4px #f5db9f44; }
+body .settings-shell .plan-card { border:1px solid var(--settings-border); border-radius:20px; background:var(--dash-card); }
+body .settings-shell .top-actions > button { border-color:var(--settings-border); }
+body .settings-shell .confirm-panel { background:var(--settings-control); color:var(--dash-text); border:1px solid var(--settings-border); }
+body .settings-shell .confirm-panel p { color:var(--dash-muted); }
+@media(max-width:1100px) { body .settings-shell .settings-grid { gap:16px; } body .settings-shell .setting-group { padding-inline:18px; } body .settings-shell .setting-row { flex-wrap:wrap; } }
+@media(max-width:800px) { body .settings-shell .settings-grid { grid-template-columns:1fr; } }
+@media(max-width:480px) { body .settings-shell .view-head { margin-bottom:20px; } body .settings-shell .panel-title { font-size:16px; } body .settings-shell .setting-row { min-height:70px; } body .settings-shell .segmented { max-width:100%; } }

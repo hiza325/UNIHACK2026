@@ -38,8 +38,9 @@ export const routerMethods = {
     }
     this.view = APP_VIEWS.includes(raw) ? raw : 'dashboard';
     this.render();
-    if (this.view === 'admin') { this.loadAdminAccounts(); if (typeof this.restoreCertificateIssuance === 'function') this.restoreCertificateIssuance(); }
+    if (this.view === 'admin') { this.loadAdminAccounts(); if (typeof this.restoreCertificateIssuance === 'function') this.restoreCertificateIssuance(); if (typeof this.loadCertificateTestPermission === 'function') this.loadCertificateTestPermission(); }
     if (this.view === 'passport' && typeof this.loadPassportEligibleEvaluations === 'function') this.loadPassportEligibleEvaluations();
+    if (this.view === 'practice' && typeof this.loadPracticeData === 'function') this.loadPracticeData();
     if (this.view === 'audit') {
       // Lazy-load editorial.css for audit view
       if (!document.querySelector('link[href="editorial.css"]')) {
@@ -67,6 +68,8 @@ export const routerMethods = {
     }
     localStorage.removeItem('paradox-session');
     this.resetInMemoryUserData();
+    this.authProvider = 'local';
+    this.configurePracticeService();
     this.user = null;
     this.view = 'landing';
     this.pendingView = null;
