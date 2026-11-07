@@ -65,12 +65,15 @@ export function isExpectedFujiCredential(credential) {
 
 export function hasActualAvalancheVerification(credential) {
   return credential?.status === 'verified'
+    && credential.isDemo !== true && credential.demo !== true
+    && !String(credential.code || credential.credentialCode || '').toUpperCase().startsWith('DEMO-')
     && credential.transactionStatus === 'confirmed'
     && isExpectedFujiCredential(credential)
     && credential?.verification?.source === 'avalanche'
     && credential.verification.checked === true
     && credential.verification.valid === true
     && credential.verification.exists === true
+    && credential.verification.revoked !== true
     && isAvalancheTransactionHash(credential.issueTransactionHash)
     && credential.transactionHash === credential.issueTransactionHash;
 }
@@ -88,11 +91,12 @@ export function getAvalancheExplorerUrl(credential) {
 
 export function getCredentialVerificationState(credential) {
   if (!credential) return 'not-found';
-  if (credential.source === 'mock') return 'demo';
+  if (['mock', 'demo'].includes(credential.source) || credential.isDemo === true || credential.demo === true || String(credential.code || credential.credentialCode || '').toUpperCase().startsWith('DEMO-')) return 'demo';
   if (hasActualAvalancheVerification(credential)) return 'valid';
   const checkedOnExpectedContract = isExpectedFujiCredential(credential)
     && credential.verification?.source === 'avalanche'
     && credential.verification.checked === true;
+  if (checkedOnExpectedContract && credential.verification?.exists === false && ['pending', 'submitting'].includes(credential.transactionStatus)) return 'pending';
   if (checkedOnExpectedContract && credential.verification?.exists === false) return 'unissued';
   if (checkedOnExpectedContract && credential.verification?.exists === true && (credential.status === 'revoked' || credential.verification.revoked === true)) return 'revoked';
   return 'unavailable';

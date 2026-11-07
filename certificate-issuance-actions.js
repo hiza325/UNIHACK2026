@@ -1,4 +1,12 @@
 const CERT_ISSUANCE_STORAGE_KEY = 'paradox-cert-issuance';
+const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
+
+async function credentialRequest(body) {
+  const response = await fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', signal: AbortSignal.timeout(15000), body: JSON.stringify(body) });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Certificate service unavailable');
+  return result;
+}
 
 function readStoredIssuance() {
   try {
@@ -11,7 +19,8 @@ function writeStoredIssuance(state) {
   try {
     if (!state) sessionStorage.removeItem(CERT_ISSUANCE_STORAGE_KEY);
     else sessionStorage.setItem(CERT_ISSUANCE_STORAGE_KEY, JSON.stringify(state));
-  } catch (_) {}
+    return true;
+  } catch (_) { return false; }
 }
 
 async function readIssuerAuthorization(address) {
@@ -30,9 +39,27 @@ async function readIssuerAuthorization(address) {
 }
 
 export const certificateIssuanceMethods = {
+  persistCertificateIssuance() {
+    const { status, learnerId, evaluationId, credentialCode, title, txHash, broadcastAttempted } = this.certificateIssuance;
+    const saved = writeStoredIssuance({ status, learnerId, evaluationId, credentialCode, title, txHash, broadcastAttempted, ownerId: this.user?.id });
+    if (TX_HASH.test(txHash || '')) {
+      try {
+        const key = 'paradox-cert-history:' + this.user.id;
+        const history = JSON.parse(sessionStorage.getItem(key) || '[]');
+        const entries = Array.isArray(history) ? history : [];
+        sessionStorage.setItem(key, JSON.stringify([{ credentialCode, title, txHash, status }, ...entries.filter(item => item.credentialCode !== credentialCode)].slice(0, 20)));
+      } catch { /* History is advisory; backend remains authoritative. */ }
+    }
+    return saved;
+  },
+  certificateIssuanceHistory() {
+    try { const rows = JSON.parse(sessionStorage.getItem('paradox-cert-history:' + this.user?.id) || '[]'); return Array.isArray(rows) ? rows : []; } catch { return []; }
+  },
   restoreCertificateIssuance() {
+    if (this.user?.role !== 'admin' || this.certificateIssuance?.busy) return;
     const stored = readStoredIssuance();
     if (!stored) return;
+    if (stored.ownerId && stored.ownerId !== this.user.id) return;
     this.certificateIssuance = {
       status: stored.status || 'idle',
       learnerId: stored.learnerId || '',
@@ -43,15 +70,50 @@ export const certificateIssuanceMethods = {
       txHash: stored.txHash || null,
       error: '',
       busy: false,
+      broadcastAttempted: Boolean(stored.broadcastAttempted || stored.txHash || stored.status === 'awaiting-signature'),
+      recoveryRequired: true,
     };
-    if (stored.prepared) this.certificateIssuance.prepared = stored.prepared;
+    // Never reuse a cached unsigned transaction after reload.
     this.certificateIssuance.polling = false;
     this.render();
-    if (this.certificateIssuance.status === 'pending' && this.certificateIssuance.txHash) {
-      setTimeout(() => { this.checkCertificateIssuance(); }, 0);
-    }
+    void this.recoverCertificateIssuance();
+  },
+  async recoverCertificateIssuance() {
+    if (this.user?.role !== 'admin' || this.certificateIssuance.busy) return;
+    const ci = this.certificateIssuance;
+    ci.busy = true;
+    this.render();
+    try {
+      const response = await fetch('/api/credentials?code=' + encodeURIComponent(ci.credentialCode), { credentials: 'same-origin', signal: AbortSignal.timeout(15000) });
+      const data = await response.json();
+      if (!response.ok || !data.credential) throw new Error('Unable to recover issuance. No transaction will be sent.');
+      const record = data.credential;
+      const verificationResponse = await fetch('/api/verify?code=' + encodeURIComponent(ci.credentialCode), { signal: AbortSignal.timeout(30000) });
+      const verification = await verificationResponse.json();
+      if (!['VALID', 'REVOKED', 'INVALID', 'PENDING', 'NOT_FOUND'].includes(verification.status)) throw new Error('Blockchain status unavailable. Recovery remains locked; retry later.');
+      ci.publicVerification = verification;
+      if (['confirmed', 'revoked', 'revoke_pending'].includes(record.transactionStatus)) ci.broadcastAttempted = true;
+      if (TX_HASH.test(record.issueTransactionHash || '')) ci.txHash = record.issueTransactionHash;
+      ci.prepared = { credential: record };
+      if (ci.txHash) {
+        ci.broadcastAttempted = true;
+        ci.status = 'pending';
+      } else {
+        ci.prepared = null;
+        ci.status = ci.broadcastAttempted ? 'recovery-required' : 'idle';
+        ci.error = ci.broadcastAttempted ? 'Wallet outcome unknown. Recover the existing transaction before issuing again.' : 'Prepare again to revalidate eligibility and issuer.';
+      }
+      ci.recoveryRequired = Boolean(ci.broadcastAttempted && !ci.txHash);
+      if (verification.status === 'REVOKED') ci.status = 'revoked';
+      this.persistCertificateIssuance();
+    } catch (error) {
+      ci.recoveryRequired = true;
+      ci.error = error.message;
+    } finally { ci.busy = false; this.render(); }
+    if (!ci.recoveryRequired && ci.txHash && ci.status !== 'revoked') await this.checkCertificateIssuance();
   },
   async connectCertificateWallet() {
+    if (this.user?.role !== 'admin') return;
     if (!window.ethereum) { this.showToast(this.t('walletNotFound') || 'Core Wallet not found'); return; }
     try {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -83,7 +145,8 @@ export const certificateIssuanceMethods = {
     this.render();
   },
   async prepareCertificateIssuance() {
-    if (this.certificateIssuance.busy) return;
+    if (this.user?.role !== 'admin' || this.certificateIssuance.busy || this.certificateIssuance.txHash || this.certificateIssuance.broadcastAttempted || this.certificateIssuance.recoveryRequired) return;
+    if (!this.certificateWallet?.authorized || this.certificateWallet.chainId !== 43113) { this.showToast('Connect an authorized issuer on Avalanche Fuji'); return; }
     const learnerId = (this.querySelector('#cert-learner-id')?.value || '').trim();
     const evaluationId = (this.querySelector('#cert-evaluation-id')?.value || '').trim();
     const credentialCode = (this.querySelector('#cert-code')?.value || '').trim().toUpperCase();
@@ -96,9 +159,10 @@ export const certificateIssuanceMethods = {
     this.certificateIssuance.busy = true;
     this.certificateIssuance.error = '';
     this.certificateIssuance.status = 'preparing';
+    this.certificateIssuance.prepared = null;
     this.render();
     try {
-      const response = await fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ action: 'prepare-issue', credentialCode, learnerId, evaluationId, title, source: 'ai-evaluation', issuerAddress: this.certificateWallet ? this.certificateWallet.address : undefined }) });
+      const response = await fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', signal: AbortSignal.timeout(15000), body: JSON.stringify({ action: 'prepare-issue', credentialCode, learnerId, evaluationId, title, source: 'ai-evaluation', issuerAddress: this.certificateWallet ? this.certificateWallet.address : undefined }) });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Prepare failed');
       if (!result) throw new Error('Prepare failed');
@@ -109,7 +173,12 @@ export const certificateIssuanceMethods = {
       this.certificateIssuance.prepared = result;
       this.certificateIssuance.status = 'prepared';
       this.certificateIssuance.txHash = null;
-      writeStoredIssuance({ status: 'prepared', learnerId, evaluationId, credentialCode, title, prepared: result, txHash: null });
+      if (TX_HASH.test(result.credential?.issueTransactionHash || '')) {
+        this.certificateIssuance.txHash = result.credential.issueTransactionHash;
+        this.certificateIssuance.broadcastAttempted = true;
+        this.certificateIssuance.status = 'pending';
+      }
+      this.persistCertificateIssuance();
     } catch (error) {
       this.certificateIssuance.status = 'failed';
       this.certificateIssuance.error = error && error.message ? error.message : String(error);
@@ -120,12 +189,14 @@ export const certificateIssuanceMethods = {
     }
   },
   async confirmCertificateIssuance() {
-    if (this.certificateIssuance.busy || this.certificateIssuance.polling || !this.certificateIssuance.prepared) return;
-    if (!window.ethereum || !this.certificateWallet) {
+    if (this.user?.role !== 'admin' || this.certificateIssuance.busy || this.certificateIssuance.polling || this.certificateIssuance.txHash || this.certificateIssuance.broadcastAttempted || this.certificateIssuance.recoveryRequired || this.certificateIssuance.status !== 'prepared' || !this.certificateIssuance.prepared?.unsignedTransaction) return;
+    if (!window.ethereum || !this.certificateWallet?.authorized) {
       this.certificateIssuance.error = 'Connect Core Wallet first';
       this.render();
       return;
     }
+    this.certificateIssuance.busy = true;
+    try {
     const chainId = await window.ethereum.request({ method: 'eth_chainId' }).then(Number);
     if (chainId !== 43113) {
       this.certificateIssuance.error = 'Wrong network: need Avalanche Fuji (43113)';
@@ -137,20 +208,43 @@ export const certificateIssuanceMethods = {
       this.render();
       return;
     }
+    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+    if (accounts?.[0]?.toLowerCase() !== this.certificateWallet.address.toLowerCase()) throw new Error('Wallet account changed. Reconnect and prepare again.');
+    // Recheck backend state before any wallet send; local storage is not authority.
+    const lookup = await fetch('/api/credentials?code=' + encodeURIComponent(this.certificateIssuance.credentialCode), { credentials: 'same-origin', signal: AbortSignal.timeout(15000) });
+    const latest = await lookup.json();
+    if (!lookup.ok || !latest.credential) throw new Error('Cannot verify issuance state. Retry later.');
+    if (latest.credential.issueTransactionHash || ['confirmed', 'revoked', 'revoke_pending'].includes(latest.credential.transactionStatus)) {
+      this.certificateIssuance.txHash = latest.credential.issueTransactionHash || null;
+      this.certificateIssuance.broadcastAttempted = true;
+      this.certificateIssuance.status = 'recovery-required';
+      this.certificateIssuance.recoveryRequired = true;
+      this.persistCertificateIssuance();
+      throw new Error('Existing issuance detected. Recover/check it instead of sending again.');
+    }
+    const verification = await fetch('/api/verify?code=' + encodeURIComponent(this.certificateIssuance.credentialCode), { signal: AbortSignal.timeout(30000) });
+    const evidence = await verification.json();
+    if (evidence.onChain?.exists === true || ['VALID', 'REVOKED', 'INVALID'].includes(evidence.status)) {
+      this.certificateIssuance.broadcastAttempted = true;
+      throw new Error('Credential already exists on-chain. Recover its issuance instead of sending again.');
+    }
+    if (!['NOT_FOUND', 'PENDING'].includes(evidence.status) || !['NOT_PROVIDED'].includes(evidence.transactionVerification)) throw new Error('On-chain preflight unavailable or a transaction already exists. No transaction sent.');
     this.certificateIssuance.busy = true;
     this.certificateIssuance.polling = true;
     this.certificateIssuance.status = 'awaiting-signature';
     this.certificateIssuance.error = '';
     this.render();
-    try {
       const tx = this.certificateIssuance.prepared.unsignedTransaction;
+      this.certificateIssuance.broadcastAttempted = true;
+      if (!this.persistCertificateIssuance()) { this.certificateIssuance.broadcastAttempted = false; throw new Error('Cannot save recovery state. Transaction was not sent.'); }
       const txHash = await window.ethereum.request({
         method: 'eth_sendTransaction',
         params: [{ to: tx.to, from: this.certificateWallet.address, data: tx.data, value: '0x0', gas: tx.gasEstimate ? '0x' + Number(tx.gasEstimate).toString(16) : undefined }],
       });
       this.certificateIssuance.txHash = txHash;
+      if (!TX_HASH.test(txHash || '')) { this.certificateIssuance.txHash = null; throw new Error('Wallet returned no valid hash. Recover wallet activity before retrying.'); }
       this.certificateIssuance.status = 'pending';
-      writeStoredIssuance({ status: 'pending', learnerId: this.certificateIssuance.learnerId, evaluationId: this.certificateIssuance.evaluationId, credentialCode: this.certificateIssuance.credentialCode, title: this.certificateIssuance.title, prepared: this.certificateIssuance.prepared, txHash });
+      this.persistCertificateIssuance();
       this.render();
 
       // Bounded polling: receipt may arrive late. Retry with exponential backoff up to 2 minutes.
@@ -159,7 +253,7 @@ export const certificateIssuanceMethods = {
       let delay = 1000;
       let result = null;
       while (Date.now() - started < maxMs) {
-        const response = await fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ action: 'confirm-issue', credentialCode: this.certificateIssuance.prepared.credential.code, txHash }) });
+        const response = await fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', signal: AbortSignal.timeout(15000), body: JSON.stringify({ action: 'confirm-issue', credentialCode: this.certificateIssuance.prepared.credential.code, txHash }) });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
           const code = String(payload.code || '');
@@ -179,7 +273,7 @@ export const certificateIssuanceMethods = {
 
       if (result && (result.status === 'confirmed' || result.alreadyConfirmed)) {
         this.certificateIssuance.prepared = result.credential ? { credential: result.credential } : this.certificateIssuance.prepared;
-        this.certificateIssuance.status = result.status || 'confirmed';
+        this.certificateIssuance.status = 'confirmed';
         this.certificateIssuance.error = '';
       } else if (result && result.status === 'failed') {
         this.certificateIssuance.status = 'failed';
@@ -188,10 +282,14 @@ export const certificateIssuanceMethods = {
         this.certificateIssuance.status = 'pending';
         this.certificateIssuance.error = 'Avalanche confirmation is still pending. Use "Check again" to retry.';
       }
-      writeStoredIssuance({ status: this.certificateIssuance.status, learnerId: this.certificateIssuance.learnerId, evaluationId: this.certificateIssuance.evaluationId, credentialCode: this.certificateIssuance.credentialCode, title: this.certificateIssuance.title, prepared: this.certificateIssuance.prepared, txHash: this.certificateIssuance.txHash });
+      this.persistCertificateIssuance();
+      if (this.certificateIssuance.status === 'confirmed') { this.showToast('Certificate confirmed'); void this.loadLearningPassportSnapshot?.({ force: true }); }
     } catch (error) {
-      this.certificateIssuance.status = 'failed';
+      if (error?.code === 4001 && !this.certificateIssuance.txHash) this.certificateIssuance.broadcastAttempted = false;
+      this.certificateIssuance.status = this.certificateIssuance.txHash ? 'pending' : this.certificateIssuance.broadcastAttempted ? 'recovery-required' : 'prepared';
+      this.certificateIssuance.recoveryRequired = Boolean(this.certificateIssuance.broadcastAttempted && !this.certificateIssuance.txHash);
       this.certificateIssuance.error = error && error.message ? error.message : String(error);
+      this.persistCertificateIssuance();
     } finally {
       this.certificateIssuance.busy = false;
       this.certificateIssuance.polling = false;
@@ -199,19 +297,19 @@ export const certificateIssuanceMethods = {
     }
   },
   async checkCertificateIssuance() {
-    if (this.certificateIssuance.busy || this.certificateIssuance.polling || !this.certificateIssuance.txHash || !this.certificateIssuance.prepared) return;
+    if (this.user?.role !== 'admin' || this.certificateIssuance.busy || this.certificateIssuance.polling || !this.certificateIssuance.txHash || !this.certificateIssuance.prepared) return;
     this.certificateIssuance.polling = true;
     this.certificateIssuance.busy = true;
     this.certificateIssuance.error = '';
     this.render();
     try {
-      const response = await fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ action: 'confirm-issue', credentialCode: this.certificateIssuance.prepared.credential.code, txHash: this.certificateIssuance.txHash }) });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || 'Check failed');
+      const result = await credentialRequest({ action: 'confirm-issue', credentialCode: this.certificateIssuance.prepared.credential.code, txHash: this.certificateIssuance.txHash });
       if (result.status === 'confirmed' || result.alreadyConfirmed) {
         this.certificateIssuance.prepared = result.credential ? { credential: result.credential } : this.certificateIssuance.prepared;
-        this.certificateIssuance.status = result.status || 'confirmed';
+        this.certificateIssuance.status = 'confirmed';
         this.certificateIssuance.error = '';
+      } else if (result.status === 'revoked') {
+        this.certificateIssuance.status = 'revoked';
       } else if (result.status === 'failed') {
         this.certificateIssuance.status = 'failed';
         this.certificateIssuance.error = result.error || 'Avalanche transaction failed';
@@ -219,10 +317,12 @@ export const certificateIssuanceMethods = {
         this.certificateIssuance.status = 'pending';
         this.certificateIssuance.error = 'Avalanche confirmation is still pending. Try again later.';
       }
-      writeStoredIssuance({ status: this.certificateIssuance.status, learnerId: this.certificateIssuance.learnerId, evaluationId: this.certificateIssuance.evaluationId, credentialCode: this.certificateIssuance.credentialCode, title: this.certificateIssuance.title, prepared: this.certificateIssuance.prepared, txHash: this.certificateIssuance.txHash });
+      this.persistCertificateIssuance();
+      if (this.certificateIssuance.status === 'confirmed') { this.showToast('Certificate confirmed'); void this.loadLearningPassportSnapshot?.({ force: true }); }
     } catch (error) {
-      this.certificateIssuance.status = 'failed';
+      this.certificateIssuance.status = 'pending';
       this.certificateIssuance.error = error && error.message ? error.message : String(error);
+      this.persistCertificateIssuance();
     } finally {
       this.certificateIssuance.busy = false;
       this.certificateIssuance.polling = false;
@@ -230,6 +330,7 @@ export const certificateIssuanceMethods = {
     }
   },
   async loadEligibleEvaluations() {
+    if (this.user?.role !== 'admin' || this.certificateIssuance.busy) return;
     const learnerId = (this.querySelector('#cert-learner-id')?.value || '').trim();
     if (!learnerId) { this.certificateIssuance.error = 'Learner ID is required'; this.render(); return; }
     this.certificateIssuance.busy = true;
@@ -261,6 +362,7 @@ export const certificateIssuanceMethods = {
     this.render();
   },
   resetCertificateIssuance() {
+    if (this.user?.role !== 'admin' || this.certificateIssuance.busy || this.certificateIssuance.recoveryRequired || (this.certificateIssuance.broadcastAttempted && this.certificateIssuance.status !== 'confirmed') || (this.certificateIssuance.txHash && this.certificateIssuance.status !== 'confirmed')) return;
     this.certificateIssuance = { status: 'idle', learnerId: '', evaluationId: '', credentialCode: '', title: '', prepared: null, txHash: null, error: '', busy: false, polling: false, eligibleEvaluations: [] };
     writeStoredIssuance(null);
     this.render();

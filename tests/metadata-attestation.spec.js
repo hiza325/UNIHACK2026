@@ -339,7 +339,9 @@ test.describe('public verification metadata integrity', () => {
     expect(body.status).toBe('VALID');
     expect(body.metadata.integrity).toBe('VERIFIED');
     expect(body.evidence.integrity).toBe('MATCH');
-    expect(body.warnings).toEqual([]);
+    // This fixture supplies contract state but no transaction RPC record.
+    expect(body.transactionVerification).toBe('UNAVAILABLE');
+    expect(body.warnings).toEqual(['TRANSACTION_NOT_FOUND']);
   });
 
   test('changed recipientName -> MISMATCH', async () => {

@@ -1,4 +1,14 @@
 /* Passport: dark silver glass, aligned with Dashboard/Profile. */
+body .passport-shell .certificate-center { padding:24px; margin-bottom:24px; border:1px solid var(--passport-border,#a38c6544); background:var(--dash-card); }
+.certificate-center .panel-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:16px; }
+.certificate-center .stat-grid { margin:20px 0; }
+.certificate-history-row { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:18px 0; border-top:1px solid var(--dash-line,#a38c6533); overflow-wrap:anywhere; }
+.certificate-history-row small { display:block; margin:8px 0; color:var(--dash-muted); }
+.certificate-center-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.certificate-skeleton { padding:28px; border-radius:16px; background:linear-gradient(110deg,#8881,#aaa3,#8881); animation:certificate-pulse 1.5s ease-in-out infinite alternate; }
+@keyframes certificate-pulse { to { opacity:.55; } }
+@media(prefers-reduced-motion:reduce) { .certificate-skeleton { animation:none; } }
+@media(max-width:760px) { .certificate-history-row { align-items:flex-start; flex-direction:column; } .certificate-center .stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 body .passport-shell .top-actions > button { background:var(--dash-card); color:var(--dash-text); border:1px solid var(--passport-border); border-radius:24px; box-shadow:inset 0 1px 1px #ffffff18; }
 body .passport-shell .top-actions > button:hover { border-color:var(--passport-accent); background-color:#bba08018; }
 body .passport-shell .top-actions > button:focus-visible { outline:2px solid var(--passport-accent); outline-offset:3px; }

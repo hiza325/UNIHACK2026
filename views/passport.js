@@ -5,6 +5,19 @@ import { AVALANCHE_FUJI_CONFIG, AVALANCHE_FUJI_CONTRACT_URL } from '../avalanche
 import { CERTIFICATE_CODE_HTML_PATTERN, getCredentialDisplayStatus, getAvalancheExplorerUrl, getCredentialVerificationState, hasActualAvalancheVerification } from '../learning-passport-service.js';
 
 export const passportViews = {
+  certificateCenterMarkup() {
+    const passport = this.getLearningPassportSnapshot();
+    const real = passport?.source?.isReal === true;
+    const records = real ? passport.credentials || [] : [];
+    const ready = !this.passportEligibleLoading && !this.passportEligibleError;
+    const count = ready && real ? (this.passportEligibleEvaluations || []).length : '—';
+    const labels = this.lang === 'vi' ? ['Trung tâm chứng nhận', 'Chứng nhận của tôi', 'Đủ điều kiện', 'Chờ xác nhận', 'Đã phát hành', 'Quản lý phát hành', 'Xem / Tải PDF · PNG'] : this.lang === 'jp' ? ['証明書センター', '自分の証明書', '発行条件達成', '確認待ち', '発行済み', '発行管理', '表示 / PDF · PNG'] : ['Certificate Center', 'My Certificates', 'Eligible', 'Pending confirmation', 'Issued', 'Manage issuance', 'View / Download PDF · PNG'];
+    return `<section class="card certificate-center" aria-label="Certificate Center">
+      <div class="panel-head"><div><span class="eyebrow">PARADOX AI · Avalanche Fuji</span><h2>${labels[0]}</h2><p class="panel-sub">${this.lang === 'vi' ? 'Đủ điều kiện — Chờ đơn vị phát hành. Chỉ Admin và ví issuer được ủy quyền có thể cấp chứng nhận.' : 'Eligible — Awaiting Issuance. Only an admin and authorized issuer can issue certificates.'}</p></div>${this.user?.role === 'admin' ? `<a class="primary-button" href="#/admin">${labels[5]} ↗</a>` : ''}</div>
+      <div class="stat-grid four">${this.statCard(labels[1], real ? records.length : '—')}${this.statCard(labels[2], count)}${this.statCard(labels[3], real ? records.filter(c => ['pending', 'submitting'].includes(c.transactionStatus)).length : '—')}${this.statCard(labels[4], real ? records.filter(c => ['confirmed', 'revoked', 'revoke_pending'].includes(c.transactionStatus)).length : '—')}</div>
+      ${this.passportLoading ? '<div class="certificate-skeleton" role="status">Loading certificates…</div>' : this.passportError ? '<p role="alert">Certificate history unavailable. Retry loading Passport.</p>' : !real ? '<p>Demo / unavailable data — not an issuance record.</p>' : !records.length ? '<p>No issued certificates yet.</p>' : `<p>${labels[6]} — ${this.lang === 'vi' ? 'Chọn chứng nhận trong danh sách bên dưới để xem, xuất và xác minh.' : 'Select a certificate below to preview, export and verify.'}</p>`}
+    </section>`;
+  },
   // Explorer links expose raw on-chain infrastructure; only administrators see
   // them. Unknown or missing roles (including guests) fall back to hidden.
   canViewAvalancheExplorer() {
@@ -47,7 +60,7 @@ export const passportViews = {
     if (!document.querySelector('link[href="competency-passport.css"]')) {
       const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'competency-passport.css'; document.head.appendChild(l);
     }
-    const head = this.viewHead(t('pagePassport'), 'passportSub') + '<competency-passport></competency-passport>';
+    const head = this.viewHead(t('pagePassport'), 'passportSub') + this.certificateCenterMarkup() + '<competency-passport></competency-passport>';
     // Update only the status node: re-rendering here would refetch indefinitely.
     const owner = this.user;
     (async () => {
@@ -120,6 +133,7 @@ export const passportViews = {
     const actualVerification = hasActualAvalancheVerification(credential);
     const stateCopy = {
       valid: ['passportVerifiedOnAvalanche', 'passportVerifiedOnChain'],
+      pending: ['passportStatusPending', 'passportNotLive'],
       unissued: ['passportUnissuedTitle', 'passportUnissuedDesc'],
       revoked: ['passportRevokedTitle', 'passportRevokedDesc'],
       demo: ['passportDemoVerifyTitle', 'passportDemoVerifyDesc'],

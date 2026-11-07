@@ -1,4 +1,13 @@
 /* Admin glass presentation: existing account and issuance API actions stay intact. */
+body .admin-shell .admin-cert-card { grid-column:1 / -1; padding:24px; background:var(--dash-card); }
+body .admin-shell .admin-cert-card .row { display:flex; flex-wrap:wrap; gap:12px; margin:14px 0; }
+body .admin-shell .admin-cert-card input, body .admin-shell .admin-cert-card select { min-width:0; flex:1 1 220px; padding:12px; border-radius:12px; background:var(--admin-control); color:var(--dash-text); border:1px solid var(--admin-border); }
+body .admin-shell .admin-cert-card pre { max-height:220px; overflow:auto; font-size:11px; }
+body .admin-shell .admin-cert-card code { overflow-wrap:anywhere; }
+body .admin-shell .certificate-history { margin-top:24px; padding-top:18px; border-top:1px solid var(--admin-border); }
+body .admin-shell .certificate-history-row { display:flex; gap:16px; justify-content:space-between; padding:14px 0; overflow-wrap:anywhere; }
+body .admin-shell .certificate-history-row small { display:block; color:var(--dash-muted); margin-top:8px; }
+@media(max-width:760px) { body .admin-shell .certificate-history-row { flex-direction:column; } }
 body .admin-shell { --admin-accent:#795a2b; --admin-border:#a18b6266; --admin-control:#f6f4ef; }
 body.dark .admin-shell { --admin-accent:#f3d79b; --admin-border:#d7b98466; --admin-control:#191714; --dash-bg:#090909; --dash-text:#f5f2ed; --dash-muted:#c1bdb5; --dash-line:#c6aa7833; --dash-card:linear-gradient(125deg,#cab48c19,#ffffff04 55%,#c7ac7912); }
 body .admin-shell::before { background:radial-gradient(ellipse at 90% 5%,#b99d6f20,transparent 45%),url('assets/silver-waves.svg') center top/100% 1100px no-repeat; }

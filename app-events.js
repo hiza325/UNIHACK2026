@@ -82,6 +82,7 @@ export const eventMethods = {
     if (event.target.closest?.('[data-cert-prepare]')) { this.prepareCertificateIssuance(); return; }
     if (event.target.closest?.('[data-cert-confirm]')) { this.confirmCertificateIssuance(); return; }
     if (event.target.closest?.('[data-cert-check]')) { this.checkCertificateIssuance(); return; }
+    if (event.target.closest?.('[data-cert-recover]')) { this.recoverCertificateIssuance(); return; }
     if (event.target.closest?.('[data-cert-reset]')) { this.resetCertificateIssuance(); return; }
     if (event.target.closest?.('[data-cert-load-evaluations]')) { this.loadEligibleEvaluations(); return; }
     if (event.target.closest?.('[data-cert-test]')) { this.openCertificateTestMode(); return; }
