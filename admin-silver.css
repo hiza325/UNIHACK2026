@@ -54,3 +54,8 @@ body.dark .admin-shell .ghost-button:hover:not(:disabled) { background:#d7b9841a
 @media(max-width:1350px) { body .admin-shell .admin-workspace { grid-template-columns:1fr; } body .admin-shell .admin-cert-card { max-width:100%; } }
 @media(max-width:1000px) { body .admin-shell .admin-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } body .admin-shell .admin-user-head { display:none; } body .admin-shell .admin-user-row { grid-template-columns:minmax(0,1fr) auto; } body .admin-shell .admin-account-action { grid-column:1/-1; } }
 @media(max-width:480px) { body .admin-shell .stat-card { padding:18px; } body .admin-shell .stat-card::before { display:none; } body .admin-shell .admin-stats { gap:12px; } body .admin-shell .panel-head { padding:18px; } }
+
+body .admin-shell .admin-cert-test-card { margin-top:22px; }
+body .admin-shell .admin-cert-test-card #certificate-test-preview { margin-top:18px; }
+body .admin-shell .admin-cert-test-card #certificate-test-preview:not([hidden]) { display:block; }
+body .admin-shell .admin-cert-test-card canvas { max-width:100%; height:auto; border:1px solid var(--admin-border); border-radius:12px; }

@@ -16,9 +16,10 @@ export function certificateData(profile, credential) {
   const official = credential?.source === 'avalanche' && !credential.isTest;
   const snapshot = credential?.snapshot;
   const code = String(credential?.code || '');
+  const demo = credential?.isDemo === true || credential?.demo === true || code === 'DEMO-TEST-001';
   const historical = official && (Boolean(snapshot?.issuedAt || credential.issuedAt || credential.issueTransactionHash) || ['confirmed', 'revoked', 'revoke_pending'].includes(credential.transactionStatus) || ['verified', 'revoked'].includes(credential.status));
   if (official && (!snapshot || snapshot.version !== 1 || !snapshot.recipientName || !snapshot.subject || !snapshot.capturedAt || !snapshot.evaluationId || snapshot.credentialId !== credential.id || snapshot.certificateCode !== code || !isCertificateCode(code) || (historical && !snapshot.issuedAt))) {
-    return Object.freeze({ state: 'legacy', revoked, code, canExport: false, verified: false });
+    return Object.freeze({ state: 'legacy', revoked, code, canExport: false, verified: false, demo });
   }
   const useSnapshot = official && (historical || revoked);
   const name = requiredText(useSnapshot ? snapshot.recipientName : profile?.name);
@@ -35,7 +36,7 @@ export function certificateData(profile, credential) {
   const metadataIntegrity = credential?.metadataIntegrity === 'MISMATCH' ? 'MISMATCH'
     : credential?.metadataIntegrity === 'VERIFIED' ? 'VERIFIED' : 'UNVERIFIED';
   const canExport = (state === 'preview' || verified) && metadataIntegrity !== 'MISMATCH';
-  const result = Object.freeze({ name, subject, date: rawDate.split('-').reverse().join('/'), code, state, verified, metadataIntegrity, canExport });
+  const result = Object.freeze({ name, subject, date: rawDate.split('-').reverse().join('/'), code, state, verified: demo ? false : verified, metadataIntegrity, canExport, demo });
   resolvedData.add(result);
   return result;
 }
@@ -87,6 +88,39 @@ export async function renderCertificate(data) {
     } catch (error) {
       throw new Error('Certificate QR generation failed');
     }
+  }
+
+  // Demo certificates must never be mistaken for issued credentials.
+  if (data.demo) {
+    ctx.save();
+    ctx.fillStyle = '#b91c1c';
+    ctx.strokeStyle = '#b91c1c';
+    ctx.lineWidth = 4;
+    ctx.font = `700 48px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.globalAlpha = 0.28;
+    ctx.translate(836, 470);
+    ctx.rotate(-0.35);
+    ctx.fillText('DEMO / NOT VALID', 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.font = `700 16px ${FONT}`;
+    ctx.fillText('TEST CERTIFICATE — NO BLOCKCHAIN RECORD', 0, 90);
+    ctx.restore();
+    // Keep a visible placeholder in the template QR area without calling the
+    // credential QR endpoint or creating any verification state.
+    ctx.save();
+    ctx.strokeStyle = '#b91c1c';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(1448, 78, 140, 140);
+    ctx.fillStyle = '#b91c1c';
+    ctx.font = `700 18px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('DEMO', 1518, 138);
+    ctx.font = `400 11px ${FONT}`;
+    ctx.fillText('NOT VALID', 1518, 160);
+    ctx.restore();
   }
 
   // The exported preview must remain distinguishable even outside the website.
@@ -143,9 +177,9 @@ export async function mountCertificatePreview(container, profile, credential) {
     }
     const { canvas } = await renderCertificate(data);
     const label = document.createElement('p');
-    label.textContent = data.state === 'revoked' ? 'Revoked · Đã thu hồi' : data.state === 'issued' ? (data.verified ? 'Issued · Verified (Avalanche evidence)' : 'Issued · Chưa xác minh hiệu lực') : 'Preview · Chưa phát hành / Not verified';
-    if (data.metadataIntegrity === 'MISMATCH') label.textContent += ' · Metadata mismatch / Siêu dữ liệu không khớp';
-    else if (data.metadataIntegrity === 'UNVERIFIED') label.textContent += ' · Metadata unverified / Chưa xác thực siêu dữ liệu';
+    label.textContent = data.demo ? 'DEMO / NOT VALID — Certificate Test Mode' : data.state === 'revoked' ? 'Revoked · Đã thu hồi' : data.state === 'issued' ? (data.verified ? 'Issued · Verified (Avalanche evidence)' : 'Issued · Chưa xác minh hiệu lực') : 'Preview · Chưa phát hành / Not verified';
+    if (!data.demo && data.metadataIntegrity === 'MISMATCH') label.textContent += ' · Metadata mismatch / Siêu dữ liệu không khớp';
+    else if (!data.demo && data.metadataIntegrity === 'UNVERIFIED') label.textContent += ' · Metadata unverified / Chưa xác thực siêu dữ liệu';
     const identity = document.createElement('p');
     identity.textContent = data.code ? `Certificate ID: ${data.code}` : 'Preview · Chưa có Certificate ID';
     if (data.code && data.state === 'issued' && data.verified) {
@@ -155,7 +189,9 @@ export async function mountCertificatePreview(container, profile, credential) {
       container.append(verifyLine);
     }
     const notice = document.createElement('p');
-    notice.textContent = 'Avalanche lưu evidence hash; Name/Subject là snapshot do backend lưu, không được blockchain chứng thực riêng.';
+    notice.textContent = data.demo
+      ? 'TEST CERTIFICATE — NOT VALID. This preview does not create a credential, database record, or blockchain transaction.'
+      : 'Avalanche lưu evidence hash; Name/Subject là snapshot do backend lưu, không được blockchain chứng thực riêng.';
     container.replaceChildren(label, identity, canvas, notice);
     if (!data.canExport) return;
     for (const format of ['png', 'pdf']) {
@@ -165,7 +201,7 @@ export async function mountCertificatePreview(container, profile, credential) {
         try {
           const blob = await exportCertificate(canvas, format);
           const url = URL.createObjectURL(blob); const link = document.createElement('a');
-          link.href = url; link.download = `paradox-certificate-${data.state}.${format}`; link.click();
+          link.href = url; link.download = `paradox-certificate-${data.demo ? 'demo' : data.state}.${format}`; link.click();
           setTimeout(() => URL.revokeObjectURL(url), 30000);
         } catch { label.textContent = 'Export failed. Please retry.'; }
         finally { button.disabled = false; }

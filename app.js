@@ -32,6 +32,7 @@ class EduApp extends HTMLElement {
     this.authDemoCode = '';
     this.authProvider = 'local';
     this.adminAccounts = null;
+    this.certificateTestAllowed = false;
     this.passportEligibleEvaluations = [];
     this.passportEligibleLoading = false;
     this.passportEligibleError = '';

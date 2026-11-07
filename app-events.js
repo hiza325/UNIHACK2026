@@ -84,6 +84,7 @@ export const eventMethods = {
     if (event.target.closest?.('[data-cert-check]')) { this.checkCertificateIssuance(); return; }
     if (event.target.closest?.('[data-cert-reset]')) { this.resetCertificateIssuance(); return; }
     if (event.target.closest?.('[data-cert-load-evaluations]')) { this.loadEligibleEvaluations(); return; }
+    if (event.target.closest?.('[data-cert-test]')) { this.openCertificateTestMode(); return; }
     const accountStatus = event.target.closest?.('[data-account-status]');
     if (accountStatus && this.user?.role === 'admin') {
       const reason = this.querySelector(`[data-ban-reason-for="${CSS.escape(accountStatus.dataset.accountId)}"]`)?.value || '';

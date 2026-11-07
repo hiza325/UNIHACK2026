@@ -1,5 +1,6 @@
 /* Account administration. Supabase is used in deployed multi-user mode. */
 import { svgIcon } from '../icons.js';
+import { mountCertificatePreview } from '../certificate-renderer.js';
 export const adminViews = {
   viewAdmin() {
     if (this.user?.role !== 'admin') return '';
@@ -30,6 +31,10 @@ export const adminViews = {
         <p class="empty-note" id="admin-search-empty" hidden>${this.t('adminNoResults')}</p>
       </section>
       ${this.viewCertificateIssuance()}
+      <section class="card admin-cert-test-card" ${this.certificateTestAllowed ? '' : 'hidden'}>
+        <div class="panel-head"><div><h2 class="panel-title">${svgIcon('award')} Certificate Test Mode</h2><p class="panel-sub">Preview and export a demo certificate. This mode does not create a real credential, database record, or blockchain transaction.</p></div><button class="ghost-button" type="button" data-cert-test>Test Certificate</button></div>
+        <div id="certificate-test-preview" hidden></div>
+      </section>
       </div>
     </div>`;
   },
@@ -114,5 +119,39 @@ export const adminViews = {
       this.render();
       this.showToast(this.t('adminStatusSaved'));
     } catch (error) { this.showToast(error.message); }
+  },
+  async loadCertificateTestPermission() {
+    if (this.user?.role !== 'admin') { this.certificateTestAllowed = false; return; }
+    try {
+      const response = await fetch('/api/admin/users?testCertificate=1', { credentials: 'same-origin' });
+      const data = await response.json().catch(() => ({}));
+      const allowed = response.ok && data.allowed === true;
+      if (this.certificateTestAllowed !== allowed) {
+        this.certificateTestAllowed = allowed;
+        if (this.view === 'admin') this.render();
+      }
+    } catch {
+      if (this.certificateTestAllowed) {
+        this.certificateTestAllowed = false;
+        if (this.view === 'admin') this.render();
+      }
+    }
+  },
+  async openCertificateTestMode() {
+    const container = this.querySelector('#certificate-test-preview');
+    if (!container) return;
+    const profile = { name: 'Demo Student' };
+    const credential = {
+      source: 'demo',
+      status: 'preview',
+      isDemo: true,
+      code: 'DEMO-TEST-001',
+      skill: 'Mathematics',
+      issuedAt: new Date().toISOString().slice(0, 10),
+      metadataIntegrity: 'UNVERIFIED',
+    };
+    container.hidden = false;
+    container.replaceChildren();
+    await mountCertificatePreview(container, profile, credential);
   },
 };

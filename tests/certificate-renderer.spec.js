@@ -232,3 +232,26 @@ test('sample certificate renders with correct alignment (screenshot)', async ({ 
   expect(result.qr).toContain('verify?code=PXP-2026-17C5080B-0026');
   await page.locator('canvas').screenshot({ path: testInfo.outputPath('sample-certificate.png') });
 });
+
+test('demo certificate renders and exports without calling QR or issuance APIs', async ({ page }) => {
+  await page.addInitScript(() => { window.fetch = async () => { throw new Error('unexpected fetch'); }; });
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const { certificateData, renderCertificate, exportCertificate, mountCertificatePreview } = await import('/certificate-renderer.js');
+    const profile = { name: 'Current Profile' };
+    const credential = { source: 'demo', status: 'preview', isDemo: true, code: 'DEMO-TEST-001', skill: 'Mathematics', issuedAt: '2026-11-07', metadataIntegrity: 'UNVERIFIED' };
+    const data = certificateData(profile, credential);
+    const container = document.createElement('section'); document.body.replaceChildren(container);
+    await mountCertificatePreview(container, profile, credential);
+    const { canvas } = await renderCertificate(data);
+    const png = await exportCertificate(canvas, 'png');
+    const pdf = await exportCertificate(canvas, 'pdf');
+    return { data, text: container.textContent, pngType: png.type, pdfType: pdf.type, canvasWidth: canvas.width };
+  });
+  expect(result.data).toMatchObject({ demo: true, state: 'preview', verified: false, code: 'DEMO-TEST-001', canExport: true });
+  expect(result.text).toContain('DEMO / NOT VALID');
+  expect(result.text).toContain('DEMO-TEST-001');
+  expect(result.pngType).toBe('image/png');
+  expect(result.pdfType).toBe('application/pdf');
+  expect(result.canvasWidth).toBe(1672);
+});
