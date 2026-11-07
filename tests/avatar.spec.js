@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import sharp from 'sharp';
 import AxeBuilder from '@axe-core/playwright';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createAvatarStore } from '../api/auth/_avatar-store.js';
 import { cleanupAvatars } from '../api/auth/_avatar.js';
@@ -20,6 +20,7 @@ let png;
 
 test.beforeAll(async () => {
   originalEnv = Object.fromEntries(['LOCAL_AUTH_ENABLED', 'LOCAL_AUTH_EMAIL', 'LOCAL_PROFILE_DIR', 'LOCAL_AVATAR_DIR'].map(key => [key, process.env[key]]));
+  await mkdir('.data', { recursive: true });
   directory = await mkdtemp(join('.data', 'avatar-test-'));
   process.env.LOCAL_AUTH_ENABLED = '1';
   process.env.LOCAL_PROFILE_DIR = join(directory, 'profiles');
