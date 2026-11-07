@@ -30,6 +30,7 @@ body .passport-shell .passport-grid { grid-template-columns:minmax(0,1.6fr) minm
 body .passport-shell .stat-card { position:relative; padding-left:64px; }
 body .passport-shell .stat-card::before { content:'◇'; position:absolute; left:20px; top:24px; font-size:30px; color:var(--passport-accent); }
 body .passport-shell :is(.passport-empty-list,.row-action,.credential-code) { color:var(--dash-muted); }
+body .passport-shell .eligible-evaluation-id { display:inline-block; max-width:100%; margin-right:8px; color:var(--dash-text); font-size:11px; font-family:monospace; overflow-wrap:anywhere; word-break:break-all; vertical-align:middle; }
 body.dark .passport-shell :is(.passport-skill-head > strong,.passport-assessment > strong) { color:#f4d99c; }
 body .passport-shell .competency-panel { background:var(--dash-card); border:1px solid var(--passport-border); border-radius:22px; padding:24px; font-size:12px; line-height:1.6; color:var(--dash-text); }
 body .passport-shell .competency-panel :is(h2,h3) { color:var(--dash-text); }
