@@ -49,15 +49,15 @@ async function handlePublicQR(req, res) {
     return res.status(400).json({ status: 'INVALID_INPUT', error: 'Invalid certificate code.', code: 'INVALID_CERTIFICATE_CODE' });
   }
   let base = String(process.env.PUBLIC_VERIFY_BASE_URL || '').replace(/\/$/, '');
-  if (!base && process.env.VERCEL_URL) {
-    base = `https://${String(process.env.VERCEL_URL).replace(/^https?:\/\//, '').replace(/\/$/, '')}`;
-  }
   if (!base) {
     const host = String(req.headers?.['x-forwarded-host'] || req.headers?.host || '').split(',')[0].trim();
     const proto = String(req.headers?.['x-forwarded-proto'] || 'https').split(',')[0].trim() || 'https';
     if (host && /^[a-z0-9.-]+(?::\\d+)?$/i.test(host) && (proto === 'https' || /^localhost(?::\\d+)?$/i.test(host))) {
       base = `${proto}://${host}`;
     }
+  }
+  if (!base && process.env.VERCEL_URL) {
+    base = `https://${String(process.env.VERCEL_URL).replace(/^https?:\/\//, '').replace(/\/$/, '')}`;
   }
   if (!base) {
     return res.status(503).json({ status: 'UNAVAILABLE', error: 'Verify domain not configured.', code: 'QR_DOMAIN_NOT_CONFIGURED' });
