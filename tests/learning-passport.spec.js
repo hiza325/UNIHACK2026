@@ -316,7 +316,7 @@ test('Verify distinguishes checking, not found, unissued, and network error with
 test('Learning Passport lists eligible evaluations for the signed-in learner only', async ({ page }) => {
   await seedSession(page);
   await page.addInitScript(() => { window.PARADOX_LEARNING_PASSPORT_CONFIG = { mode: 'mock' }; });
-  await page.route('**/api/auth/session', route => route.fulfill({
+  await page.route('**/api/auth/session*', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({ user: SESSION }),
   }));
   let requestUrl = '';
@@ -346,7 +346,7 @@ test('Learning Passport lists eligible evaluations for the signed-in learner onl
 test('Learning Passport surfaces evaluation load failures instead of claiming there are none', async ({ page }) => {
   await seedSession(page);
   await page.addInitScript(() => { window.PARADOX_LEARNING_PASSPORT_CONFIG = { mode: 'mock' }; });
-  await page.route('**/api/auth/session', route => route.fulfill({
+  await page.route('**/api/auth/session*', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({ user: SESSION }),
   }));
   await page.route(url => url.pathname === '/api/learning-records', route => route.fulfill({
@@ -360,7 +360,7 @@ test('Learning Passport surfaces evaluation load failures instead of claiming th
 
 test('Learning Passport still shows eligible evaluations when no verified credential exists', async ({ page }) => {
   await seedSession(page);
-  await page.route('**/api/auth/session', route => route.fulfill({
+  await page.route('**/api/auth/session*', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({ user: SESSION }),
   }));
   const emptyPassport = {
@@ -385,7 +385,7 @@ test('Learning Passport still shows eligible evaluations when no verified creden
 
 test('About guide publishes Fuji metadata, feature boundaries, and responsive verification instructions', async ({ page }) => {
   await seedSession(page);
-  await page.route('**/api/auth/session', route => route.fulfill({
+  await page.route('**/api/auth/session*', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({ user: SESSION }),
   }));
   const consoleErrors = [];

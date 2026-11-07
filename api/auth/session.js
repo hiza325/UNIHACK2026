@@ -1,4 +1,6 @@
-import { clearSession, currentUser, noStore, publicUser, sendError } from './_supabase.js';
+import { clearSession, currentUser, noStore, publicUser, sendError, parseBody, supabaseRequest } from './_supabase.js';
+import { profileName } from './_profile.js';
+import { avatarHandler } from './_avatar.js';
 import localAuthHandler, { isLocalAuthRequest } from './_local.js';
 
 export default async function handler(req, res) {
@@ -8,9 +10,19 @@ export default async function handler(req, res) {
   if (isLocalAuthRequest(req)) return localAuthHandler(req, res);
 
   noStore(res);
-  if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return res.status(405).json({ error: 'Method not allowed' }); }
+  if (req.query?.avatar) {
+    try {
+      const { user } = await currentUser(req, res);
+      return avatarHandler(req, res, { source: 'supabase', id: user.id });
+    } catch (error) { return sendError(res, error); }
+  }
+  if (!['GET', 'PATCH'].includes(req.method)) { res.setHeader('Allow', 'GET, PATCH'); return res.status(405).json({ error: 'Method not allowed' }); }
   try {
-    const { user } = await currentUser(req, res);
+    let { user, accessToken } = await currentUser(req, res);
+    if (req.method === 'PATCH') {
+      const name = profileName(parseBody(req));
+      user = await supabaseRequest('/auth/v1/user', { method: 'PUT', token: accessToken, body: { data: { full_name: name } } });
+    }
     return res.status(200).json({ user: publicUser(user) });
   } catch (error) {
     if ([401, 403].includes(error.status)) clearSession(res);

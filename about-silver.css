@@ -1,0 +1,49 @@
+/* About / Guide: presentation only; existing actions and evidence remain intact. */
+body .about-shell { --about-accent:#765627; --about-border:#9b835966; }
+body.dark .about-shell { --about-accent:#f3d79b; --about-border:#d7b98466; --dash-bg:#090909; --dash-card:linear-gradient(125deg,#cab48c19,#ffffff04 55%,#c7ac7912); }
+body .about-shell::before { background:radial-gradient(ellipse at 90% 5%,#caa87720,transparent 40%),url('assets/silver-waves.svg') center top/100% 1000px no-repeat; }
+body .about-shell .page { max-width:1400px; margin-inline:auto; padding-top:26px; }
+body .about-shell .view-head { padding:0; margin-bottom:20px; }
+body .about-shell .card { border-color:var(--about-border); border-radius:20px; }
+body .about-shell .nav-item.active { border-color:var(--about-accent); background:linear-gradient(135deg,#b69c6355,#ffffff06,#d2b87544); box-shadow:inset 0 1px 4px #f5db9f44; }
+body .about-shell .plan-card { border-color:var(--about-border); border-radius:20px; background:var(--dash-card); }
+body .about-shell .top-actions > button { border-color:var(--about-border); }
+body .about-shell .about-intro { position:relative; overflow:hidden; padding:26px 32px 26px 210px; margin-bottom:16px; min-height:180px; }
+body .about-shell .about-intro::before { content:''; position:absolute; left:40px; top:38px; width:120px; height:100px; background:url('assets/about-layers.svg') center/contain no-repeat; }
+body .about-shell .about-intro::after { content:''; position:absolute; pointer-events:none; width:70%; height:160px; right:-18%; bottom:-130px; border:1px solid var(--about-accent); border-radius:50%; transform:rotate(-18deg); box-shadow:0 -6px 24px #dbb87322; }
+body .about-shell .about-intro h2 { font:650 clamp(22px,2.2vw,32px)/1.35 'Be Vietnam Pro',sans-serif; margin:10px 0; }
+body .about-shell .about-intro p { color:var(--dash-muted); font-size:13px; line-height:1.7; }
+body .about-shell .about-intro > div { display:flex; flex-wrap:wrap; gap:12px; margin-top:16px; }
+body .about-shell .about-intro .eyebrow { color:var(--about-accent); font-size:11px; }
+body .about-shell .primary-button { background:linear-gradient(#fff2d3,#dec18e); color:#292219; border:1px solid #d5b777; border-radius:24px; }
+body .about-shell .ghost-button { background:transparent; border-color:var(--about-border); border-radius:24px; }
+body .about-shell .about-grid { grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:16px; margin-bottom:16px; }
+body .about-shell .about-side { gap:16px; }
+body .about-shell .panel-head { padding:20px 24px 12px; }
+body .about-shell .panel-title { font-size:17px; }
+body .about-shell .panel-sub { font-size:12px; }
+body .about-shell .guide-list { padding:0 24px 18px; }
+body .about-shell .guide-step { border-color:var(--dash-line); padding:10px 0; align-items:center; gap:18px; }
+body .about-shell .guide-num { width:32px; height:32px; display:grid; place-items:center; border:1px solid var(--about-accent); border-radius:50%; color:var(--about-accent); font:500 16px 'Be Vietnam Pro',sans-serif; flex-shrink:0; }
+body .about-shell :is(.guide-step h3,.concept-list h3) { color:var(--dash-text); font-size:13px; }
+body .about-shell :is(.guide-step p,.concept-list p,.feature-status p,.avalanche-guide p,.public-verify-guide li p,.faq-list p) { color:var(--dash-muted); font-size:12px; line-height:1.65; }
+body .about-shell .concept-list article { border-color:var(--dash-line); }
+body .about-shell .concept-list article > span { color:var(--about-accent); }
+body .about-shell .feature-status { background:#88888808; border-color:var(--dash-line); border-radius:12px; padding:12px; }
+body .about-shell .feature-status > span { color:var(--about-accent); }
+body .about-shell :is(.avalanche-guide,.public-verify-guide,.faq-card) { margin-bottom:16px; }
+body .about-shell .avalanche-guide { padding:24px; gap:24px; }
+body .about-shell .avalanche-guide h2 { font:600 21px 'Be Vietnam Pro',sans-serif; }
+body .about-shell .avalanche-metadata { background:#88888808; border-color:var(--about-border); border-radius:14px; }
+body .about-shell .avalanche-metadata div { border-color:var(--dash-line); min-width:0; }
+body .about-shell .avalanche-metadata :is(dt,dd,a,code) { color:var(--dash-muted); overflow-wrap:anywhere; }
+body .about-shell .deployment-boundary { background:#cba45d12; border-color:var(--about-accent); }
+body .about-shell .public-verify-guide li { background:#88888808; border-color:var(--about-border); border-radius:14px; }
+body .about-shell .public-verify-guide li > span { background:#f1d6a4; color:#292219; }
+body .about-shell .verification-interpretation { background:#88888808; color:var(--dash-muted); }
+body .about-shell .faq-list { padding:0 24px 20px; }
+body .about-shell .faq-list details { border:1px solid var(--dash-line); border-radius:12px; padding:10px 14px; margin-bottom:8px; }
+body .about-shell .faq-list summary { color:var(--dash-text); font-size:13px; cursor:pointer; }
+body .about-shell .faq-list summary:focus-visible { outline:2px solid var(--about-accent); outline-offset:4px; }
+@media(max-width:1000px) { body .about-shell .about-grid { grid-template-columns:1fr; } }
+@media(max-width:600px) { body .about-shell .about-intro { padding:24px; } body .about-shell .about-intro::before { display:none; } body .about-shell .avalanche-guide { grid-template-columns:1fr; padding:20px; } body .about-shell .public-verify-guide .panel-head { flex-wrap:wrap; } body .about-shell .panel-head { padding:18px 20px 12px; } }

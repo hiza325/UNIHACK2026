@@ -1,0 +1,58 @@
+/* Dashboard presentation only; route and data contracts remain shared. */
+/* Shared silver shell is also used by the audit workspace. */
+body .dashboard-shell { --dash-bg: #f5f5f7; --dash-text: #18181c; --dash-muted: #606069; --dash-line: #2222; --dash-card: linear-gradient(135deg, #fff, #ededf1); background: var(--dash-bg); color: var(--dash-text); min-height: 100vh; isolation: isolate; position: relative; }
+body.dark .dashboard-shell { --dash-bg: #080809; --dash-text: #f5f4f2; --dash-muted: #bab9bd; --dash-line: #ffffff26; --dash-card: linear-gradient(135deg, #ffffff12, #ffffff03 65%, #ffffff09); }
+body .dashboard-shell::before { content: ''; position: absolute; inset: 0; z-index: -1; background: url('assets/silver-waves.svg') center top / 100% 1100px no-repeat; opacity: .6; pointer-events: none; }
+body .dashboard-shell .sidebar { background: transparent; border-right: 1px solid var(--dash-line); }
+body .dashboard-shell .brand-mark { filter: grayscale(1); }
+body.dark .dashboard-shell .brand-mark { filter: grayscale(1) brightness(2); }
+body .dashboard-shell :is(.brand-name, .brand-ai, .profile-name, .crumb strong) { color: var(--dash-text); }
+body .dashboard-shell :is(.brand-sub, .workspace-label, .profile-role, .crumb, .nav-count) { color: var(--dash-muted); }
+body .dashboard-shell .nav-item { border: 1px solid transparent; border-radius: 28px; color: var(--dash-muted); min-height: 44px; margin-block: 3px; }
+body .dashboard-shell .nav-item.active { color: var(--dash-text); border-color: #a5a19b; background: linear-gradient(140deg, #b9b4ac55, #8882 65%, #b9b4ac55); box-shadow: inset 0 1px 1px #fff6, 0 4px 20px #bcb7ad18; }
+body .dashboard-shell .nav-item:hover { color: var(--dash-text); background-color: #8882; }
+body .dashboard-shell .plan-card { background: transparent; border-color: var(--dash-line); color: var(--dash-muted); }
+body .dashboard-shell .plan-card p { color: var(--dash-muted); }
+body .dashboard-shell .avatar { background: linear-gradient(150deg, #888, #333); color: white; }
+body .dashboard-shell .topbar { border-color: var(--dash-line); background: transparent; }
+body .dashboard-shell .top-actions :is(button, .icon-button) { border: 1px solid var(--dash-line); border-radius: 24px; background: transparent; color: var(--dash-text); }
+body .dashboard-shell .page { max-width: 1480px; padding-top: 28px; }
+body .dashboard-shell .view-head { flex-wrap: wrap; gap: 16px; margin-bottom: 26px; }
+body .dashboard-shell .view-head h1 { font: 700 clamp(26px, 3vw, 42px)/1.3 'Be Vietnam Pro', sans-serif; letter-spacing: -.04em; color: var(--dash-text); }
+body .dashboard-shell .view-sub { color: var(--dash-muted); font-size: 15px; }
+body .dashboard-shell .date-chip { color: var(--dash-muted); background: transparent; border-color: var(--dash-line); }
+body .dashboard-shell :is(.card, .stat-card) { background: var(--dash-card); border: 1px solid var(--dash-line); border-radius: 24px; box-shadow: inset 0 1px 0 #ffffff18, 0 12px 30px #0000000d; color: var(--dash-text); }
+body .dashboard-shell :is(.panel-title, .activity-title, .stat-value, .metric-value, .session-title, h2, h3) { color: var(--dash-text); }
+body .dashboard-shell :is(.stat-label, .metric-title, .metric-sub, .panel-sub, .empty-note, .activity-week, .session-date, .chart-labels, .continue-empty p) { color: var(--dash-muted); }
+body .dashboard-shell :is(.panel-link, .ghost-button) { color: var(--dash-text); }
+body .dashboard-shell .primary-button { background: linear-gradient(140deg, #f8f6f2, #b9b8bc); color: #151518; border: 1px solid #eee; border-radius: 24px; }
+body .dashboard-shell :is(button, a):focus-visible { outline: 2px solid var(--dash-text); outline-offset: 4px; }
+body .dashboard-shell .dashboard-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; margin-bottom: 22px; }
+body .dashboard-shell .dashboard-summary > * { padding: 24px; margin: 0; min-width: 0; }
+body .dashboard-shell .stat-value { font: 700 36px/1.4 'Be Vietnam Pro', sans-serif; }
+body .dashboard-shell .metric-icon { background: #8882; color: var(--dash-text); }
+body .dashboard-shell .dashboard-workspace { display: grid; grid-template-columns: 1.1fr 1fr; gap: 22px; margin-bottom: 22px; }
+body .dashboard-shell .dashboard-workspace > .card { padding: 24px; min-width: 0; }
+body .dashboard-shell .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0 0 16px; margin: 0; border-color: var(--dash-line); }
+body .dashboard-shell .metric-value .metric-unit { color: var(--dash-muted); }
+body .dashboard-shell .continue-empty h2 { font-family: 'Be Vietnam Pro', sans-serif; }
+body .dashboard-shell .dashboard-page[data-dashboard-state="empty"] .bar { min-height: 0; height: 0 !important; border: 0; }
+body .dashboard-shell .session-row.compact .row-action { display: inline-flex; }
+body .dashboard-shell .dashboard-summary .stat-label { font: 500 13px 'Be Vietnam Pro', sans-serif; letter-spacing: 0; }
+body .dashboard-shell .dashboard-summary .metric-title { font: 500 13px 'Be Vietnam Pro', sans-serif; letter-spacing: 0; }
+body .dashboard-shell .panel-title { display: flex; align-items: center; gap: 10px; font-size: 18px; }
+body .dashboard-shell .dashboard-shortcuts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
+body .dashboard-shell .dashboard-shortcuts button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 18px 8px; min-height: 100px; border: 1px solid var(--dash-line); border-radius: 18px; background: var(--dash-card); color: var(--dash-text); font: inherit; font-size: 12px; cursor: pointer; }
+body .dashboard-shell .dashboard-shortcuts button:hover { border-color: #aaa; background-color: #8882; }
+body .dashboard-shell .dashboard-shortcuts .ui-icon { width: 28px; height: 28px; }
+body .dashboard-shell .dashboard-placeholder { display: grid; justify-items: center; text-align: center; align-content: center; min-height: 170px; color: var(--dash-muted); gap: 12px; }
+body .dashboard-shell .dashboard-placeholder > .ui-icon { width: 48px; height: 48px; color: var(--dash-text); }
+body .dashboard-shell .dashboard-placeholder :is(h3,p) { margin: 0; line-height: 1.6; }
+body .dashboard-shell .chart { height: 170px; border-color: var(--dash-line); background: repeating-linear-gradient(to top, transparent 0 33px, #8882 33px 34px); }
+body .dashboard-shell .bar { background: linear-gradient(#8b8b90, #333338); border: 1px solid #aaa5; border-radius: 12px 12px 0 0; }
+body .dashboard-shell .bar.hot { background: linear-gradient(#ece4d8, #777375); }
+body .dashboard-shell .session-row { border-color: var(--dash-line); }
+body .dashboard-shell .dashboard-badges { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+body .dashboard-shell .continue-empty { margin-top: 20px; }
+@media (max-width: 1150px) { body .dashboard-shell .dashboard-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } body .dashboard-shell .dashboard-workspace { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { body .dashboard-shell .dashboard-summary { gap: 10px; } body .dashboard-shell .dashboard-summary > * { padding: 16px; } body .dashboard-shell .dashboard-workspace > .card { padding: 18px; } body .dashboard-shell .dashboard-shortcuts { grid-template-columns: repeat(2, minmax(0, 1fr)); } body .dashboard-shell .sidebar { background: var(--dash-bg); } body .dashboard-shell .dashboard-badges { grid-template-columns: 1fr; } }

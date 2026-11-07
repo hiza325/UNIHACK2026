@@ -1,5 +1,6 @@
 node_modules/
 artifacts/
+.data/
 cache/
 coverage/
 deployments/*.local.json
@@ -10,3 +11,6 @@ test-results/
 .env.*
 !.env.example
 supabase/.temp/
+
+build/
+*.map

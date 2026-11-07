@@ -1,4 +1,5 @@
 import { currentUser, noStore, parseBody, publicUser } from '../auth/_supabase.js';
+import practiceHandler from '../practice/_handler.js';
 import { createLearningRecordService } from './_service.js';
 import { createLearningRecordStore } from './_store.js';
 import { createCompetencyStore } from './_competency-store.js';
@@ -80,4 +81,13 @@ export function createLearningRecordsHandler({ storeFactory = createLearningReco
   };
 }
 
-export default createLearningRecordsHandler();
+const learningRecordsHandler = createLearningRecordsHandler();
+
+export default function handler(req, res) {
+  // Vercel Hobby caps this deployment at 12 serverless functions, so the
+  // Practice Lab route is served by this function through vercel.json.
+  if (queryValue(req, 'practice') === '1' || /^\/api\/practice(?:\?|$)/.test(String(req.url || ''))) {
+    return practiceHandler(req, res);
+  }
+  return learningRecordsHandler(req, res);
+}

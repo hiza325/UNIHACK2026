@@ -13,6 +13,10 @@
       "destination": "/api/auth/session?localAuth=1"
     },
     {
+      "source": "/api/practice",
+      "destination": "/api/learning-records?practice=1"
+    },
+    {
       "source": "/verify",
       "destination": "/verify.html"
     }

@@ -127,7 +127,7 @@ test.describe('auth', () => {
     let suspended = false;
     let appealPayload;
     await seedSession(page);
-    await page.route('**/api/auth/session', route => route.fulfill({
+    await page.route('**/api/auth/session*', route => route.fulfill({
       status: suspended ? 403 : 200,
       contentType: 'application/json',
       body: JSON.stringify(suspended ? { error: 'This account is suspended', code: 'ACCOUNT_SUSPENDED', suspensionReason: 'account_sharing', appealToken: 'signed-appeal-token' } : { user: { ...SESSION, id: 'user-id', role: 'user', status: 'active' } }),
@@ -414,6 +414,7 @@ test.describe('practice lab', () => {
   test('answering a challenge marks it solved and persists', async ({ page }) => {
     await seedSession(page);
     await page.goto('/#/practice');
+    await page.locator('.page').waitFor();
     await page.locator('.challenge-card [data-challenge="0"]').click();
     await expect(page.locator('#practice-modal')).toBeVisible();
 
@@ -537,7 +538,7 @@ test('forged localStorage admin role cannot open user management', async ({ page
     localStorage.setItem('paradox-accounts', JSON.stringify([{ id: 'student-id', name: 'Student', email: 'student@example.com', role: 'admin', status: 'active' }]));
   });
 
-  await page.route('**/api/auth/session', route => route.fulfill({
+  await page.route('**/api/auth/session*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ user: { id: 'student-id', name: 'Student', email: 'student@example.com', role: 'user' } }),

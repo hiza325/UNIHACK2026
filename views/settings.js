@@ -11,26 +11,26 @@ export const settingsViews = {
     return `<div class="page">
       ${this.viewHead(t('pageSettings'), 'setSub')}
       <div class="settings-grid">
-        <section class="card setting-group"><div class="panel-head"><h2 class="panel-title">${t('setAppearance')}</h2></div>
+        <section class="card setting-group"><div class="panel-head"><h2 class="panel-title">${svgIcon('sun')}${t('setAppearance')}</h2></div>
           <div class="setting-row"><div><h3>${t('setTheme')}</h3></div><div class="segmented"><button class="${dark ? '' : 'active'}" data-set-theme="light" aria-pressed="${!dark}">${t('setLight')}</button><button class="${dark ? 'active' : ''}" data-set-theme="dark" aria-pressed="${dark}">${t('setDark')}</button></div></div>
           <div class="setting-row"><div><h3>${t('setLanguage')}</h3></div><div class="segmented">${langs}</div></div>
         </section>
-        <section class="card setting-group"><div class="panel-head"><h2 class="panel-title">${t('setLearning')}</h2></div>
+        <section class="card setting-group"><div class="panel-head"><h2 class="panel-title">${svgIcon('book')}${t('setLearning')}</h2></div>
           <div class="setting-row"><div><h3>${t('setSubject')}</h3></div><select id="default-subject" aria-label="${t('setSubject')}">${subjects}</select></div>
           <div class="setting-row"><div><h3>${t('setHint')}</h3></div><div class="hint-control"><input id="hint-level" type="range" min="1" max="3" value="${hint}" aria-label="${t('setHint')}"><span id="hint-value">${[t('setHintLow'), t('setHintMed'), t('setHintHigh')][hint - 1]}</span></div></div>
         </section>
-        <section class="card setting-group"><div class="panel-head"><h2 class="panel-title">${t('setNotify')}</h2></div>
+        <section class="card setting-group"><div class="panel-head"><h2 class="panel-title">${svgIcon('mail')}${t('setNotify')}</h2></div>
           ${toggle('reminder', 'setReminder', 'setReminderDesc')}
           ${toggle('digest', 'setDigest', 'setDigestDesc')}
           ${toggle('sound', 'setSound', 'setSoundDesc')}
           <div class="setting-row"><div><h3>${t('setTestNotification')}</h3><p>${t('setTestNotificationDesc')}</p></div><button class="ghost-button" type="button" data-test-notification>${t('setTestNotification')}</button></div>
         </section>
-        <section class="card setting-group"><div class="panel-head"><h2 class="panel-title">${t('setPrivacy')}</h2></div>
+        <section class="card setting-group"><div class="panel-head"><h2 class="panel-title">${svgIcon('shield')}${t('setPrivacy')}</h2></div>
           <div class="setting-row"><div><h3>${t('setExport')}</h3><p>${t('setExportDesc')}</p></div><button class="ghost-button" id="export-data">${svgIcon('download')} ${t('setExport')}</button></div>
           <div class="setting-row"><div><h3>${t('setReset')}</h3><p>${t('setResetDesc')}</p></div><button class="ghost-button" id="reset-data">${svgIcon('trash')} ${t('setReset')}</button></div>
           <div class="setting-row"><div><h3>${t('setDelete')}</h3><p>${t('setDeleteDesc')}</p></div><button class="ghost-button" id="delete-account">${t('setDelete')}</button></div>
         </section>
-        <section class="card setting-group"><div class="panel-head"><h2 class="panel-title">${t('setAbout')}</h2></div>
+        <section class="card setting-group settings-about"><div class="panel-head"><h2 class="panel-title">${svgIcon('help')}${t('setAbout')}</h2></div>
           <div class="setting-row"><div><h3>${t('setVersion')}</h3></div></div>
           <div class="setting-row"><div><h3>${t('setOpenSitemap')}</h3><p>${t('setSitemapDesc')}</p></div><button class="ghost-button" data-route="sitemap" aria-label="${t('setOpenSitemap')}">${svgIcon('grid')}</button></div>
         </section>

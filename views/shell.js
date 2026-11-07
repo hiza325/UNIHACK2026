@@ -3,20 +3,24 @@ import { svgIcon } from '../icons.js';
 import { NAV_ITEMS, PAGE_KEYS } from '../app-config.js';
 export const shellViews = {
   render() {
+    if (this.view !== 'profile') this.closeAvatarEditor();
     if (!this.user) { this.renderLanding(); return; }
     document.body.classList.remove('sitemap-mode');
     document.documentElement.lang = this.lang === 'jp' ? 'ja' : this.lang;
     document.body.style.overflow = '';
     this.applyStoredTheme();
     const pageTitle = this.t(PAGE_KEYS[this.view] || 'page');
-    this.innerHTML = `<div class="app-shell">
+    this.innerHTML = `<div class="app-shell${['dashboard', 'audit', 'history', 'analytics', 'practice', 'profile'].includes(this.view) ? ' dashboard-shell' : ''}${this.view === 'audit' ? ' audit-shell' : ''}${['history', 'analytics'].includes(this.view) ? ' history-shell' : ''}${this.view === 'analytics' ? ' analytics-shell' : ''}${this.view === 'practice' ? ' practice-shell' : ''}${this.view === 'profile' ? ' profile-shell' : ''}${this.view === 'passport' ? ' passport-shell' : ''}${this.view === 'passport-verify' ? ' passport-shell' : ''}">
       ${this.sidebar()}
       <main class="main">
         ${this.topbar(pageTitle)}
         ${this.viewMarkup()}
       </main>
     </div><footer class="app-footer">${this.t('contestFooter')}</footer><div class="toast" id="toast" role="status"></div>${this.supportWidgetMarkup()}<div class="confirm-backdrop" id="unsaved-modal" ${this.unsavedDialogOpen ? '' : 'hidden'}><section class="confirm-panel" role="dialog" aria-modal="true" aria-labelledby="unsaved-title"><span class="badge-icon">⚠</span><h2 id="unsaved-title">${this.t('unsavedTitle')}</h2><p>${this.t('unsavedBody')}</p><div class="confirm-actions"><button class="ghost-button" type="button" data-unsaved-stay>${this.t('unsavedStay')}</button><button class="danger-button" type="button" data-unsaved-leave>${this.t('unsavedLeave')}</button></div></section></div>`;
+    if (this.view === 'about') this.querySelector('.app-shell').classList.add('dashboard-shell', 'about-shell');
+    if (this.view === 'settings') this.querySelector('.app-shell').classList.add('dashboard-shell', 'settings-shell');
     this.bind();
+    this.bindAvatar();
   },
   sidebar() {
     const t = k => this.t(k);
@@ -37,7 +41,7 @@ export const shellViews = {
       <div class="mobile-more-menu" id="mobile-more-menu" hidden><button data-route="about">${svgIcon('help')} ${t('navAbout')}</button><button data-route="settings">${svgIcon('settings')} ${t('navSettings')}</button></div>
       <div class="sidebar-spacer"></div>
       <div class="plan-card"><div class="plan-top"><span>${t('plan')}</span></div><p>${t('remaining')}</p><div class="plan-data-unavailable">${t('planDataUnavailable')}</div></div>
-      <div class="profile"><div class="avatar">${this.escape((this.user.name || 'U').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase())}</div><div class="profile-copy"><div class="profile-name">${this.escape(this.user.name || this.user.email)}</div><div class="profile-role">${this.escape(this.user.email)}</div></div></div>
+      <div class="profile">${this.avatarMarkup()}<div class="profile-copy"><div class="profile-name">${this.escape(this.user.name || this.user.email)}</div><div class="profile-role">${this.escape(this.user.email)}</div></div></div>
     </aside>`;
   },
   topbar(title) {
@@ -45,6 +49,7 @@ export const shellViews = {
     return `<header class="topbar">
       <div class="crumb">${t('crumb')}<span>/</span><strong>${title}</strong></div>
       <div class="top-actions">
+        <button class="account-avatar-button" type="button" data-route="profile" aria-label="${t('pageProfile')}: ${this.escape(this.avatarInitials())}">${this.avatarMarkup()}</button>
         <button class="icon-button" data-route="sitemap" aria-label="${t('smBadge')}" title="${t('smBadge')}">${svgIcon('grid')}</button>
         <button class="lang-button" id="lang-toggle" aria-label="${t('selectLang')}: ${this.lang.toUpperCase()}"><span aria-hidden="true">◎ </span><span>${this.lang.toUpperCase()}</span><span aria-hidden="true">⌄</span></button>
         ${this.themeToggleMarkup()}

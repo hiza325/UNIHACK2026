@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 480" fill="none">
+  <defs>
+    <linearGradient id="shell" x1="220" y1="110" x2="380" y2="330" gradientUnits="userSpaceOnUse"><stop stop-color="#fff"/><stop offset=".28" stop-color="#bfc1c6"/><stop offset=".6" stop-color="#53565d"/><stop offset="1" stop-color="#ededeb"/></linearGradient>
+    <linearGradient id="rim" x1="150" y1="150" x2="430" y2="300" gradientUnits="userSpaceOnUse"><stop stop-color="#fff"/><stop offset=".45" stop-color="#74777c"/><stop offset="1" stop-color="#fff"/></linearGradient>
+    <radialGradient id="floor"><stop stop-color="#fff" stop-opacity=".3"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <ellipse cx="300" cy="411" rx="205" ry="38" fill="url(#floor)"/>
+  <ellipse cx="300" cy="403" rx="157" ry="20" stroke="#e4e4e7" stroke-width="2"/>
+  <path d="M300 148L308 88" stroke="url(#rim)" stroke-width="10"/>
+  <circle cx="310" cy="82" r="15" fill="url(#shell)" stroke="#fff"/>
+  <ellipse cx="165" cy="234" rx="26" ry="44" fill="url(#shell)" stroke="#ddd" stroke-width="3"/>
+  <ellipse cx="433" cy="234" rx="26" ry="44" fill="url(#shell)" stroke="#ddd" stroke-width="3"/>
+  <rect x="166" y="126" width="268" height="206" rx="96" fill="url(#shell)" stroke="url(#rim)" stroke-width="3"/>
+  <rect x="188" y="174" width="224" height="130" rx="56" fill="#09090b" stroke="url(#rim)" stroke-width="4"/>
+  <rect x="244" y="213" width="19" height="42" rx="10" fill="#fff"/>
+  <rect x="338" y="213" width="19" height="42" rx="10" fill="#fff"/>
+  <path d="M278 275Q300 286 322 275" stroke="#9c9ca3" stroke-width="3" stroke-linecap="round"/>
+</svg>
