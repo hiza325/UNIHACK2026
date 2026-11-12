@@ -27,8 +27,8 @@ body .passport-shell :is(.profile-name,.crumb strong,.brand-name) { color:var(--
 body .passport-shell .view-head h1 { font-family:'Be Vietnam Pro',sans-serif; font-weight:700; color:var(--dash-text); }
 body .passport-shell .card { border-radius:20px; box-shadow:inset 0 1px 1px #ffffff15,0 8px 24px #00000012; }
 body .passport-shell .passport-grid { grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); }
-body .passport-shell .stat-card { position:relative; padding-left:64px; }
-body .passport-shell .stat-card::before { content:'◇'; position:absolute; left:20px; top:24px; font-size:30px; color:var(--passport-accent); }
+body .passport-shell .stat-card { display:grid; grid-template-columns:auto minmax(0,1fr); column-gap:8px; align-items:center; }
+body .passport-shell .stat-card::before { content:'◇'; display:grid; place-items:center; width:18px; height:18px; font-size:17px; line-height:1; color:var(--passport-accent); }
 body .passport-shell :is(.passport-empty-list,.row-action,.credential-code) { color:var(--dash-muted); }
 body .passport-shell .eligible-evaluation-id { display:inline-block; max-width:100%; margin-right:8px; color:var(--dash-text); font-size:11px; font-family:monospace; overflow-wrap:anywhere; word-break:break-all; vertical-align:middle; }
 body.dark .passport-shell :is(.passport-skill-head > strong,.passport-assessment > strong) { color:#f4d99c; }
@@ -38,13 +38,13 @@ body .passport-shell .competency-panel :is(p,li) { color:var(--dash-muted); }
 body .passport-shell .competency-panel h2 { margin:0; font-size:23px; }
 body .passport-shell .competency-grid { grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; }
 body .passport-shell .competency-grid article { background:#8888880b; border-color:var(--passport-border); border-radius:16px; padding:14px; min-width:0; }
-body .passport-shell .competency-grid h3 { margin:0 0 10px; font-size:13px; }
-body .passport-shell .competency-grid h3::before { content:'◇'; display:block; color:var(--passport-accent); font-size:28px; }
+body .passport-shell .competency-grid h3 { display:flex; align-items:center; gap:6px; margin:0 0 10px; font-size:13px; }
+body .passport-shell .competency-grid h3::before { content:'◇'; display:grid; place-items:center; flex:0 0 auto; width:18px; height:18px; color:var(--passport-accent); font-size:17px; line-height:1; }
 body .passport-shell .competency-panel button { background:linear-gradient(#f9e7c6,#d8bb94); color:#27211a; border-radius:24px; }
 body .passport-shell [data-competency-cert-status] { margin:0; padding:0 28px 20px; }
 body.dark .passport-shell .passport-detail-panel { background:#1b1918; color:var(--dash-text); }
 @media(max-width:1100px) { body .passport-shell .competency-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
-@media(max-width:700px) { body .passport-shell .main { padding-inline:16px; } body .passport-shell .competency-grid { grid-template-columns:1fr; } body .passport-shell .passport-grid { grid-template-columns:1fr; } body .passport-shell .passport-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } body .passport-shell .stat-card { padding-left:18px; } body .passport-shell .stat-card::before { display:none; } }
+@media(max-width:700px) { body .passport-shell .main { padding-inline:16px; } body .passport-shell .competency-grid { grid-template-columns:1fr; } body .passport-shell .passport-grid { grid-template-columns:1fr; } body .passport-shell .passport-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } body .passport-shell .stat-card { column-gap:6px; } body .passport-shell .stat-card::before { width:16px; height:16px; font-size:15px; } }
 body .passport-shell { --passport-accent: #b89a7a; --passport-border: #9a846d66; }
 body.dark .passport-shell { --passport-accent: #f0d7bf; --passport-border: #d2b89f66; --dash-bg: #0b0b0d; --dash-card: linear-gradient(125deg, #c9b29e22, #ffffff06 48%, #cfb69d19); }
 body .passport-shell::before { background-size: 100% 950px; opacity: .75; }
@@ -78,7 +78,8 @@ body .passport-shell .passport-id small { color: var(--dash-muted); font: 8px 'D
 body .passport-shell .stat-grid { gap: 14px; margin: 0 0 20px; }
 body .passport-shell .stat-card { background: var(--dash-card); border: 1px solid var(--passport-border); border-radius: 18px; padding: 18px 20px; }
 body .passport-shell .stat-label { color: var(--dash-muted); }
-body .passport-shell .stat-value { color: var(--dash-text); font: 700 30px/1.2 'Be Vietnam Pro', sans-serif; }
+body .passport-shell .certificate-center .stat-label { font-size: 11px; font-weight: 700; }
+body .passport-shell .stat-value { grid-column: 1 / -1; color: var(--dash-text); font: 700 30px/1.2 'Be Vietnam Pro', sans-serif; }
 body .passport-shell .stat-value small { color: var(--dash-muted); }
 
 body .passport-shell .passport-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr); align-items: start; gap: 18px; margin-bottom: 20px; }
