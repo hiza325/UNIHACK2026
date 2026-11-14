@@ -336,6 +336,24 @@ Client không thể tự gửi trạng thái `pass`, điểm hoặc eligibility.
 
 History/Dashboard/Analytics tự tải tối đa 100 phiên Supabase sau khi xác thực và sau mỗi lần Audit. Nếu đang dùng chế độ tài khoản local, luồng cũ trên IndexedDB/localStorage vẫn hoạt động và giao diện không thay đổi.
 
+### Ảnh đại diện (Local và Production)
+
+Ảnh đại diện dùng hai backend khác nhau, do server quyết định:
+
+| Môi trường | Metadata | File ảnh | Ghi chú |
+| --- | --- | --- | --- |
+| Local Auth (`LOCAL_AUTH_ENABLED=1`) | `.data/profiles/` | `.data/avatars/` | Chỉ dùng trên máy dev; không ghi vào Supabase. |
+| Supabase (Production/Vercel) | bảng `public.avatar_profiles` + RPC `avatar_mutate` | bucket private `profile-avatars` | Bắt buộc chạy migration và cấu hình service role. |
+
+Production không lưu file vào filesystem của Vercel vì filesystem serverless là tạm thời. Các bước bắt buộc:
+
+1. Chạy migration `supabase/migrations/202611100001_profile_avatars.sql` bằng `supabase db push` hoặc SQL Editor. Migration tạo bảng metadata, RPC row-lock và bucket private `profile-avatars` (giới hạn 5 MB, chỉ `image/webp`).
+2. Trên Vercel, giữ `SUPABASE_URL` và `SUPABASE_SERVICE_ROLE_KEY` (đã dùng cho Auth) và thêm `AVATAR_STORAGE_BUCKET=profile-avatars`. Biến này là tùy chọn vì server mặc định đúng tên bucket trong migration, nhưng nên đặt tường minh. Không dùng prefix `PUBLIC_`/`VITE_`/`NEXT_PUBLIC_` cho service-role key.
+3. Redeploy sau khi thêm biến môi trường. Nếu bucket chưa tồn tại, API sẽ tạo bucket private khi có service role; nếu bucket đang public, API từ chối ghi để tránh lộ ảnh.
+4. Đăng nhập bằng tài khoản thật, lưu ảnh, tải lại trang và đăng xuất/đăng nhập lại để xác nhận ảnh được giữ.
+
+Nếu gặp `AVATAR_NOT_CONFIGURED`, kiểm tra `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` và `AVATAR_STORAGE_BUCKET`. Nếu gặp `AVATAR_STORAGE_NOT_READY`, migration avatar chưa được chạy trên project Supabase. Chi tiết thiết kế và kiểm thử nằm trong `docs/avatar-storage.md`.
+
 ## Learning Passport và Avalanche Proof of Learning
 
 Hai route `#/passport` và `#/verify` cung cấp hồ sơ năng lực, tiến độ, kết quả đánh giá, danh sách chứng nhận, modal chi tiết và trang tra cứu theo mã. Khi chưa dùng Supabase Auth/API, dữ liệu đến từ `learning-passport-mock.js` và luôn có nhãn **DỮ LIỆU MẪU / MOCK DATA**. Với phiên Supabase thật, giao diện tự gọi `/api/credentials`, hiển thị transaction/status đã lưu và xác minh lại từ Avalanche Fuji khi người dùng tra cứu.

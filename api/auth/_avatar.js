@@ -68,12 +68,18 @@ export async function avatarHandler(req, res, identity, env = process.env) {
     // non-browser clients that do not send Origin / Sec-Fetch-Site.
     if (req.headers?.['sec-fetch-site'] === 'cross-site') throw avatarError('AVATAR_FORBIDDEN', 403);
     const origin = req.headers?.origin;
-    if (origin && new URL(origin).host !== req.headers?.host) throw avatarError('AVATAR_FORBIDDEN', 403);
+    if (origin) {
+      let originHost;
+      try { originHost = new URL(origin).host; } catch { throw avatarError('AVATAR_FORBIDDEN', 403); }
+      if (originHost !== req.headers?.host) throw avatarError('AVATAR_FORBIDDEN', 403);
+    }
     return await exclusive(`${identity.source}:${store.owner}`, async () => {
       await store.mutate('rate');
       let next = null;
       if (req.method === 'POST') {
-        const bytes = await normalizeAvatar(parseBody(req));
+        let body;
+        try { body = parseBody(req); } catch { throw avatarError('AVATAR_INVALID_IMAGE', 400); }
+        const bytes = await normalizeAvatar(body);
         next = `${store.owner}/${randomUUID()}.webp`;
         await store.mutate('enqueue', next);
         try { await store.put(next, bytes); }
@@ -88,6 +94,14 @@ export async function avatarHandler(req, res, identity, env = process.env) {
     });
   } catch (error) {
     if (error.status === 429) res.setHeader('Retry-After', '600');
-    return res.status(error.status || 503).json({ code: error.code || 'AVATAR_STORAGE_UNAVAILABLE', error: 'Avatar request could not be completed' });
+    if (error.code === 'ENOENT') return res.status(404).json({ code: 'AVATAR_NOT_FOUND' });
+    // Safe operational hint for server logs: variable names only, never values.
+    if (error.code === 'AVATAR_NOT_CONFIGURED' && error.missing?.length) {
+      console.warn(`Avatar storage is not configured; missing environment variables: ${error.missing.join(', ')}`);
+    }
+    // Never return raw filesystem/upstream error codes to the browser.
+    const status = Number(error.status) || 503;
+    const code = /^AVATAR_[A-Z_]+$/.test(String(error.code || '')) ? error.code : 'AVATAR_STORAGE_UNAVAILABLE';
+    return res.status(status).json({ code, error: 'Avatar request could not be completed' });
   }
 }

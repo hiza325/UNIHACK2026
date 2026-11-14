@@ -1,9 +1,9 @@
 import { svgIcon } from './icons.js';
 
 const messages = {
-  vi: { change: 'Thay đổi ảnh đại diện', title: 'Ảnh đại diện', choose: 'Chọn ảnh', save: 'Lưu ảnh', cancel: 'Hủy', remove: 'Xóa avatar', zoom: 'Thu phóng', x: 'Căn ngang', y: 'Căn dọc', hint: 'JPG, PNG hoặc WebP · tối đa 5 MB. Kéo ảnh hoặc dùng thanh trượt để cắt vuông 1:1.', loading: 'Đang tải ảnh…', saving: 'Đang lưu ảnh…', success: 'Đã lưu ảnh đại diện', removed: 'Đã xóa ảnh đại diện', invalid: 'Ảnh không hợp lệ. Hãy chọn JPG, PNG hoặc WebP.', large: 'Ảnh vượt quá 5 MB.', error: 'Không thể xử lý ảnh. Vui lòng thử lại.', auth: 'Hãy đăng nhập bằng tài khoản thật hoặc Local Auth để lưu ảnh.', rate: 'Bạn thay đổi ảnh quá thường xuyên. Vui lòng thử lại sau 10 phút.', unavailable: 'Storage avatar chưa được cấu hình.', deferred: 'Đã cập nhật avatar. Ảnh cũ đang chờ dọn dẹp trên storage.', retry: 'Thử lại' },
-  en: { change: 'Change profile picture', title: 'Profile picture', choose: 'Choose image', save: 'Save image', cancel: 'Cancel', remove: 'Remove avatar', zoom: 'Zoom', x: 'Horizontal position', y: 'Vertical position', hint: 'JPG, PNG or WebP · up to 5 MB. Drag or use the sliders for a square 1:1 crop.', loading: 'Loading image…', saving: 'Saving image…', success: 'Profile picture saved', removed: 'Profile picture removed', invalid: 'Invalid image. Choose JPG, PNG or WebP.', large: 'Image exceeds 5 MB.', error: 'Could not process the image. Please try again.', auth: 'Sign in with a real account or Local Auth to save an avatar.', rate: 'Too many changes. Please try again in 10 minutes.', unavailable: 'Avatar storage is not configured.', deferred: 'Avatar updated. The old image is awaiting storage cleanup.', retry: 'Retry' },
-  jp: { change: 'プロフィール画像を変更', title: 'プロフィール画像', choose: '画像を選択', save: '画像を保存', cancel: 'キャンセル', remove: '画像を削除', zoom: 'ズーム', x: '水平位置', y: '垂直位置', hint: 'JPG・PNG・WebP、最大5 MB。ドラッグまたはスライダーで1:1に調整できます。', loading: '画像を読み込み中…', saving: '保存中…', success: '画像を保存しました', removed: '画像を削除しました', invalid: 'JPG・PNG・WebPの画像を選択してください。', large: '画像が5 MBを超えています。', error: '画像を処理できませんでした。再試行してください。', auth: '保存するにはアカウントまたはLocal Authでログインしてください。', rate: '変更回数が多すぎます。10分後に再試行してください。', unavailable: '画像ストレージが設定されていません。', deferred: '更新しました。古い画像は削除待ちです。', retry: '再試行' },
+  vi: { change: 'Thay đổi ảnh đại diện', title: 'Ảnh đại diện', choose: 'Chọn ảnh', save: 'Lưu ảnh', cancel: 'Hủy', remove: 'Xóa avatar', zoom: 'Thu phóng', x: 'Căn ngang', y: 'Căn dọc', hint: 'JPG, PNG hoặc WebP · tối đa 5 MB. Kéo ảnh hoặc dùng thanh trượt để cắt vuông 1:1.', loading: 'Đang tải ảnh…', saving: 'Đang lưu ảnh…', success: 'Đã lưu ảnh đại diện', removed: 'Đã xóa ảnh đại diện', invalid: 'Ảnh không hợp lệ. Hãy chọn JPG, PNG hoặc WebP.', large: 'Ảnh vượt quá 5 MB.', error: 'Không thể xử lý ảnh. Vui lòng thử lại.', auth: 'Hãy đăng nhập bằng tài khoản thật hoặc Local Auth để lưu ảnh.', rate: 'Bạn thay đổi ảnh quá thường xuyên. Vui lòng thử lại sau 10 phút.', unavailable: 'Storage avatar chưa được cấu hình. Vui lòng liên hệ quản trị viên để bật kho lưu trữ ảnh.', notReady: 'Kho lưu trữ avatar chưa được khởi tạo. Quản trị viên cần chạy migration Supabase cho tính năng avatar.', storage: 'Kho lưu trữ avatar tạm thời không khả dụng. Vui lòng thử lại.', offline: 'Không thể kết nối máy chủ. Kiểm tra kết nối mạng và thử lại.', timeout: 'Máy chủ phản hồi quá lâu. Vui lòng thử lại.', forbidden: 'Yêu cầu thay đổi ảnh đại diện bị từ chối.', deferred: 'Đã cập nhật avatar. Ảnh cũ đang chờ dọn dẹp trên storage.', retry: 'Thử lại' },
+  en: { change: 'Change profile picture', title: 'Profile picture', choose: 'Choose image', save: 'Save image', cancel: 'Cancel', remove: 'Remove avatar', zoom: 'Zoom', x: 'Horizontal position', y: 'Vertical position', hint: 'JPG, PNG or WebP · up to 5 MB. Drag or use the sliders for a square 1:1 crop.', loading: 'Loading image…', saving: 'Saving image…', success: 'Profile picture saved', removed: 'Profile picture removed', invalid: 'Invalid image. Choose JPG, PNG or WebP.', large: 'Image exceeds 5 MB.', error: 'Could not process the image. Please try again.', auth: 'Sign in with a real account or Local Auth to save an avatar.', rate: 'Too many changes. Please try again in 10 minutes.', unavailable: 'Avatar storage is not configured. Contact an administrator to enable image storage.', notReady: 'Avatar storage has not been initialized. An administrator must apply the Supabase avatar migration.', storage: 'Avatar storage is temporarily unavailable. Please try again.', offline: 'Could not reach the server. Check your connection and try again.', timeout: 'The server took too long to respond. Please try again.', forbidden: 'The profile picture request was rejected.', deferred: 'Avatar updated. The old image is awaiting storage cleanup.', retry: 'Retry' },
+  jp: { change: 'プロフィール画像を変更', title: 'プロフィール画像', choose: '画像を選択', save: '画像を保存', cancel: 'キャンセル', remove: '画像を削除', zoom: 'ズーム', x: '水平位置', y: '垂直位置', hint: 'JPG・PNG・WebP、最大5 MB。ドラッグまたはスライダーで1:1に調整できます。', loading: '画像を読み込み中…', saving: '保存中…', success: '画像を保存しました', removed: '画像を削除しました', invalid: 'JPG・PNG・WebPの画像を選択してください。', large: '画像が5 MBを超えています。', error: '画像を処理できませんでした。再試行してください。', auth: '保存するにはアカウントまたはLocal Authでログインしてください。', rate: '変更回数が多すぎます。10分後に再試行してください。', unavailable: '画像ストレージが設定されていません。管理者に連絡してください。', notReady: '画像ストレージが初期化されていません。管理者はSupabaseのマイグレーションを実行してください。', storage: '画像ストレージは一時的に利用できません。再試行してください。', offline: 'サーバーに接続できません。接続を確認して再試行してください。', timeout: 'サーバーの応答がタイムアウトしました。再試行してください。', forbidden: 'プロフィール画像のリクエストが拒否されました。', deferred: '更新しました。古い画像は削除待ちです。', retry: '再試行' },
 };
 
 export const avatarMethods = {
@@ -42,20 +42,30 @@ export const avatarMethods = {
   async loadAvatar() {
     const endpoint = this.avatarEndpoint();
     const owner = this.user;
-    this.avatarUrl = null;
-    this.avatarCleanupPending = false;
+    const ownerKey = owner ? `${owner.id || ''}:${owner.email || ''}` : '';
+    const changedOwner = this.avatarOwnerKey !== ownerKey;
+    this.avatarOwnerKey = ownerKey;
+    if (!owner || !endpoint) {
+      this.avatarUrl = null;
+      this.avatarCleanupPending = false;
+      this.avatarLoadError = '';
+      this.syncAvatarDom();
+      return;
+    }
+    // Do not discard an already rendered avatar when a refresh fails; only a
+    // different account (or an explicit remove) clears the current image.
+    if (changedOwner) { this.avatarUrl = null; this.avatarCleanupPending = false; }
     this.avatarLoadError = '';
-    if (!owner || !endpoint) { this.syncAvatarDom(); return; }
     try {
       const response = await fetch(endpoint, { credentials: 'same-origin', cache: 'no-store' });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.code);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw Object.assign(new Error(), { code: data.code || (response.status === 401 ? 'SESSION_INVALID' : '') });
       if (this.user !== owner) return;
       this.avatarUrl = this.safeAvatarUrl(data.avatarUrl);
       this.avatarCleanupPending = Boolean(data.cleanupPending);
     } catch (error) {
       if (this.user !== owner) return;
-      this.avatarLoadError = error.message === 'AVATAR_NOT_CONFIGURED' ? this.avatarText('unavailable') : this.avatarText('error');
+      this.avatarLoadError = this.avatarErrorText(error.code || (error instanceof TypeError ? 'AVATAR_OFFLINE' : ''));
     }
     this.syncAvatarDom();
   },
@@ -76,7 +86,12 @@ export const avatarMethods = {
     });
   },
   avatarErrorText(code) {
-    return this.avatarText(({ AVATAR_TOO_LARGE: 'large', AVATAR_INVALID_TYPE: 'invalid', AVATAR_INVALID_IMAGE: 'invalid', AVATAR_RATE_LIMITED: 'rate', AVATAR_NOT_CONFIGURED: 'unavailable', SESSION_INVALID: 'auth' })[code] || 'error');
+    return this.avatarText(({
+      AVATAR_TOO_LARGE: 'large', AVATAR_INVALID_TYPE: 'invalid', AVATAR_INVALID_IMAGE: 'invalid',
+      AVATAR_RATE_LIMITED: 'rate', AVATAR_NOT_CONFIGURED: 'unavailable', AVATAR_STORAGE_NOT_READY: 'notReady',
+      AVATAR_STORAGE_UNAVAILABLE: 'storage', AVATAR_OFFLINE: 'offline', AVATAR_TIMEOUT: 'timeout',
+      AVATAR_FORBIDDEN: 'forbidden', SESSION_INVALID: 'auth', AUTH_NOT_CONFIGURED: 'auth',
+    })[code] || 'error');
   },
   closeAvatarEditor() {
     this.avatarSelection = (this.avatarSelection || 0) + 1;
@@ -148,8 +163,13 @@ export const avatarMethods = {
         const data = canvas.toDataURL('image/webp', .9);
         const result = await this.writeAvatar('POST', { mime: data.startsWith('data:image/webp;') ? 'image/webp' : 'image/png', image: data.split(',')[1] });
         if (this.user !== owner) return;
-        this.avatarUrl = this.safeAvatarUrl(result.avatarUrl);
+        const nextUrl = this.safeAvatarUrl(result.avatarUrl);
+        // A successful response must carry a renderable avatar URL. Never close
+        // the editor with a success message if the backend response is unusable.
+        if (result.avatarUrl && !nextUrl) throw Object.assign(new Error(), { code: 'AVATAR_REQUEST_FAILED' });
+        this.avatarUrl = nextUrl;
         this.avatarCleanupPending = Boolean(result.cleanupPending);
+        this.avatarLoadError = '';
         this.syncAvatarDom();
         this.closeAvatarEditor();
         const messageText = result.cleanupPending ? t('deferred') : t('success');
@@ -164,10 +184,31 @@ export const avatarMethods = {
   async writeAvatar(method, body) {
     const endpoint = this.avatarEndpoint();
     if (!endpoint) throw Object.assign(new Error(), { code: 'SESSION_INVALID' });
-    const response = await fetch(endpoint, { method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
-    const data = await response.json();
-    if (!response.ok) throw Object.assign(new Error(), { code: data.code });
-    return data;
+    let response;
+    try {
+      const timeout = globalThis.AbortSignal?.timeout?.(30000);
+      response = await fetch(endpoint, {
+        method,
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+        ...(timeout ? { signal: timeout } : {}),
+      });
+    } catch (error) {
+      throw Object.assign(new Error(), { code: error?.name === 'TimeoutError' ? 'AVATAR_TIMEOUT' : 'AVATAR_OFFLINE' });
+    }
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      if (!data || typeof data !== 'object' || !('avatarUrl' in data)) throw Object.assign(new Error(), { code: 'AVATAR_REQUEST_FAILED' });
+      return data;
+    }
+    const statusCode = response.status === 413 ? 'AVATAR_TOO_LARGE'
+      : response.status === 429 ? 'AVATAR_RATE_LIMITED'
+        : response.status === 401 ? 'SESSION_INVALID'
+          : response.status === 403 ? 'AVATAR_FORBIDDEN'
+            : response.status >= 500 ? 'AVATAR_STORAGE_UNAVAILABLE'
+              : 'AVATAR_REQUEST_FAILED';
+    throw Object.assign(new Error(), { code: data.code || statusCode });
   },
   async removeAvatar() {
     if (this.avatarRemoving) return;

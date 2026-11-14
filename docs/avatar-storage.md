@@ -1,1 +1,83 @@
-# Profile avatarsLocal-only implementation. Nothing was committed, pushed, deployed, or applied to aremote database.## What already existed (checked first)- `api/auth/_local.js` issues signed Local Auth sessions; `api/auth/session.js`  resolves Supabase sessions and already had a name-only `PATCH`.- `api/auth/_profile.js` stored the local display name on the server.- There was **no** avatar field, Storage bucket, upload route, or image pipeline,  and the UI rendered initials only.- Vercel Hobby caps this project at 12 serverless functions, so no new route file  could be added. Avatar handling lives inside the existing auth endpoints.## Storage designOne source of truth: the server decides the avatar URL. Browsers never persist anavatar in `localStorage`; `avatarUrl` is only in-memory and refetched on load.Local Auth (development):- Metadata: `.data/profiles/<sha256(email)>.json` → `avatar: { key, pending, started, retired, events }`.- Image: `.data/avatars/<sha256(email)>/<uuid>.webp` (512×512 WebP).- Owner derived from the signed session email; client-provided user id/filename/path are ignored.- Survives reload, logout/login, new sessions and server restarts. Separate from  real learner data and never written to Supabase.Supabase (production design, **not applied or verified**):- Private bucket `profile-avatars` (created by migration), no client policies.- Object metadata row `public.avatar_profiles` plus a row-locked RPC  `avatar_mutate` (rate limit, enqueue, activate, expire, clean).- Only the service role used by the API touches the bucket; the API authenticates  the caller first and builds keys from the authenticated user id.- Migration `supabase/migrations/202611100001_profile_avatars.sql`,  rollback `supabase/rollback/202611100001_profile_avatars.sql`.Neither migration was executed anywhere.## Security controls- 5 MB limit enforced in the browser and again on decoded server bytes.- MIME allow-list (JPG/PNG/WebP) plus real content check with `sharp`; the declared  MIME must match the decoded format. SVG, HTML/script payloads, truncated files,  animations, >25 MP inputs and mismatched MIME are rejected.- Every image is re-encoded to 512×512 WebP, so EXIF/metadata and embedded payloads  are discarded. The client crop is previewed through canvas and re-encoded too.- Authentication required for read and write. A missing session yields 401; no  endpoint accepts a user id from the client.- Cross-site writes are rejected via `Sec-Fetch-Site`/`Origin`; the API is  same-origin only.- Keys are server-generated `<owner>/<uuid>.webp` and validated against the owner  prefix; path traversal and foreign keys are rejected before any filesystem or  storage call.- Per-user rate limit: 10 changes per 10 minutes (persisted with the profile /  row, so it survives restarts), `Retry-After: 600`.- Replacement writes upload a new key first, then atomically activate it. An  upload lease expires after 10 minutes and an expired key can never be activated.  Old objects go to a durable `retired` queue and are deleted only after the new  key is active; failures are retried on later requests and reported as  `cleanupPending`. The active object is never deleted by cleanup.- Remote storage access verifies the bucket is private before read/write.- Avatar responses are `no-store`, `nosniff`, and images are sent with a sandbox CSP.- Deletion clears the active key and removes the object; the UI falls back to  initials.## UI- Round avatar on the Profile hero with a camera button, native file picker,  preview and 1:1 crop (drag plus zoom/horizontal/vertical sliders), Save/Cancel,  Remove.- Loading, saving, success, failure, rate-limit and cleanup-pending messages are  visible; the modal is keyboard dismissible and focus returns to the trigger.- Shared rendering (`avatarMarkup`) is used in the Profile hero, sidebar, topbar  account button, Learning Passport hero and the admin list's own row.- Responsive at 1920/1440/1366/1024/768/375 with no horizontal overflow; light and  dark themes supported; axe serious/critical clean for the editor.## Tests and results`tests/avatar.spec.js` (5 tests) runs the real local server and filesystem:1. Upload valid PNG, verify WebP 512×512, no EXIF, authenticated GET, 401 anonymous,   cross-account isolation, foreign write ignored, static `.data` access blocked.2. Reject wrong MIME, spoofed `image/png` containing script/SVG, truncated image,   >5 MB, cross-origin write; accept JPEG and WebP; rate limit with Retry-After.3. Durable cleanup with injected storage failure, retry, active object preserved.4. Abandoned upload lease expiry, expired key cannot activate, file cleaned.5. UI: invalid file and >5 MB messages, server-failure retry state, crop changes the   saved pixels, save/cancel/reload, logout/login persistence, 3 shared UI areas use   one URL, mobile 375, remove and reset after reload, zero unexpected console errors.Full Playwright suite: **466 passed, 12 skipped, 0 failed** (includes profile,Local Auth, Supabase auth unit contracts, Practice Lab, Learning Passport,vercel-deployment and all app views). Live preview at `http://localhost:8275`verified: `/api/auth/local?avatar=meta` → 401 anonymous; upload → 200; image → 200`image/webp`; reload retains; remove → 404 and initials return.PASS:- Local upload/crop/save/remove, persistence across reload/logout/login.- Server-side MIME/content/size validation, 512 WebP conversion, EXIF stripping.- Owner isolation and forged user id/filename/path ignored.- Rate limit and Retry-After.- Shared avatar source across profile, sidebar, topbar, passport, admin own row.- Responsive and axe clean; full regression suite green.- Supabase auth unit contracts and 12-function deployment guard still pass.FAIL: none in executed checks.NOT VERIFIED:- Supabase Storage bucket, `avatar_profiles`, RPC concurrency and RLS behavior —  no Supabase credentials in this workspace; the migration was not applied.- Real remote account avatar across devices; the Supabase code path was not executed.- Production/proxy behaviour: Vercel limits request bodies to ~4.5 MB, so a raw  5 MB upload never reaches the function there. The client always uploads a  re-encoded 512×512 WebP (far smaller), so normal use is unaffected, but the  server's 5 MB branch can only be exercised locally.- `sharp` packaging on Vercel/Lambda. It is installed locally and used by tests, but  no deployment was performed.Known baseline: the preview logs 503s for the unconfigured Supabase session/logoutprobes; these predate this feature and are annotated, not counted as avatar success.## Before production1. Apply the migration to an approved project (not Staging/Production here) and   create/validate the private bucket; set `AVATAR_STORAGE_BUCKET=profile-avatars`.2. Verify service-role-only access, bucket privacy, RLS/RPC under concurrency, and   two real accounts across two devices.3. Confirm `sharp` is bundled by the deployment platform and check cold-start cost.4. Decide the production upload path for payloads near 5 MB (direct signed upload)   or lower the documented server limit to the platform body cap.5. Add operational cleanup/monitoring for `pending`/`retired` keys; review the   in-memory per-instance lock versus a distributed lock.6. Re-run the full suite in CI and a staging environment.## Files changed for this featureNew: `api/auth/_avatar.js`, `api/auth/_avatar-store.js`, `avatar-actions.js`,`avatar.css`, `assets/profile-medal.svg` (profile design), `tests/avatar.spec.js`,`supabase/migrations/202611100001_profile_avatars.sql`,`supabase/rollback/202611100001_profile_avatars.sql`, `docs/avatar-storage.md`.Modified: `api/auth/_profile.js`, `api/auth/_local.js`, `api/auth/session.js`,`app.js`, `app-actions.js`, `app-data.js`, `app-events.js`, `views/profile.js`,`views/shell.js`, `views/passport.js`, `views/admin.js`, `icons.js`, `index.html`,`tests/static-server.mjs`, `tests/vercel-deployment.spec.js`, `package.json`,`package-lock.json` (`sharp` added), and session-stub globs in`tests/app.spec.js`, `tests/learning-passport.spec.js`,`tests/learning-sessions.spec.js` so the new `?avatar=` probe is stubbed too.Unrelated uncommitted UI changes from earlier work were preserved.
+# Profile avatars
+
+Ảnh đại diện được xử lý hoàn toàn ở server. Browser chỉ gửi ảnh đã crop dưới
+dạng base64 JSON và nhận lại `avatarUrl`; browser không tự lưu URL vào
+`localStorage`.
+
+## Luồng upload
+
+1. Người dùng chọn JPG/PNG/WebP, tối đa 5 MB.
+2. Editor crop vuông 1:1 bằng canvas 512×512, có zoom và căn ngang/dọc.
+3. Browser gửi `POST /api/auth/session?avatar=meta` (Supabase) hoặc
+   `POST /api/auth/local?avatar=meta` (Local Auth) với:
+   `{ "mime": "image/webp", "image": "<base64>" }`.
+4. Server xác thực session, giới hạn 5 MB trên bytes đã decode, kiểm tra MIME
+   thật bằng `sharp`, xoay theo EXIF, resize 512×512 và encode WebP.
+5. Server ghi object mới, cập nhật metadata, trả `avatarUrl` có cache-busting
+   `v=<uuid>.webp`.
+6. Ảnh cũ được đưa vào hàng đợi `retired` và chỉ xóa sau khi ảnh mới active.
+   Nếu xóa thất bại, lần request sau sẽ thử lại; avatar hiện tại không bị mất.
+
+## Backend theo môi trường
+
+### Local Auth (chỉ development)
+
+- Metadata: `.data/profiles/<sha256(email)>.json` → `avatar`.
+- File: `.data/avatars/<sha256(email)>/<uuid>.webp`.
+- Owner lấy từ signed Local Auth session, không tin `userId` do client gửi.
+- Tồn tại qua reload, logout/login và restart server.
+- Local Auth bị vô hiệu hóa khi `VERCEL=1` hoặc `NODE_ENV=production`.
+
+### Supabase (Production/Vercel)
+
+- Metadata: bảng `public.avatar_profiles`, cập nhật qua RPC row-lock
+  `avatar_mutate` (rate limit, enqueue, activate, expire, clean).
+- File: bucket **private** `profile-avatars` (5 MB, `image/webp`).
+- Chỉ service role trong serverless function được đọc/ghi bucket và bảng.
+- Không có storage policy cho client; API luôn xác thực cookie session trước
+  và tự tạo object key từ user id đã xác thực.
+- `AVATAR_STORAGE_BUCKET` tùy chọn, mặc định `profile-avatars` (khớp migration).
+
+## Cấu hình Production
+
+1. Chạy `supabase/migrations/202611100001_profile_avatars.sql` trên project
+   Supabase (SQL Editor hoặc `supabase db push`). Migration tạo:
+   - bảng `public.avatar_profiles` + RLS;
+   - RPC `public.avatar_mutate`;
+   - bucket private `profile-avatars`.
+2. Đặt các biến sau trên Vercel (server-side, không prefix public):
+   - `SUPABASE_URL`
+   - `SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `AVATAR_STORAGE_BUCKET=profile-avatars` (khuyến nghị đặt tường minh)
+3. Redeploy. Vercel không giữ file trong filesystem của function, nên không có
+   fallback ghi đĩa cho tài khoản Supabase.
+4. Kiểm tra lại bucket trong Supabase Storage: `public = false`. Nếu bucket
+   public, API trả `AVATAR_NOT_CONFIGURED` và không ghi dữ liệu.
+5. Nếu API tự tạo bucket không được phép bởi project, tạo thủ công bucket
+   private tên `profile-avatars` với giới hạn 5 MB và MIME `image/webp`.
+
+## Mã lỗi
+
+| Code | HTTP | Ý nghĩa |
+| --- | --- | --- |
+| `AVATAR_NOT_CONFIGURED` | 503 | Thiếu `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`, bucket name sai, hoặc bucket đang public. |
+| `AVATAR_STORAGE_NOT_READY` | 503 | Migration avatar chưa chạy (thiếu bảng hoặc RPC). |
+| `AVATAR_STORAGE_UNAVAILABLE` | 503 | Supabase Storage/PostgREST không phản hồi hoặc trả lỗi. |
+| `AVATAR_NOT_FOUND` | 404 | Metadata trỏ tới object không còn tồn tại. |
+| `AVATAR_TOO_LARGE` | 413 | Ảnh > 5 MB. |
+| `AVATAR_INVALID_TYPE` | 415 | MIME không thuộc JPG/PNG/WebP. |
+| `AVATAR_INVALID_IMAGE` | 400 | Nội dung không phải ảnh hợp lệ hoặc JSON sai. |
+| `AVATAR_RATE_LIMITED` | 429 | Quá 10 lần thay đổi trong 10 phút. |
+| `AVATAR_FORBIDDEN` | 403 | Request cross-origin hoặc sai host. |
+
+Log server chỉ ghi **tên** biến môi trường còn thiếu, không bao giờ ghi giá trị
+secret.
+
+## Kiểm thử
+
+- `tests/avatar.spec.js`: Local Auth, crop/zoom/pan, reload, logout/login,
+  isolation giữa hai người dùng, file lỗi/quá lớn, rate limit, cleanup bền vững.
+- `tests/avatar-production.spec.js`: chạy nhánh Supabase với một Supabase API
+  giả lập cục bộ — mặc định bucket, tự tạo bucket private, upload/đọc/xóa ảnh,
+  cập nhật metadata, isolation và mapping lỗi migration.

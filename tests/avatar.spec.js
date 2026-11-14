@@ -190,7 +190,18 @@ test('crop preview, save, cancel, reload, sign-in, shared UI and mobile', async 
     else await route.continue();
   });
   await page.locator('[data-avatar-save]').click();
-  await expect(page.locator('[data-avatar-editor-status]')).toContainText('Không thể xử lý');
+  await expect(page.locator('[data-avatar-editor-status]')).toContainText('Kho lưu trữ avatar tạm thời không khả dụng');
+  await expect(page.locator('[data-avatar-status]')).not.toContainText('Đã lưu');
+  await page.unroute('**/api/auth/local?avatar=meta');
+  // Missing deployment configuration must tell the user what is wrong instead
+  // of showing a fake success state.
+  await page.route('**/api/auth/local?avatar=meta', async route => {
+    if (route.request().method() === 'POST') await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ code: 'AVATAR_NOT_CONFIGURED' }) });
+    else await route.continue();
+  });
+  await page.locator('[data-avatar-save]').click();
+  await expect(page.locator('[data-avatar-editor-status]')).toContainText('Storage avatar chưa được cấu hình');
+  await expect(page.locator('.avatar-editor')).toBeVisible();
   await page.unroute('**/api/auth/local?avatar=meta');
   injectedFailure = false;
   await page.locator('[data-avatar-save]').click();
